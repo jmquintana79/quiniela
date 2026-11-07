@@ -37,7 +37,8 @@
     <p class="meta" style="margin:10px 0 0">
       Ticket: the 14 matches used for the quiniela check (La Liga first, then Segunda, in
       kick-off order). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
-      Pleno al 15 is not simulated.
+      Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
+      international breaks, with only Segunda). ✓ hit · ✗ miss · – no prediction.
     </p>
   </section>
 </main>
@@ -50,10 +51,11 @@
   const models = DATA.models;
   let selected = DATA.matchdays.length - 1;
 
-  // Prediction cell: green check for a hit, red cross for a miss, outline when pending
+  // Prediction cell: green check for a hit, red cross for a miss, outline when
+  // pending, dashed outline when the model has no prediction for the match
   function pickCell(match, key) {
     const sign = match[`${key}_sign`];
-    if (!sign) return '<span class="muted">–</span>';
+    if (!sign) return '<span class="pick none" data-tip="No prediction available for this match">–</span>';
     const prob = match[`${key}_prob`];
     const tip = `Predicted ${SIGN[sign]} (${pct(prob, 1)})`;
     if (!match.FTR) return `<span class="pick pending" data-tip="${tip}">${SIGN[sign]}</span>`;
@@ -69,17 +71,32 @@
       return `<div class="tile" data-tip="${esc(m.description)}">
         <div class="label">${esc(m.name)}</div>
         <div class="value">${pct(t.rate, 1)}</div>
-        <div class="detail">${t.hits} hits · ${t.misses} misses</div>
+        <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
         <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets</div>
       </div>`;
     }).join("");
   }
 
-  function prizeBadge(ticket) {
-    if (ticket.status === "prize") return `<span class="badge prize">${esc(ticket.category)}</span>`;
-    if (ticket.status === "no_prize") return '<span class="badge">No prize</span>';
-    if (ticket.status === "pending") return '<span class="badge">Pending</span>';
-    return '<span class="badge">No ticket</span>';
+  // Matchday note when some matches have no prediction (shown as an asterisk)
+  function missingNote(summary) {
+    if (!summary.missing) return "";
+    const n = summary.missing;
+    return `Not every prediction is available: ${n} match${n > 1 ? "es" : ""} without prediction` +
+      (summary.missing_in_ticket ? ` (${summary.missing_in_ticket} on the ticket, counted as misses).` : ".");
+  }
+
+  function prizeBadge(summary) {
+    const ticket = summary.ticket;
+    const label = {
+      prize: esc(ticket.category),
+      no_prize: "No prize",
+      pending: "Pending",
+      incomplete: "No ticket",
+    }[ticket.status];
+    const note = missingNote(summary);
+    const tip = [ticket.message, note].filter(Boolean).join(" ");
+    return `<span class="badge ${ticket.status === "prize" ? "prize" : ""}" data-tip="${esc(tip)}">` +
+      `${label}${note ? " *" : ""}</span>`;
   }
 
   function overviewTable() {
@@ -93,21 +110,24 @@
         ${models.map((m) => {
           const s = md.summary[m.key];
           const played = s.hits + s.misses;
-          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s.ticket)}</td>`;
+          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s)}</td>`;
         }).join("")}
       </tr>`).join("")}</tbody></table>`;
   }
 
   function banners(md) {
     return models.map((m) => {
-      const t = md.summary[m.key].ticket;
+      const s = md.summary[m.key];
+      const t = s.ticket;
+      const note = missingNote(s);
       const title = {
         prize: `Quiniela prize: ${t.category}`,
         no_prize: "Quiniela: no prize",
         pending: "Quiniela: matchday in progress",
         incomplete: "Quiniela: no full ticket",
       }[t.status];
-      return `<div class="banner ${t.status}"><strong>${esc(m.name)} · ${title}</strong>${esc(t.message)}</div>`;
+      return `<div class="banner ${t.status}"><strong>${esc(m.name)} · ${title}${note ? " *" : ""}</strong>` +
+        `${esc(t.message)}${note ? `<br><span class="muted">* ${esc(note)}</span>` : ""}</div>`;
     }).join("");
   }
 
@@ -117,7 +137,8 @@
       : '<span class="muted">Pending</span>';
     const footer = models.map((m) => {
       const s = md.summary[m.key];
-      return `<td class="num">${s.hits} ✓ · ${s.misses} ✗${s.pending ? ` · ${s.pending} pending` : ""}</td>`;
+      return `<td class="num">${s.hits} ✓ · ${s.misses} ✗ · ${s.missing} –` +
+        `${s.pending ? ` · ${s.pending} pending` : ""}</td>`;
     }).join("");
     return `<table><thead><tr>
         <th class="num">Ticket</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>

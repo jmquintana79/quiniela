@@ -100,10 +100,12 @@ def test_predictions_payload_scores_models_and_tickets() -> None:
     summary = payload["matchdays"][0]["summary"]["head_to_head"]
     assert (summary["hits"], summary["misses"], summary["pending"]) == (11, 3, 0)
     assert summary["ticket"]["category"] == "4th category"
+    assert summary["missing"] == 0
     assert payload["totals"]["head_to_head"] == {
         "hits": 11,
         "misses": 3,
         "rate": round(11 / 14, 4),
+        "missing": 0,
         "prizes": 1,
         "tickets": 1,
     }
@@ -120,3 +122,28 @@ def test_predictions_payload_without_predictions() -> None:
     payload = dashboards.predictions_payload(current, {})
     assert payload["models"] == [] and payload["totals"] == {}
     assert payload["matchdays"][0]["played"] == 0
+
+
+def test_predictions_payload_counts_matches_without_prediction() -> None:
+    from tests.helpers import make_matches
+
+    # 15 played home wins; the model has no prediction for two of them
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", 1, 0) for i in range(15)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    predictions = (
+        current[["league", "game"]].iloc[2:].assign(prediction="H", p_H=0.5, p_D=0.3, p_A=0.2)
+    )
+
+    payload = dashboards.predictions_payload(current, {"head_to_head": predictions})
+
+    summary = payload["matchdays"][0]["summary"]["head_to_head"]
+    # Missing predictions are their own category, outside the hit rate
+    assert (summary["hits"], summary["misses"], summary["missing"]) == (13, 0, 2)
+    assert summary["rate"] == 1.0
+    assert summary["missing_in_ticket"] == 2
+    # On the ticket they are wrong lines: 12 of 14 hits
+    assert summary["ticket"]["hits"] == 12
+    assert summary["ticket"]["category"] == "3rd category"
+    assert payload["totals"]["head_to_head"]["missing"] == 2
+    missing = [m for m in payload["matchdays"][0]["matches"] if m["head_to_head_sign"] is None]
+    assert len(missing) == 2

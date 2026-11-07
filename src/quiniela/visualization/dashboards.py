@@ -304,7 +304,9 @@ def predictions_payload(
         prob = aligned[["p_H", "p_D", "p_A"]].max(axis=1)
         matches[f"{key}_prob"] = prob.round(4).to_numpy()
 
-    totals = {key: {"hits": 0, "misses": 0, "prizes": 0, "tickets": 0} for key in keys}
+    totals = {
+        key: {"hits": 0, "misses": 0, "missing": 0, "prizes": 0, "tickets": 0} for key in keys
+    }
     matchdays = []
     for number, group in matches.groupby("matchday"):
         group = group.assign(ticket=ticket_positions(group))
@@ -325,11 +327,16 @@ def predictions_payload(
             summary[key] = {
                 **_score(int(hit.sum()), int(miss.sum())),
                 "pending": int((predicted & ~played).sum()),
+                # Matches the model could not predict: a third category next to
+                # hits and misses, left out of the hit rate
                 "missing": int((~predicted).sum()),
+                # On the ticket they count as wrong lines (no sign marked)
+                "missing_in_ticket": int((~predicted & in_ticket).sum()),
                 "ticket": ticket.to_dict(),
             }
             totals[key]["hits"] += int(hit.sum())
             totals[key]["misses"] += int(miss.sum())
+            totals[key]["missing"] += int((~predicted).sum())
             if ticket.status in ("prize", "no_prize"):
                 totals[key]["tickets"] += 1
                 totals[key]["prizes"] += ticket.status == "prize"
@@ -353,7 +360,12 @@ def predictions_payload(
         "leagues": LEAGUE_NAMES,
         "matchdays": matchdays,
         "totals": {
-            k: {**_score(t["hits"], t["misses"]), "prizes": t["prizes"], "tickets": t["tickets"]}
+            k: {
+                **_score(t["hits"], t["misses"]),
+                "missing": t["missing"],
+                "prizes": t["prizes"],
+                "tickets": t["tickets"],
+            }
             for k, t in totals.items()
         },
     }
