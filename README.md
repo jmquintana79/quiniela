@@ -1,56 +1,142 @@
-# Football Matches DataSet
+# Quiniela
 
-Para más información visitar el siguiente enlace:
-http://jarroba.com/dataset-resultados-partidos-futbol-prediccion-machine-learning/
+Machine learning project to predict the results (1X2) of Spanish football matches for the
+*quiniela*, covering La Liga (Primera División) and Segunda División.
 
+The project currently covers data acquisition and exploration: it downloads historical and
+current-season match data and builds two HTML dashboards. Modelling is the next step.
 
-Este DataSet de partidos de fútbol de la liga Española de primera y segunda división desde la temporada 1970-71 hasta la temporada actual,
-se ha creado con el objetivo de abrir una linea de investigación dentro del mundo del Machine Learning, para el cálculo de predicciones de los
-resultados de los partidos de fútbol que se jugarán en el futuro.
+## Data source
 
-La motivación de este proyecto surge como resultado del trabajo final realizo en la asigantura de "Redes Neuronales y Aplicaciones" impartida en el "Master en
-Ciencias y Tecnologías de la Computación" de la Universidad Politécnica de Madrid (UPM) en la que creé un sistema experto de predicción de quinielas (1X2),
-aplicando diferentes técnica de Machine Learning. Con el objetivo de querer profundizar en este tipo de estudios de predicción de resultados de eventos (en este caso deportivos)
-publico este DataSet con el objetivo de crear una comunidad que comparta los estudios y técnicas aplicadas para la predicción de resultados de fútbol.
+Match data comes from [football-data.co.uk](https://www.football-data.co.uk), downloaded
+through the [soccerdata](https://github.com/probberechts/soccerdata) library:
 
-En la web de http://jarroba.com/ se expondrán y explicarán diferentes técnicas de Machine Learning para la predicción de los resultados de partidos de fútbol y
-por supuesto todo aquel que quiera compartir sus técnicas o estudios relativos a este tema, podrá publicarlo en la web respetando siempre su autoria.
+| League | Code | First season |
+|---|---|---|
+| La Liga | `SP1` | 1993-94 |
+| Segunda División | `SP2` | 1996-97 |
 
-## Requisitos
-Para mantener el data set de partidos de fútbol actualizo y ejecutar el fichero "Main.py" para scrapear los resultados,
-hay que tener instaladas las librerias de "beautifulsoup4" y "requests". Para ello lo podeis instalar a través de pip de la siguiente manera:
+Every match includes the full-time and half-time score, match statistics (shots, corners,
+cards) and pre-match odds from several bookmakers. Column meanings are described in
+football-data.co.uk's [notes](https://www.football-data.co.uk/notes.txt).
 
-```ssh
-$ pip install beautifulsoup4
-$ pip install requests
+The current season file is updated by the source about twice a week, and the upcoming
+fixtures (the next matchday to predict) are published with their odds.
+
+## Setup
+
+Requirements: Python 3.11 and [Poetry](https://python-poetry.org) (1.8 or later).
+
+```bash
+poetry install --with dev,tests
+source .venv/bin/activate
 ```
 
-## Scraping
+The virtual environment is created inside the project, in `.venv` (see `poetry.toml`).
 
-El Scraping realizado en este proyecto se hace a través de dos fuentes:
+## Usage
 
-1.- http://www.bdfutbol.com/: De esta web se obtienen los resultados de todos los partidos de futbol de las temporadas pasadas (1970-71 hasta 2015-16). Esta web no ofrece los resultados de la presente temporada.
+Every action is available as an [invoke](https://www.pyinvoke.org) task. List them with:
 
-2.- http://www.resultados-futbol.com/: De esta web se obtienen los resultados de los partidos jugados de la presente temporada.
+```bash
+invoke --list
+```
 
-## Ejecución del programa.
+### Download data
 
-Para obtener los resultados de los partidos de fútbol, debéis de ejecutar el script "Main.py". Tras su ejecución se creará un fichero llamado "DataSetPartidos.txt" en el que en cada linea se encontrará
-los datos de un partido de fútbol. Cada uno de los datos de un partido de fútbol esta separado por los delimitadores "::". El significado de cada uno de esos datos es el siguiente:
+Seasons are identified by their **start year**: `2015` means the 2015-16 season.
 
-"idPartido::temporada::division::jornada::EquipoLocal::EquipoVisitante::golesLocal::golesVisitante::fecha::timestamp"
+```bash
+# Completed seasons, from --start to --end (inclusive)
+invoke download.historical --start 1993 --end 2025
 
-Un ejemplo seria el siguiente:
+# Without --end, up to the last completed season
+invoke download.historical --start 2015
 
-4808::1977-78::1::8::Rayo Vallecano::Real Madrid::3::2::30/10/1977::247014000.0
+# Season in progress: results played so far and upcoming fixtures
+invoke download.current
+```
 
-    - idPartido (4808): Un identificador único de partido.
-    - temporada (1977-78): Temporada en la que se jugó el partido
-    - division (1): División en la que se jugo el partido (Primera '1', Segunda '2')
-    - jornada (8): Jornada en la que se jugó el partido
-    - EquipoLocal (Rayo Vallecano): Nombre del Equipo Local
-    - EquipoVisitante (Real Madrid): Nombre del Equipo Visitante
-    - golesLocal (3): Goles que marcó el equipo local
-    - golesVisitante (2): Goles que marcó el equipo visitante
-    - fecha (30/10/1977): Fecha en la que se jugó el partido
-    - timestamp (247014000.0): Timestamp de la fecha en la que se jugó el partido
+Run `download.current` every week to refresh the current season. Completed seasons are
+cached, so downloading them again does not hit the network.
+
+### Dashboards
+
+```bash
+invoke dashboards.build   # build dashboards/*.html from the downloaded data
+invoke dashboards.open    # open them in the browser (macOS)
+
+# Weekly refresh: new data, then rebuilt dashboards
+invoke download.current dashboards.build
+```
+
+- `dashboards/current.html`: next matchday with the 1X2 probabilities implied by the
+  market odds, current standings with recent form, and latest results.
+- `dashboards/historical.html`: home win, draw and away win shares and goals per match for
+  every season, plus the final standings and results of the selected season (filterable by
+  team).
+
+Both are self-contained HTML files (data embedded, no external libraries) that open with a
+double click, also offline.
+
+Standings are computed from the results: 2 points per win before 1995-96 and 3 points
+afterwards. Head-to-head tiebreakers and point deductions are not applied, so a position can
+occasionally differ from the official table.
+
+### Command line
+
+The tasks wrap the `quiniela` command, which can also be used directly:
+
+```bash
+quiniela download historical --start 2015 --end 2025
+quiniela download current
+quiniela dashboards
+```
+
+## Project structure
+
+```text
+├── dashboards/              # generated HTML dashboards (not versioned)
+├── data/                    # downloaded data (not versioned)
+│   ├── historical/<code>/<season>.parquet   # e.g. SP1/2015-16.parquet
+│   ├── current/<code>/results.parquet       # season in progress: played matches
+│   ├── current/<code>/fixtures.parquet      # season in progress: upcoming matches
+│   └── cache/                               # raw CSV files cached by soccerdata
+├── src/quiniela/
+│   ├── config/paths.py      # filesystem paths used by the project
+│   ├── io/download.py       # historical and current season downloads
+│   ├── visualization/       # dashboard builder and HTML templates
+│   └── scripts.py           # `quiniela` command line entry point
+├── tasks/                   # invoke tasks (download, dashboards)
+└── tests/
+```
+
+The data folder can be moved elsewhere with the `QUINIELA_DATA_DIR` environment variable.
+
+## Notes on the data
+
+- **Segunda División** is not part of soccerdata's built-in leagues. It is registered in
+  `quiniela.io.download`, so no configuration file in `~/soccerdata` is needed.
+- **Malformed rows.** Some old source files contain rows with more fields than their header
+  (e.g. La Liga 2004-05, Segunda 2002-03). soccerdata's parser silently drops those rows,
+  so the project replaces it with one that keeps them: every downloaded season has the same
+  number of matches as its source file.
+
+## Development
+
+```bash
+pytest                # tests (no network access needed)
+ruff check src tests tasks
+ruff format src tests tasks
+mypy src tasks
+```
+
+[commitizen](https://commitizen-tools.github.io/commitizen/) is configured in
+`pyproject.toml` for [Conventional Commits](https://www.conventionalcommits.org) messages
+and version bumps (`cz commit`, `cz bump`).
+
+## Background
+
+This repository started in 2021 as a scraper for a Spanish football results dataset (see
+`docs/references.md`). It has been rebuilt as a Poetry-managed project on top of
+football-data.co.uk, which provides historical data and weekly updates from a single source.
