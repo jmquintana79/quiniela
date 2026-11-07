@@ -13,7 +13,11 @@ from invoke.context import Context
 from invoke.tasks import task
 
 # Generated dashboards, relative to the project root
-DASHBOARDS = ("dashboards/current.html", "dashboards/historical.html")
+DASHBOARDS = (
+    "dashboards/current.html",
+    "dashboards/historical.html",
+    "dashboards/predictions.html",
+)
 
 # %% TASKS
 
@@ -25,7 +29,10 @@ def build(ctx: Context) -> None:
 
 
 # Exposed as "dashboards.open"; the function name avoids shadowing the builtin
-@task(name="open", help={"name": "Dashboard to open: current, historical or all (default)."})
+@task(
+    name="open",
+    help={"name": "Dashboard to open: current, historical, predictions or all (default)."},
+)
 def open_dashboards(ctx: Context, name: str = "all") -> None:
     """Open the dashboards in the default browser (macOS)."""
     paths = DASHBOARDS if name == "all" else (f"dashboards/{name}.html",)

@@ -8,10 +8,11 @@ List every available task with ``invoke --list``.
 
 from invoke.collection import Collection
 
-from tasks import dashboards, download
+from tasks import dashboards, download, predict
 
 # %% NAMESPACES
 
 ns = Collection()
 ns.add_collection(Collection.from_module(download))
 ns.add_collection(Collection.from_module(dashboards))
+ns.add_collection(Collection.from_module(predict))

@@ -13,3 +13,8 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
 def test_download_requires_target() -> None:
     with pytest.raises(SystemExit):
         main(["download"])
+
+
+def test_predict_matchday_and_all_are_exclusive() -> None:
+    with pytest.raises(SystemExit):
+        main(["predict", "--matchday", "3", "--all"])

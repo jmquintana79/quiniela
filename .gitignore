@@ -177,6 +177,7 @@ dashboards/
 # Data (regenerated with `invoke download.*`)
 data/historical/
 data/current/
+data/predictions/
 datasets/
 
 # Local preview server config

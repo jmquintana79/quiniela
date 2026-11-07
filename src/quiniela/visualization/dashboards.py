@@ -10,6 +10,8 @@ Dashboards:
   probabilities, latest results and standings).
 - ``historical.html``: completed seasons (1X2 split and goals per season,
   plus standings and results of the selected season).
+- ``predictions.html``: every matchday of the current season with the real
+  result, one column per model and the quiniela ticket outcome.
 """
 
 import json
@@ -26,7 +28,10 @@ from quiniela.io.download import LEAGUES
 logger = logging.getLogger(__name__)
 
 # football-data.co.uk league code -> display name
-LEAGUE_NAMES: dict[str, str] = {code: league for league, code in LEAGUES.items()}
+LEAGUE_NAMES: dict[str, str] = {
+    LEAGUES["ESP-La Liga"]: "La Liga",
+    LEAGUES["ESP-Segunda"]: "Segunda",
+}
 
 # Spain moved from 2 to 3 points per win in the 1995-96 season
 THREE_POINTS_FROM = 1995
@@ -254,6 +259,106 @@ def historical_payload(historical_dir: Path = HISTORICAL_DIR) -> dict[str, Any]:
     return {"leagues": leagues}
 
 
+def _score(hits: int, misses: int) -> dict[str, Any]:
+    """Hits, misses and hit rate of a set of predictions."""
+    played = hits + misses
+    return {"hits": hits, "misses": misses, "rate": round(hits / played, 4) if played else None}
+
+
+def predictions_payload(
+    current: pd.DataFrame | None = None,
+    predictions: dict[str, pd.DataFrame] | None = None,
+) -> dict[str, Any]:
+    """Collect the data shown in the predictions dashboard.
+
+    Every matchday of the current season is listed with the real result (when
+    played) and one prediction column per model, plus each model's hits and
+    the outcome of its 14-match quiniela ticket.
+
+    Args:
+        current: Current season with ``round`` and ``matchday`` columns.
+            Defaults to the downloaded data.
+        predictions: Stored predictions per model key. Defaults to the saved files.
+
+    Returns:
+        JSON-serialisable dictionary with the models, matchdays and season totals.
+    """
+    # Imported here: only this dashboard needs the prediction package
+    from quiniela.prediction import MODELS
+    from quiniela.prediction.pipeline import current_matchdays, load_predictions
+    from quiniela.prediction.ticket import evaluate_ticket, ticket_positions
+
+    current = current_matchdays() if current is None else current
+    predictions = load_predictions() if predictions is None else predictions
+    keys = [key for key in MODELS if key in predictions]
+    models = [
+        {"key": k, "name": MODELS[k].name, "description": MODELS[k].description} for k in keys
+    ]
+
+    # One column per model: predicted sign and its probability
+    matches = current.copy()
+    for key in keys:
+        p = predictions[key].set_index(["league", "game"])
+        aligned = p.reindex(pd.MultiIndex.from_frame(matches[["league", "game"]]))
+        matches[f"{key}_sign"] = aligned["prediction"].to_numpy()
+        prob = aligned[["p_H", "p_D", "p_A"]].max(axis=1)
+        matches[f"{key}_prob"] = prob.round(4).to_numpy()
+
+    totals = {key: {"hits": 0, "misses": 0, "prizes": 0, "tickets": 0} for key in keys}
+    matchdays = []
+    for number, group in matches.groupby("matchday"):
+        group = group.assign(ticket=ticket_positions(group))
+        group = group.sort_values(["ticket", "league", "date"], na_position="last")
+        played = group["FTR"].notna()
+        in_ticket = group["ticket"].notna()
+
+        summary: dict[str, Any] = {}
+        for key in keys:
+            predicted = group[f"{key}_sign"].notna()
+            hit = played & predicted & (group[f"{key}_sign"] == group["FTR"])
+            miss = played & predicted & ~hit
+            ticket = evaluate_ticket(
+                size=int(in_ticket.sum()),
+                hits=int((hit & in_ticket).sum()),
+                pending=int((in_ticket & ~played).sum()),
+            )
+            summary[key] = {
+                **_score(int(hit.sum()), int(miss.sum())),
+                "pending": int((predicted & ~played).sum()),
+                "missing": int((~predicted).sum()),
+                "ticket": ticket.to_dict(),
+            }
+            totals[key]["hits"] += int(hit.sum())
+            totals[key]["misses"] += int(miss.sum())
+            if ticket.status in ("prize", "no_prize"):
+                totals[key]["tickets"] += 1
+                totals[key]["prizes"] += ticket.status == "prize"
+
+        columns = ["ticket", "league", "round", "date", "home_team", "away_team"]
+        columns += ["FTHG", "FTAG", "FTR"]
+        columns += [f"{k}_{field}" for k in keys for field in ("sign", "prob")]
+        matchdays.append(
+            {
+                "number": int(number),
+                "start": group["date"].min().strftime("%Y-%m-%d"),
+                "end": group["date"].max().strftime("%Y-%m-%d"),
+                "played": int(played.sum()),
+                "matches": _records(group[columns]),
+                "summary": summary,
+            }
+        )
+
+    return {
+        "models": models,
+        "leagues": LEAGUE_NAMES,
+        "matchdays": matchdays,
+        "totals": {
+            k: {**_score(t["hits"], t["misses"]), "prizes": t["prizes"], "tickets": t["tickets"]}
+            for k, t in totals.items()
+        },
+    }
+
+
 # %% RENDERING
 
 
@@ -300,4 +405,5 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     return [
         render("current.html", current_payload(), output_dir / "current.html"),
         render("historical.html", historical_payload(), output_dir / "historical.html"),
+        render("predictions.html", predictions_payload(), output_dir / "predictions.html"),
     ]

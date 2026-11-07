@@ -5,6 +5,9 @@ Examples::
     quiniela download historical --start 2015 --end 2025
     quiniela download historical --start 2015  # up to the last completed season
     quiniela download current
+    quiniela predict                    # last matchday of the current season
+    quiniela predict --matchday 12
+    quiniela predict --all
     quiniela dashboards
 """
 
@@ -36,6 +39,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     targets.add_parser("current", help="Download the season in progress and upcoming fixtures.")
 
+    predict = commands.add_parser("predict", help="Predict matchdays of the current season.")
+    predict.add_argument(
+        "--model", default="head_to_head", help="Model key (default: head_to_head)."
+    )
+    which = predict.add_mutually_exclusive_group()
+    which.add_argument(
+        "--matchday", type=int, default=None, help="Matchday to predict (default: the last one)."
+    )
+    which.add_argument("--all", action="store_true", help="Predict every matchday.")
+
     commands.add_parser("dashboards", help="Build the HTML dashboards from the downloaded data.")
     return parser
 
@@ -56,6 +69,10 @@ def main(argv: list[str] | None = None) -> None:
         from quiniela.visualization.dashboards import build_dashboards
 
         paths = build_dashboards()
+    elif args.command == "predict":
+        from quiniela.prediction.pipeline import run
+
+        paths = [run(args.model, matchday=args.matchday, all_matchdays=args.all)]
     elif args.target == "historical":
         end = args.end if args.end is not None else download.current_season() - 1
         paths = download.download_historical(args.start, end)

@@ -143,3 +143,35 @@ tr.clickable { cursor: pointer; }
   background: var(--surface); color: var(--text-primary); border: 1px solid var(--border);
   border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
+
+/* Stat tiles */
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.tile { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.tile .label { color: var(--text-secondary); font-size: 12px; }
+.tile .value { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .detail { color: var(--text-muted); font-size: 12px; }
+
+/* Prediction cells: hit / miss / pending, always with an icon besides the color */
+.pick {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 52px; justify-content: center;
+  border-radius: 4px; padding: 2px 8px; font-weight: 600; border: 1px solid transparent;
+}
+.pick.hit { background: var(--good); color: #fff; }
+.pick.miss { background: var(--critical); color: #fff; }
+.pick.pending { border-color: var(--border); color: var(--text-secondary); }
+tfoot td { font-weight: 600; border-top: 1px solid var(--grid); border-bottom: 0; }
+
+/* Informative banners */
+.banner {
+  border: 1px solid var(--border); border-left: 4px solid var(--text-muted);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; background: var(--surface);
+}
+.banner strong { display: block; margin-bottom: 2px; }
+.banner.prize { border-left-color: var(--good); }
+.banner.no_prize { border-left-color: var(--critical); }
+.banner.pending { border-left-color: var(--accent); }
+.badge {
+  display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px;
+  border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap;
+}
+.badge.prize { background: var(--good); border-color: var(--good); color: #fff; }

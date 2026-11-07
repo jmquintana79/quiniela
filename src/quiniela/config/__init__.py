@@ -6,6 +6,7 @@ from quiniela.config.paths import (
     DASHBOARDS_DIR,
     DATA_DIR,
     HISTORICAL_DIR,
+    PREDICTIONS_DIR,
     ROOT_DIR,
     ensure_data_dirs,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "DASHBOARDS_DIR",
     "DATA_DIR",
     "HISTORICAL_DIR",
+    "PREDICTIONS_DIR",
     "ROOT_DIR",
     "ensure_data_dirs",
 ]

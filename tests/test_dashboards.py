@@ -82,3 +82,41 @@ def test_historical_payload_sorts_seasons_by_year(tmp_path: Path) -> None:
     assert [s["season"] for s in league["seasons"]] == ["1999-00", "2000-01"]
     # 1999-00 already used 3 points per win
     assert league["seasons"][0]["standings"][0]["points"] == 6
+
+
+def test_predictions_payload_scores_models_and_tickets() -> None:
+    from tests.helpers import make_matches
+
+    # Matchday 1: 14 La Liga matches, all home wins, played
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", 1, 0) for i in range(14)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    predictions = current[["league", "game"]].assign(
+        prediction=["H"] * 11 + ["A"] * 3, p_H=0.5, p_D=0.3, p_A=0.2
+    )
+
+    payload = dashboards.predictions_payload(current, {"head_to_head": predictions})
+
+    assert [m["key"] for m in payload["models"]] == ["head_to_head"]
+    summary = payload["matchdays"][0]["summary"]["head_to_head"]
+    assert (summary["hits"], summary["misses"], summary["pending"]) == (11, 3, 0)
+    assert summary["ticket"]["category"] == "4th category"
+    assert payload["totals"]["head_to_head"] == {
+        "hits": 11,
+        "misses": 3,
+        "rate": round(11 / 14, 4),
+        "prizes": 1,
+        "tickets": 1,
+    }
+    first = payload["matchdays"][0]["matches"][0]
+    assert first["head_to_head_sign"] == "H" and first["ticket"] == 1
+
+
+def test_predictions_payload_without_predictions() -> None:
+    from tests.helpers import make_matches
+
+    current = make_matches([("SP1", "2026-08-15", "A", "B", None, None)]).assign(
+        round=1, matchday=1
+    )
+    payload = dashboards.predictions_payload(current, {})
+    assert payload["models"] == [] and payload["totals"] == {}
+    assert payload["matchdays"][0]["played"] == 0
