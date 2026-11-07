@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Historical Seasons</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Historical seasons</h1>
+    <span class="meta" id="coverage"></span>
+  </header>
+
+  <!-- Only the selected league and season are rendered -->
+  <div class="filters">
+    <div class="segmented" id="league-switch"></div>
+    <label>Season <select id="season"></select></label>
+    <label>Team <select id="team"><option value="">All teams</option></select></label>
+  </div>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Outcomes by season</h2>
+    <div id="legend"></div>
+    <div class="scroll" id="summary"></div>
+    <p class="meta" style="margin:10px 0 0">Click a season to open it below.</p>
+  </section>
+
+  <div class="grid two">
+    <section class="card"><h2 id="standings-title">Final standings</h2><div class="scroll" id="standings"></div></section>
+    <section class="card"><h2 id="results-title">Results</h2><div class="scroll" id="results"></div></section>
+  </div>
+</main>
+
+<script>const DATA = /*__DATA__*/null;</script>
+<script>/*__SCRIPT__*/</script>
+<script>
+  const state = { league: 0, season: 0, team: "" };
+  const $ = (id) => document.getElementById(id);
+
+  // One row per season: 1X2 split and goals per match
+  function summaryTable(seasons) {
+    const maxGoals = Math.max(...seasons.map((s) => s.summary.goals));
+    return `<table><thead><tr>
+        <th>Season</th><th class="num">Matches</th><th style="width:55%">1 · X · 2</th>
+        <th class="num">Goals / match</th>
+      </tr></thead><tbody>${seasons.map((s, i) => `<tr class="clickable ${i === state.season ? "selected" : ""}" data-i="${i}">
+        <td>${esc(s.season)}</td><td class="num">${s.summary.matches}</td>
+        <td>${outcomeBar(s.summary.home, s.summary.draw, s.summary.away)}</td>
+        <td><div class="mini" data-tip="${s.summary.goals.toFixed(2)} goals per match">
+          ${s.summary.goals.toFixed(2)}<span style="width:${(s.summary.goals / maxGoals) * 60}px"></span>
+        </div></td>
+      </tr>`).join("")}</tbody></table>`;
+  }
+
+  function renderSummary() {
+    const league = DATA.leagues[state.league];
+    $("summary").innerHTML = summaryTable(league.seasons);
+    $("summary").querySelectorAll("tr.clickable").forEach((row) =>
+      row.addEventListener("click", () => selectSeason(Number(row.dataset.i))));
+  }
+
+  function renderSeason() {
+    const season = DATA.leagues[state.league].seasons[state.season];
+    const matches = state.team
+      ? season.matches.filter((m) => m.home_team === state.team || m.away_team === state.team)
+      : season.matches;
+    $("standings-title").textContent = `Final standings ${season.season}`;
+    $("results-title").textContent = `Results ${season.season}${state.team ? ` · ${state.team}` : ""} (${matches.length})`;
+    $("standings").innerHTML = standingsTable(season.standings);
+    $("results").innerHTML = resultsTable(matches);
+  }
+
+  function selectSeason(i) {
+    state.season = i;
+    $("season").value = i;
+    const teams = DATA.leagues[state.league].seasons[i].standings.map((r) => r.team).sort();
+    if (!teams.includes(state.team)) state.team = "";
+    $("team").innerHTML = '<option value="">All teams</option>' +
+      teams.map((t) => `<option ${t === state.team ? "selected" : ""}>${esc(t)}</option>`).join("");
+    renderSummary();
+    renderSeason();
+  }
+
+  function selectLeague(i) {
+    state.league = i;
+    const seasons = DATA.leagues[i].seasons;
+    $("coverage").textContent = `${seasons[0].season} to ${seasons[seasons.length - 1].season}`;
+    $("season").innerHTML = seasons.map((s, j) => `<option value="${j}">${esc(s.season)}</option>`).join("");
+    // Open the most recent season by default
+    selectSeason(seasons.length - 1);
+  }
+
+  $("legend").innerHTML = outcomeLegend();
+  $("season").addEventListener("change", (e) => selectSeason(Number(e.target.value)));
+  $("team").addEventListener("change", (e) => { state.team = e.target.value; renderSeason(); });
+
+  if (DATA.leagues.length) {
+    segmented($("league-switch"), DATA.leagues.map((l) => l.name), 0, selectLeague);
+    selectLeague(0);
+  } else {
+    document.querySelector("main").insertAdjacentHTML("beforeend",
+      '<p class="empty">No data. Run <code>invoke download.historical --start 1993</code> first.</p>');
+  }
+</script>
+</body>
+</html>

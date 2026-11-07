@@ -1,0 +1,17 @@
+"""Invoke tasks for the project.
+
+Each module is exposed as a namespace, e.g. ``invoke download.historical``.
+List every available task with ``invoke --list``.
+"""
+
+# %% IMPORTS
+
+from invoke.collection import Collection
+
+from tasks import dashboards, download
+
+# %% NAMESPACES
+
+ns = Collection()
+ns.add_collection(Collection.from_module(download))
+ns.add_collection(Collection.from_module(dashboards))

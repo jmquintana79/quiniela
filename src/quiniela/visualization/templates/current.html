@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Current Season</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Current season</h1>
+    <span class="meta" id="updated"></span>
+  </header>
+
+  <div class="filters"><div class="segmented" id="league-switch"></div></div>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Next matchday</h2>
+    <div id="legend"></div>
+    <div class="scroll" id="fixtures"></div>
+    <p class="meta" style="margin:10px 0 0">Probabilities implied by the average market odds, with the bookmaker margin removed.</p>
+  </section>
+
+  <div class="grid two">
+    <section class="card"><h2>Standings</h2><div class="scroll" id="standings"></div></section>
+    <section class="card"><h2>Latest results</h2><div class="scroll" id="latest"></div></section>
+  </div>
+</main>
+
+<script>const DATA = /*__DATA__*/null;</script>
+<script>/*__SCRIPT__*/</script>
+<script>
+  // Upcoming fixtures with the 1X2 probability bar
+  function fixturesTable(rows) {
+    if (!rows.length) return '<p class="empty">No upcoming fixtures published yet.</p>';
+    return `<table><thead><tr>
+        <th>Kick-off</th><th class="num">Home</th><th></th><th>Away</th>
+        <th style="width:40%">1 · X · 2</th>
+      </tr></thead><tbody>${rows.map((f) => `<tr>
+        <td class="muted">${fmtDate(f.date, true)}</td>
+        <td class="num strong">${esc(f.home_team)}</td><td class="muted">vs</td>
+        <td class="strong">${esc(f.away_team)}</td>
+        <td>${outcomeBar(f.p1, f.px, f.p2, [`${f.home_team} win`, "Draw", `${f.away_team} win`])}</td>
+      </tr>`).join("")}</tbody></table>`;
+  }
+
+  function show(i) {
+    const league = DATA.leagues[i];
+    document.getElementById("updated").textContent = `Results up to ${fmtDate(league.updated)}`;
+    document.getElementById("fixtures").innerHTML = fixturesTable(league.fixtures);
+    document.getElementById("standings").innerHTML = standingsTable(league.standings);
+    document.getElementById("latest").innerHTML = resultsTable(league.latest);
+  }
+
+  document.getElementById("legend").innerHTML = outcomeLegend();
+  if (DATA.leagues.length) {
+    segmented(document.getElementById("league-switch"), DATA.leagues.map((l) => l.name), 0, show);
+    show(0);
+  } else {
+    document.querySelector("main").insertAdjacentHTML("beforeend",
+      '<p class="empty">No data. Run <code>invoke download.current</code> first.</p>');
+  }
+</script>
+</body>
+</html>
