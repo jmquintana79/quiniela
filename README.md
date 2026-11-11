@@ -484,6 +484,10 @@ the later matchdays of the backtest.
 **Without odds.** A match without odds (e.g. a matchday whose odds are not published yet) gets
 the Dixon-Coles probabilities unchanged, exactly v2.
 
+**In practice.** v2 only does the work when there are no odds: v3 then uses v2 as it is. When
+the odds are available, the forecast is essentially the market's, slightly corrected (see the
+weights in the observations below): Dixon-Coles adds nothing the market does not already know.
+
 **Choice of the combination.** Measured on the same out-of-sample forecasts (2015-16 to
 2025-26, log-loss):
 
