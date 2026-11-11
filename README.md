@@ -446,12 +446,7 @@ the matrix by category.
 
 ### Next steps
 
-- **Pi-ratings** (Constantinou & Fenton, 2013): separate home and away ratings learned from
-  goal differences.
-- **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals.
-- **Learned combination** with the market odds (stacking).
-- **Pleno al 15 and contrarian picks**: use the exact-score predictions and, if the bettors'
-  sign percentages can be obtained, pick against the crowd in close matches.
+See [Roadmap](#roadmap) at the end of this file.
 
 ## Releases
 
@@ -553,3 +548,36 @@ submodule has to be added to `__all__` to show up in the docs.
 [commitizen](https://commitizen-tools.github.io/commitizen/) is configured in
 `pyproject.toml` for [Conventional Commits](https://www.conventionalcommits.org) messages
 and version bumps (`cz commit`, `cz bump`).
+
+## Roadmap
+
+Pending improvements, in order of priority. The detailed plan (in Spanish) is in
+[`TODO.todo`](TODO.todo).
+
+1. **Market odds as model input (v3, high priority).** Today the market is only a reference.
+   A v3 model would combine the Dixon-Coles and market probabilities with a learned
+   combination (multinomial logistic regression / stacking), trained on out-of-sample
+   predictions and falling back to Dixon-Coles when the odds of a matchday are not published
+   yet. The data is already downloaded, and the market is the best model in the backtest
+   (50.0% vs 48.7% for v2). Only pre-match odds are used, never closing odds. v2 stays as the
+   independent model, since a model that uses the odds can no longer beat the market on its
+   own.
+2. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
+   of European clubs with decades of history and current values. They include cup and
+   European matches that Dixon-Coles does not see. The pre-match Elo difference would be one
+   more input of v3. Pending: check the API (it was down when tried), its Segunda coverage, a
+   local copy of the ratings, and matching team names between sources.
+3. **Playing against the crowd (low priority).** A final decision layer after the models that
+   maximises the **expected prize** instead of the hits. Each category's prize is shared among
+   the winning tickets, so in close matches a slightly less likely but less popular sign can
+   be worth more (e.g. X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). It
+   needs data not available yet: the bettors' share per sign of every match, the real 14-match
+   tickets and the prizes per category, with their history, plus an expected-prize metric in
+   the backtest. It matters mostly for the top categories (14 and 13 hits).
+
+Other ideas:
+
+- **Pi-ratings** (Constantinou & Fenton, 2013): separate home and away ratings learned from
+  goal differences.
+- **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals.
+- **Pleno al 15**: use the exact-score predictions of Dixon-Coles.

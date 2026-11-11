@@ -1,0 +1,126 @@
+Quiniela · tareas pendientes
+==============================================================================
+Orden de prioridad propuesto: 1 → 2 → 3.
+  1. y 2. mejoran las PROBABILIDADES (un nuevo modelo v3 combinado).
+  3. mejora la DECISIÓN (una capa final que actúa después de los modelos).
+Formato: ☐ pendiente · ✔ hecho
+
+
+1. Usar el mercado como información del modelo (v3 combinada) · PRIORIDAD ALTA
+==============================================================================
+Idea:
+  "Mercado" no es un modelo nuestro: son las probabilidades que se deducen de las
+  cuotas de las casas de apuestas de cada partido, que football-data.co.uk ya trae
+  en sus CSV. Hoy solo se usa como referencia; la idea es usarlo también como
+  contexto/entrada de un modelo.
+
+Por qué:
+  - Es la mejora con más impacto esperado y la más barata: los datos ya están
+    descargados (desde 2000) y existen también para los próximos partidos.
+  - El mercado es nuestro mejor "modelo" en el backtest (50,0 % de acierto frente al
+    48,7 % de Dixon-Coles v2). Una combinación aprendida de ambos suele superar a
+    cada uno por separado, aunque sea por poco.
+
+Matices:
+  - Usar SOLO cuotas previas al partido (como ahora), nunca las de cierre, para no
+    filtrar información posterior.
+  - Si la fuente aún no ha publicado las cuotas de la jornada, el modelo debe poder
+    volver a Dixon-Coles solo.
+  - Se pierde independencia: un modelo que usa las cuotas ya no "bate al mercado"
+    por sí mismo. Por eso v2 se mantiene como modelo independiente y esto sería v3.
+
+Tareas:
+  ☐ Diseñar v3: combinación aprendida (regresión logística multinomial / stacking)
+    de las probabilidades de Dixon-Coles y del mercado, con estructura fit/predict.
+  ☐ Entrenar la combinación solo con predicciones fuera de muestra (walk-forward).
+  ☐ Fallback a Dixon-Coles cuando falten las cuotas.
+  ☐ Registrar v3 en el registro de modelos (columna nueva en los dashboards).
+  ☐ Evaluar con el backtest (acierto, log-loss, Brier, RPS, premios) frente a v2 y
+    al mercado.
+  ☐ Documentar en el README con fórmulas y crear tag de versión.
+
+
+2. Fuerza de los clubes (ClubElo) · PRIORIDAD MEDIA · después de 1.
+==============================================================================
+Idea:
+  La librería soccerdata incluye ClubElo: un rating Elo diario de los clubes
+  europeos, con histórico de décadas y también el valor actual. Puede ser útil como
+  medida de la fuerza del club en el presente.
+
+Estado:
+  - Pendiente de comprobar: el día que se probó la API de ClubElo daba error 502
+    (caída), así que no se verificó la cobertura.
+
+Por qué:
+  - Recoge partidos que Dixon-Coles no ve (Copa y competiciones europeas): ayuda con
+    los equipos que juegan en Europa y con los recién ascendidos.
+
+Matices:
+  - Depende de un servicio externo: guardar copias locales (como con football-data).
+  - Hay que casar los nombres de equipo entre fuentes (p. ej. "Atletico" frente a
+    "Ath Madrid").
+  - Confirmar que cubre Segunda División en todas las temporadas.
+  - No recoge los fichajes de verano (Elo solo cambia con los partidos); para eso
+    servirían más las valoraciones de SoFIFA.
+
+Tareas:
+  ☐ Comprobar que la API funciona y qué cubre (Primera, Segunda, desde qué año).
+  ☐ Descargar y guardar localmente el histórico de ratings.
+  ☐ Tabla de equivalencias de nombres de equipo ClubElo ↔ football-data.
+  ☐ Usar la diferencia de Elo (víspera del partido) como variable más de la v3, no
+    como modelo aparte.
+  ☐ Medir con el backtest si aporta algo encima del mercado (que probablemente ya
+    lo incluye en buena parte).
+
+
+3. Jugar contra la mayoría (premio esperado) · PRIORIDAD BAJA · después de 1 y 2.
+==============================================================================
+Idea:
+  Podría usarse como DECISOR final para optimizar lo conseguido. Es una idea de
+  decisión pura, que viene de cómo funciona la quiniela: el bote de cada categoría
+  se reparte entre todos los acertantes. No basta con acertar: importa con cuántos
+  compartes el premio.
+
+Ejemplo:
+  - Partido igualado: 1 = 40 %, X = 35 %, 2 = 25 %.
+  - El 80 % de los apostantes marca "1" (favorito mediático) y solo el 10 % marca "X".
+  - Con "1" aciertas algo más a menudo (40 % frente a 35 %), pero cuando aciertas
+    compartes el premio con muchísima gente.
+  - Con "X" aciertas un poco menos, pero si sale quedan muchos menos boletos
+    acertantes y cada uno cobra más.
+  El valor esperado (probabilidad de acertar × premio cuando aciertas) puede ser
+  mayor marcando "X". No aumenta los aciertos; aumenta cuánto se cobra de media. En
+  partidos claros no compensa ir contra la mayoría; en los igualados, sí puede.
+
+Lo que hace falta (hoy no lo tenemos):
+  - El porcentaje de apostantes que marca cada signo en cada partido. Webs de
+    pronósticos citan una estimación de cierre de Loterías y Apuestas del Estado en
+    cada jornada; no se ha encontrado un conjunto de datos oficial descargable.
+  - Los 14 partidos reales de cada boleto (hoy se aproximan).
+  - Los premios reales por categoría de cada jornada (escrutinio de Loterías).
+  - El histórico de todo lo anterior, para poder evaluarlo con el backtest.
+
+Matices:
+  - Es una capa final después de los modelos, pero optimiza otra cosa: el PREMIO
+    ESPERADO, no los aciertos. Necesita otra métrica en el backtest (euros
+    esperados por boleto).
+  - Pesa sobre todo en las categorías altas (14 y 13 aciertos), donde el bote se
+    reparte entre pocos; en la 5.ª categoría (10 aciertos) el efecto es pequeño.
+  - Se puede apoyar en el mercado como "probabilidad real" y en los porcentajes de
+    Loterías como "lo que cree el público": los partidos donde el público
+    sobreapuesta respecto al mercado son los candidatos.
+  - Solo tiene sentido con probabilidades buenas (cerca del mercado).
+
+Tareas:
+  ☐ Buscar y confirmar fuentes de porcentajes de apuesta por signo y su histórico.
+  ☐ Scraping/descarga y almacenamiento local de porcentajes, boletos y premios.
+  ☐ Casar partidos y nombres de equipo con los de football-data.
+  ☐ Métrica de premio esperado y su evaluación en el backtest.
+  ☐ Decisor con estructura fit/predict aplicado después del modelo elegido.
+
+
+Otras ideas (ya en el README)
+==============================================================================
+  ☐ Pi-ratings (Constantinou & Fenton, 2013): ratings separados en casa y fuera.
+  ☐ Tiros a puerta (HST, AST) como medida de rendimiento menos ruidosa que los goles.
+  ☐ Pleno al 15: aprovechar las predicciones de marcador exacto de Dixon-Coles.
