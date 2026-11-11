@@ -30,8 +30,10 @@ TYPED_SOURCES = "src tasks"
 DOCS_PACKAGE = "quiniela"
 DOCS_DIR = "docs/api"
 
-# Docstrings follow the Google style (Args:, Returns:, Raises:)
+# Docstrings follow the Google style (Args:, Returns:, Raises:) and may contain
+# LaTeX formulas between $ (inline) or $$ (display), rendered with MathJax
 DOCS_FORMAT = "google"
+DOCS_OPTIONS = f"--docformat {DOCS_FORMAT} --math"
 
 # %% TASKS
 
@@ -67,7 +69,7 @@ def docs(ctx: Context, serve: bool = False) -> None:
     output = "" if serve else f" --output-directory {DOCS_DIR}"
     # pdoc imports the package; allow the subprocesses some libraries start on import
     ctx.run(
-        f"{RUN} pdoc --docformat {DOCS_FORMAT}{output} {DOCS_PACKAGE}",
+        f"{RUN} pdoc {DOCS_OPTIONS}{output} {DOCS_PACKAGE}",
         env={"PDOC_ALLOW_EXEC": "1"},
     )
 

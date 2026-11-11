@@ -1,20 +1,32 @@
-"""Head-to-head benchmark: conditional probability of the result given the fixture.
+r"""Head-to-head benchmark: conditional probability of the result given the fixture.
 
-For a match between ``home`` and ``away`` played at ``home``'s ground, the
-model estimates:
+For a match between home team $h$ and away team $a$ in league $\ell$, played
+at $h$'s ground, the model estimates:
 
-    P(result | home, away) = (n_result + alpha * prior_result) / (n + alpha)
+$$
+P(r \mid h, a) = \frac{n_{h,a}(r) + \alpha \, \pi_\ell(r)}{n_{h,a} + \alpha},
+\qquad r \in \lbrace H, D, A \rbrace
+$$
 
-where ``n_result`` counts the past matches between the same teams at the
-same ground that ended with ``result`` (``H``, ``D`` or ``A``), ``n`` is the
-total number of those matches and ``prior_result`` is the league's overall
-share of that result. ``alpha`` (additive smoothing) controls how many past
-matches the prior is worth:
+where:
 
-- teams that never met get the league prior (e.g. 46% home wins);
-- with a long history the observed frequencies dominate.
+- $n_{h,a}(r)$ counts the past matches of $h$ at home against $a$ that ended
+  with result $r$ (home win, draw or away win), and $n_{h,a}$ is the total
+  number of those meetings;
+- $\pi_\ell(r)$ is the share of result $r$ in league $\ell$ (the prior, e.g.
+  about 46% home wins), or the global share for an unseen league;
+- $\alpha \ge 0$ (additive smoothing) is how many "virtual matches" the prior
+  is worth.
 
-The predicted sign is the most likely result.
+So teams that never met get the league prior, and with a long history the
+observed frequencies dominate. The predicted sign is the most likely result:
+
+$$
+\hat{r} = \underset{r}{\arg\max} \; P(r \mid h, a)
+$$
+
+The formulas are rendered by the API docs (``invoke dev.docs``, pdoc with
+``--math``).
 """
 
 from typing import Self

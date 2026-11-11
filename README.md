@@ -79,11 +79,8 @@ Rescheduled matches join the matchday they are played in, so a round can show 9 
 matches.
 
 **Models** (`quiniela.prediction`) follow the scikit-learn API (`fit`, `predict`,
-`predict_proba`) and are registered in `quiniela.prediction.registry.MODELS`:
-
-| Key | Model |
-|---|---|
-| `head_to_head` | Past results between the same teams at the same ground, smoothed towards the league's home/draw/away shares (benchmark). |
+`predict_proba`) and are registered in `quiniela.prediction.registry.MODELS`. Each version is
+described in [Predictive models](#predictive-models).
 
 ### Dashboards
 
@@ -123,6 +120,86 @@ quiniela download current
 quiniela predict --matchday 12   # or --all; --model selects the model
 quiniela dashboards
 ```
+
+## Predictive models
+
+Every model version is registered in `quiniela.prediction.registry.MODELS` under a key, and
+gets its own column in the predictions dashboard. All versions are evaluated the same way: each
+matchday of the current season is predicted with a model trained only on earlier matches, and
+the predicted sign (1, X or 2) is compared with the real result.
+
+Reference points for every version:
+
+- **Always "1"**: the hit rate of predicting a home win for every match (the share of home
+  wins). A useful model has to beat it.
+- **Quiniela prizes**: matchdays whose 14-match ticket reaches 10 or more hits (see
+  [Dashboards](#dashboards)).
+
+| Version | Key | Status | Hit rate | Always "1" | Prizes |
+|---|---|---|---|---|---|
+| v1 · Head-to-head | `head_to_head` | **Current benchmark** | 43.8% | 45.8% | 1 of 10 tickets (5th category) |
+
+*Season 2026-27, matchdays 1-13: 240 played matches (results up to 2 November 2026).*
+
+### v1 · Head-to-head benchmark (`head_to_head`)
+
+[`quiniela/prediction/head_to_head.py`](src/quiniela/prediction/head_to_head.py)
+
+**Idea.** The probability of each result is the conditional probability of that result given
+the fixture: how often the same home team beat, drew with or lost to the same away team **at
+the same ground** in the past. For example, for Real Madrid vs Barcelona at the Bernabéu it
+only looks at past Real Madrid (home) vs Barcelona (away) matches.
+
+**Formula.** For a match between home team $h$ and away team $a$ in league $\ell$:
+
+```math
+P(r \mid h, a) = \frac{n_{h,a}(r) + \alpha \, \pi_\ell(r)}{n_{h,a} + \alpha},
+\qquad r \in \{1, X, 2\}
+```
+
+where:
+
+- $n_{h,a}(r)$ is the number of past matches of $h$ at home against $a$ that ended with
+  result $r$, and $n_{h,a} = \sum_r n_{h,a}(r)$ is the number of those meetings.
+- $\pi_\ell(r)$ is the share of result $r$ in league $\ell$ over the training data (the
+  *prior*, e.g. about 46% home wins). The global share is used for a league not seen in
+  training.
+- $\alpha \ge 0$ is the smoothing strength (additive / Laplace smoothing), measured in
+  "virtual matches" drawn from the prior. Default: $\alpha = 2$.
+
+The predicted sign is the most likely result, with ties resolved in the order 1, X, 2:
+
+```math
+\hat{r} = \underset{r \in \{1, X, 2\}}{\arg\max} \; P(r \mid h, a)
+```
+
+**Smoothing.** With few meetings the raw frequencies are extreme (one past win gives 100%);
+$\alpha$ pulls them towards the league prior:
+
+- teams that never met ($n_{h,a} = 0$) get exactly the prior $\pi_\ell$;
+- with a long history ($n_{h,a} \gg \alpha$) the observed frequencies dominate;
+- $\alpha = 0$ gives the raw frequencies (and the prior when $n_{h,a} = 0$).
+
+**Training data.** Every historical season (La Liga since 1993-94, Segunda since 1996-97) plus
+the current season's matches played before the matchday being predicted.
+
+**Results.**
+
+| League | Matches | Hit rate | Always "1" |
+|---|---|---|---|
+| La Liga | 109 | 50.5% | 45.9% |
+| Segunda | 131 | 38.2% | 45.8% |
+| **All** | **240** | **43.8%** | **45.8%** |
+
+**Observations.**
+
+- It predicts a home win in 70% of the matches, while only 46% end that way, and it rarely
+  predicts draws (14% of predictions against 23% of real results). The prior and short
+  histories push most fixtures towards "1".
+- It beats "always 1" in La Liga, where teams have long head-to-head histories, but not in
+  Segunda, where squads change from season to season and many fixtures have few meetings.
+- It ignores current form, injuries and team strength: a meeting from 1995 weighs the same as
+  last season's.
 
 ## Project structure
 
@@ -168,7 +245,7 @@ Every development command has an invoke task in the `dev` namespace
 | `invoke dev.lint` | `ruff check --no-fix src tests tasks` | Lint, without changing files. |
 | `invoke dev.format` | `ruff format src tests tasks` | Format the code (`--check` only reports what would change). |
 | `invoke dev.typecheck` | `mypy src tasks` | Strict type checking (settings in `pyproject.toml`). |
-| `invoke dev.docs` | `pdoc --docformat google --output-directory docs/api quiniela` | Generate the API docs (`--serve` starts a live server instead). |
+| `invoke dev.docs` | `pdoc --docformat google --math --output-directory docs/api quiniela` | Generate the API docs (`--serve` starts a live server instead). |
 | `invoke dev.all` | all of the above | Format, lint, type-check, test and build the docs, stopping at the first failure. |
 
 Run `invoke dev.all` before committing.
@@ -179,6 +256,12 @@ The API reference of `src/quiniela` is generated with [pdoc](https://pdoc.dev) f
 docstrings, which follow the
 [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
 (`Args:`, `Returns:`, `Raises:`).
+
+Docstrings can include LaTeX formulas, rendered with MathJax (`--math`): `$...$` inline and
+`$$...$$` for display formulas (see `quiniela.prediction.head_to_head`). Write those
+docstrings as raw strings (`r"""..."""`) so backslashes are kept, and use
+`\lbrace ... \rbrace` for literal braces, because Markdown removes the backslash of `\{`.
+MathJax is loaded from a CDN, so viewing the formulas needs an internet connection.
 
 ```bash
 invoke dev.docs           # writes docs/api/ (not versioned)
