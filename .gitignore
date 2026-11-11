@@ -182,3 +182,6 @@ datasets/
 
 # Local preview server config
 .claude/launch.json
+
+# Generated API docs (`invoke dev.docs`)
+docs/api/

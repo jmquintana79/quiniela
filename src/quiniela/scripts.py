@@ -1,6 +1,6 @@
 """Command line entry points.
 
-Examples::
+Examples:
 
     quiniela download historical --start 2015 --end 2025
     quiniela download historical --start 2015  # up to the last completed season

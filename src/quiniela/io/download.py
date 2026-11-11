@@ -8,7 +8,7 @@ from football-data.co.uk and normalised to the same format.
 Seasons are identified by their **start year**: ``2015`` means the 2015-16
 season.
 
-Output layout::
+Output layout:
 
     data/historical/<code>/<season>.parquet   # completed seasons
     data/current/<code>/results.parquet       # season in progress: played matches

@@ -17,7 +17,7 @@ import pandas as pd
 from quiniela.config import CURRENT_DIR, HISTORICAL_DIR, PREDICTIONS_DIR
 from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
-from quiniela.prediction import DEFAULT_MODEL, MODELS
+from quiniela.prediction.registry import DEFAULT_MODEL, MODELS
 
 logger = logging.getLogger(__name__)
 

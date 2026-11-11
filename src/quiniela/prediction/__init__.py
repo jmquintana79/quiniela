@@ -2,62 +2,30 @@
 
 Every model follows the scikit-learn estimator API (``fit``, ``predict``,
 ``predict_proba`` and ``classes_`` in ``H``, ``D``, ``A`` order). To add a
-model, implement it in its own module and register it in ``MODELS``.
+model, implement it in its own module and register it in
+``quiniela.prediction.registry.MODELS``.
+
+Submodules:
+
+- ``registry``: model interface and registered models.
+- ``head_to_head``: head-to-head benchmark model.
+- ``pipeline``: predict current-season matchdays and store the predictions.
+- ``ticket``: quiniela ticket composition and prize rules.
 """
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any, Protocol, Self
-
-import numpy as np
-import pandas as pd
-
+from quiniela.prediction import head_to_head, pipeline, registry, ticket
 from quiniela.prediction.head_to_head import HeadToHeadModel
+from quiniela.prediction.registry import DEFAULT_MODEL, MODELS, ModelSpec, Predictor
 
-
-class Predictor(Protocol):
-    """Interface shared by every model (scikit-learn classifier API)."""
-
-    classes_: np.ndarray
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> Self:
-        """Train on played matches."""
-        ...
-
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
-        """Return the predicted result (``H``, ``D`` or ``A``) of each match."""
-        ...
-
-    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
-        """Return the probability of each result, in ``classes_`` order."""
-        ...
-
-
-@dataclass(frozen=True)
-class ModelSpec:
-    """A registered model.
-
-    Attributes:
-        name: Display name (dashboard column header).
-        factory: Builds a new, unfitted model.
-        description: One-line summary shown in the dashboard.
-    """
-
-    name: str
-    factory: Callable[[], Any]
-    description: str
-
-
-# Registry: key (used in tasks and file names) -> model
-MODELS: dict[str, ModelSpec] = {
-    "head_to_head": ModelSpec(
-        name="Head-to-head",
-        factory=HeadToHeadModel,
-        description="Past results between the same teams at the same ground, smoothed "
-        "towards the league's home/draw/away shares.",
-    ),
-}
-
-DEFAULT_MODEL = "head_to_head"
-
-__all__ = ["DEFAULT_MODEL", "MODELS", "HeadToHeadModel", "ModelSpec", "Predictor"]
+# Submodules are listed so the API docs (pdoc) include them
+__all__ = [
+    "DEFAULT_MODEL",
+    "MODELS",
+    "HeadToHeadModel",
+    "ModelSpec",
+    "Predictor",
+    "head_to_head",
+    "pipeline",
+    "registry",
+    "ticket",
+]

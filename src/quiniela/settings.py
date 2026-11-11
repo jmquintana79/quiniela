@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from dotenv import dotenv_values, find_dotenv
- 
+
+
 def get(verbose: bool = False) -> dict[str, str | None]:
     """
     Get project config values.
@@ -19,8 +20,9 @@ def get(verbose: bool = False) -> dict[str, str | None]:
         for k, v in config.items():
             print('"{}": {}'.format(k, v))
     # return
-    return config    
- 
+    return config
+
+
 if __name__ == "__main__":
     print("get config dictionary:")
     config = get(True)

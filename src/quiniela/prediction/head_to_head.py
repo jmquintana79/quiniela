@@ -1,7 +1,7 @@
 """Head-to-head benchmark: conditional probability of the result given the fixture.
 
 For a match between ``home`` and ``away`` played at ``home``'s ground, the
-model estimates::
+model estimates:
 
     P(result | home, away) = (n_result + alpha * prior_result) / (n + alpha)
 

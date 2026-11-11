@@ -79,7 +79,7 @@ Rescheduled matches join the matchday they are played in, so a round can show 9 
 matches.
 
 **Models** (`quiniela.prediction`) follow the scikit-learn API (`fit`, `predict`,
-`predict_proba`) and are registered in `quiniela.prediction.MODELS`:
+`predict_proba`) and are registered in `quiniela.prediction.registry.MODELS`:
 
 | Key | Model |
 |---|---|
@@ -138,10 +138,11 @@ quiniela dashboards
 │   ├── config/paths.py      # filesystem paths used by the project
 │   ├── io/download.py       # historical and current season downloads
 │   ├── data/                # match loaders and matchday inference
-│   ├── prediction/          # models, prediction pipeline and quiniela ticket rules
+│   ├── prediction/          # model registry, models, prediction pipeline, ticket rules
 │   ├── visualization/       # dashboard builder and HTML templates
 │   └── scripts.py           # `quiniela` command line entry point
-├── tasks/                   # invoke tasks (download, predict, dashboards)
+├── docs/api/                # generated API docs (not versioned)
+├── tasks/                   # invoke tasks (download, predict, dashboards, dev)
 └── tests/
 ```
 
@@ -158,12 +159,39 @@ The data folder can be moved elsewhere with the `QUINIELA_DATA_DIR` environment 
 
 ## Development
 
+Every development command has an invoke task in the `dev` namespace
+([tasks/dev.py](tasks/dev.py)):
+
+| Task | Runs | What it does |
+|---|---|---|
+| `invoke dev.test` | `pytest` | Test suite (no network access needed). |
+| `invoke dev.lint` | `ruff check --no-fix src tests tasks` | Lint, without changing files. |
+| `invoke dev.format` | `ruff format src tests tasks` | Format the code (`--check` only reports what would change). |
+| `invoke dev.typecheck` | `mypy src tasks` | Strict type checking (settings in `pyproject.toml`). |
+| `invoke dev.docs` | `pdoc --docformat google --output-directory docs/api quiniela` | Generate the API docs (`--serve` starts a live server instead). |
+| `invoke dev.all` | all of the above | Format, lint, type-check, test and build the docs, stopping at the first failure. |
+
+Run `invoke dev.all` before committing.
+
+### API documentation
+
+The API reference of `src/quiniela` is generated with [pdoc](https://pdoc.dev) from the
+docstrings, which follow the
+[Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+(`Args:`, `Returns:`, `Raises:`).
+
 ```bash
-pytest                # tests (no network access needed)
-ruff check src tests tasks
-ruff format src tests tasks
-mypy src tasks
+invoke dev.docs           # writes docs/api/ (not versioned)
+open docs/api/index.html  # macOS
+
+invoke dev.docs --serve   # live server that rebuilds on every change
 ```
+
+pdoc documents the public members of every module. In packages that define `__all__`
+(`quiniela.config`, `quiniela.prediction`), only the names listed there appear, so a new
+submodule has to be added to `__all__` to show up in the docs.
+
+### Commits
 
 [commitizen](https://commitizen-tools.github.io/commitizen/) is configured in
 `pyproject.toml` for [Conventional Commits](https://www.conventionalcommits.org) messages

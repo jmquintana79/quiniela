@@ -284,7 +284,7 @@ def predictions_payload(
         JSON-serialisable dictionary with the models, matchdays and season totals.
     """
     # Imported here: only this dashboard needs the prediction package
-    from quiniela.prediction import MODELS
+    from quiniela.prediction.registry import MODELS
     from quiniela.prediction.pipeline import current_matchdays, load_predictions
     from quiniela.prediction.ticket import evaluate_ticket, ticket_positions
 
