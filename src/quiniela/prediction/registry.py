@@ -20,6 +20,7 @@ import pandas as pd
 from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
+from quiniela.prediction.market_blend import MarketBlendModel
 
 
 class Predictor(Protocol):
@@ -74,6 +75,13 @@ MODELS: dict[str, ModelSpec] = {
         description="Poisson goals from time-weighted team attack and defence strengths, "
         "with league goal levels, home advantage and a low-score correction.",
         version="v2",
+    ),
+    "market_blend": ModelSpec(
+        name="DC + Market",
+        factory=MarketBlendModel,
+        description="Log-linear pool of the Dixon-Coles and market probabilities, "
+        "trained on out-of-sample forecasts; Dixon-Coles alone without odds.",
+        version="v3",
     ),
     "market": ModelSpec(
         name="Market",

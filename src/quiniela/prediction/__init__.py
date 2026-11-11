@@ -11,6 +11,7 @@ Submodules:
 - ``head_to_head``: v1, head-to-head benchmark.
 - ``dixon_coles``: v2, Dixon-Coles team strengths with time decay.
 - ``market``: market reference (bookmakers' implied probabilities).
+- ``market_blend``: v3, learned combination of Dixon-Coles and the market.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``ticket``: quiniela ticket composition and prize rules.
 """
@@ -19,6 +20,7 @@ from quiniela.prediction import (
     dixon_coles,
     head_to_head,
     market,
+    market_blend,
     pipeline,
     registry,
     ticket,
@@ -26,6 +28,7 @@ from quiniela.prediction import (
 from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
+from quiniela.prediction.market_blend import MarketBlendModel
 from quiniela.prediction.registry import DEFAULT_MODEL, MODELS, ModelSpec, Predictor
 
 # Submodules are listed so the API docs (pdoc) include them
@@ -34,12 +37,14 @@ __all__ = [
     "MODELS",
     "DixonColesModel",
     "HeadToHeadModel",
+    "MarketBlendModel",
     "MarketModel",
     "ModelSpec",
     "Predictor",
     "dixon_coles",
     "head_to_head",
     "market",
+    "market_blend",
     "pipeline",
     "registry",
     "ticket",

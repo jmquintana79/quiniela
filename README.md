@@ -60,7 +60,7 @@ It runs, in order ([`quiniela/update.py`](src/quiniela/update.py)):
 | 1. Missing seasons | Downloads every completed season (per league) that is not in `data/historical/`. Covers the change of season (the season that just ended joins the history), a first installation and gaps. | Seasons already downloaded are skipped; soccerdata also caches their raw files. |
 | 2. Current season | Downloads the results played so far and the upcoming fixtures. | Always downloaded: the source does not tell whether its files changed (a few small CSV files). |
 | 3. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
-| 4. Backtest | Only with `--backtest`: every model over past seasons (about two minutes). | Not run by default. |
+| 4. Backtest | Only with `--backtest`: every model over past seasons (about four minutes). | Not run by default. |
 | 5. Dashboards | Rebuilds the four dashboards. | Local data only. |
 
 Special cases:
@@ -126,8 +126,8 @@ invoke backtest.run --model dixon_coles      # a single model
 
 Every registered model predicts every matchday of the selected past seasons, walk-forward
 (trained only on matches before each matchday), exactly as during a live season. The default
-range, 2015-16 to 2025-26, has 9,262 matches, all with bookmaker odds for the market reference;
-it runs in about two minutes using every CPU core. Predictions go to
+range, 2015-16 to 2025-26, has 9,262 matches, all but 21 with bookmaker odds; it runs in about
+four minutes using every CPU core (v3 takes most of it). Predictions go to
 `data/backtest/predictions.parquet` and the metrics are printed and shown in the evaluation
 dashboard. See [Evaluation](#evaluation).
 
@@ -237,8 +237,9 @@ matches) and is left out of the market's metrics.
 match: team form, injuries, line-ups, news and the money of many bettors, and bookmakers lose
 money if they are wrong. Getting close to the market means a model captures most of the
 available information; beating it consistently is very hard. It is shown in every table as a
-**reference**, not a candidate: it never counts as the best model (bold) and it is not used to
-train any model.
+**reference**, not a candidate: it never counts as the best model (bold). Since v3 the odds are
+also an input of a model (see [v3](#v3--dixon-coles--market-market_blend)); v2 stays
+independent of them.
 
 ### Metrics
 
@@ -305,18 +306,20 @@ bold = best candidate model):
 | Version | Key | Status | Hit rate | Log-loss | Brier | RPS | X picks | Prize tickets |
 |---|---|---|---|---|---|---|---|---|
 | v1 · Head-to-head | `head_to_head` | Benchmark | 43.3% | 1.1155 | 0.6689 | 0.2261 | 15.1% | 14 / 376 |
-| v2 · Dixon-Coles | `dixon_coles` | **Current** | **48.7%** | **1.0215** | **0.6130** | **0.2059** | 1.2% | **27 / 376** |
+| v2 · Dixon-Coles | `dixon_coles` | Independent | 48.7% | 1.0215 | 0.6130 | 0.2059 | 1.2% | 27 / 376 |
+| v3 · DC + Market | `market_blend` | **Current** | **50.0%** | **1.0028** | **0.6002** | **0.2003** | 2.8% | **35 / 376** |
 | Market | `market` | Reference | 50.0% | 1.0046 | 0.6013 | 0.2007 | 0.5% | 40 / 376 |
 
 *Real draws: 28.3%. Always "1": 45.3%. Exact score and Pleno al 15 hit rates of v2: 14.1% and
-14.5%.*
+14.5%. The market is evaluated on the 9,241 matches with odds; v3 on all 9,262 (Dixon-Coles
+alone in the other 21).*
 
-By league (hit rate):
+By league (hit rate / log-loss):
 
-| League | Always "1" | v1 | v2 | Market |
-|---|---|---|---|---|
-| La Liga | 45.7% | 47.0% | 52.9% | 53.9% |
-| Segunda | 45.0% | 40.2% | 45.3% | 46.8% |
+| League | Always "1" | v1 | v2 | v3 | Market |
+|---|---|---|---|---|---|
+| La Liga | 45.7% | 47.0% / 1.0738 | 52.9% / 0.9784 | 53.5% / 0.9622 | 53.9% / 0.9637 |
+| Segunda | 45.0% | 40.2% / 1.1499 | 45.3% / 1.0570 | 47.1% / 1.0362 | 46.8% / 1.0384 |
 
 ### v1 · Head-to-head benchmark (`head_to_head`)
 
@@ -444,6 +447,76 @@ the matrix by category.
 - The fitted $\rho$ is close to 0 in this data: the low-score correction barely changes the
   probabilities.
 
+### v3 · Dixon-Coles + market (`market_blend`)
+
+[`quiniela/prediction/market_blend.py`](src/quiniela/prediction/market_blend.py)
+
+**Idea.** Dixon-Coles only sees past goals; the odds also reflect injuries, line-ups, news and
+the money of many bettors. v3 learns how much to trust each forecast with a **log-linear pool**,
+a multinomial logistic regression with one weight per forecast:
+
+```math
+z_k = a \log p^{\mathrm{DC}}_k + b \log p^{\mathrm{M}}_k + c_k, \qquad
+P(k) = \frac{e^{z_k}}{\sum_{k'} e^{z_{k'}}}, \qquad k \in \{1, X, 2\}
+```
+
+or, equivalently, $P(k) \propto (p^{\mathrm{DC}}_k)^a \, (p^{\mathrm{M}}_k)^b \, e^{c_k}$, where:
+
+- $p^{\mathrm{DC}}_k$: probability of outcome $k$ according to Dixon-Coles (v2).
+- $p^{\mathrm{M}}_k$: market probability (pre-match odds with the margin removed, as in the
+  [market reference](#the-market-reference)); never closing odds.
+- $a$, $b$: weights of each forecast. $a + b > 1$ sharpens the probabilities, $a + b < 1$
+  flattens them.
+- $c_k$: intercept per outcome ($c_1 = 0$), correcting a systematic bias towards draws or away
+  wins.
+
+The four parameters maximise the log-likelihood of the training results (L-BFGS with
+analytic gradients).
+
+**Out-of-sample training.** The pool must learn from forecasts made as in a real matchday: a
+Dixon-Coles fitted on the same matches it is judged on would look better than it is. So, at
+every fit, Dixon-Coles is run walk-forward over the **last five years** of the training data,
+refitted every week on the matches before that week and used to predict the week. Those
+out-of-sample probabilities and the odds of the same matches (about 4,200) train the pool.
+Every weekly Dixon-Coles depends only on the matches before it, so it is cached and reused by
+the later matchdays of the backtest.
+
+**Without odds.** A match without odds (e.g. a matchday whose odds are not published yet) gets
+the Dixon-Coles probabilities unchanged, exactly v2.
+
+**Choice of the combination.** Measured on the same out-of-sample forecasts (2015-16 to
+2025-26, log-loss):
+
+| Combination | Parameters | Hit rate | Log-loss |
+|---|---|---|---|
+| Full multinomial regression on the six log-probabilities, 3 years | 21 | 49.7% | 1.0049 |
+| Same, 5 years | 21 | 49.9% | 1.0043 |
+| Same, one regression per league, 3 years | 2 × 21 | 49.7% | 1.0071 |
+| Log-linear pool, 3 years | 4 | 49.9% | 1.0035 |
+| **Log-linear pool, 5 years** | 4 | 50.0% | **1.0031** |
+
+With a few thousand matches, fewer parameters generalise better.
+
+**Observations.**
+
+- The best log-loss, Brier and RPS of every model, **also better than the market** (1.0028 vs
+  1.0046 log-loss) and in each of the 11 seasons. The hit rate is the same as the market's
+  (50.0%), +1.3 points over v2; in Segunda it beats the market (47.1% vs 46.8%), in La Liga
+  it is slightly below (53.5% vs 53.9%).
+- It wins fewer prize tickets than the market (35 vs 40 out of 376), but over 376 matchdays a
+  difference of 5 tickets is well within luck.
+- The fitted weights are stable over time: $b \approx 1.15$ to $1.25$ and
+  $a \approx -0.07$ to $-0.15$ (from 2015 to 2024). Most of the gain is a **recalibration of the
+  market**: $b > 1$ means the normalised odds are slightly too cautious (favourites win a bit
+  more often than they imply). Dixon-Coles gets a small negative weight: given the odds, it adds
+  no information of its own (the market already contains what past goals say), so its weight
+  only corrects for the overlap between both inputs.
+- It picks X more often (2.8% vs 1.2% for v2 and 0.5% for the market), mostly through the draw
+  intercept, positive in recent seasons ($c_X \approx 0.02$ to $0.05$), with no loss of hit
+  rate.
+- It loses independence: a model that uses the odds cannot claim to beat the market on its own.
+  That is why v2 stays as the independent model.
+
 ### Next steps
 
 See [Roadmap](#roadmap) at the end of this file.
@@ -455,6 +528,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.3.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.3.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, market reference | v3: log-linear pool of Dixon-Coles and the market odds, trained on out-of-sample forecasts, Dixon-Coles alone without odds. Best log-loss, Brier and RPS of the backtest, also better than the market; same hit rate as the market (50.0%). |
 | [`v0.2.3`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.3) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Dashboards split into `current.html` (current matchday with every model, the market and hit rates) and `season.html`; prediction cells show only the sign (probability on hover); played matches never listed as upcoming. |
 | [`v0.2.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.2) | v1 head-to-head, **v2 Dixon-Coles**, market reference | `invoke update`: one task to download what is missing, predict the current season and rebuild the dashboards. |
 | [`v0.2.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.1) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Calibrator and draw rule removed: in the backtest they did not improve the hit rate or the probabilities of v2. |
@@ -554,20 +628,17 @@ and version bumps (`cz commit`, `cz bump`).
 Pending improvements, in order of priority. The detailed plan (in Spanish) is in
 [`TODO.todo`](TODO.todo).
 
-1. **Market odds as model input (v3, high priority).** Today the market is only a reference.
-   A v3 model would combine the Dixon-Coles and market probabilities with a learned
-   combination (multinomial logistic regression / stacking), trained on out-of-sample
-   predictions and falling back to Dixon-Coles when the odds of a matchday are not published
-   yet. The data is already downloaded, and the market is the best model in the backtest
-   (50.0% vs 48.7% for v2). Only pre-match odds are used, never closing odds. v2 stays as the
-   independent model, since a model that uses the odds can no longer beat the market on its
-   own.
-2. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
+Done: **market odds as model input** (v3, released in `v0.3.0`, see
+[v3](#v3--dixon-coles--market-market_blend)).
+
+1. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
    of European clubs with decades of history and current values. They include cup and
    European matches that Dixon-Coles does not see. The pre-match Elo difference would be one
-   more input of v3. Pending: check the API (it was down when tried), its Segunda coverage, a
-   local copy of the ratings, and matching team names between sources.
-3. **Playing against the crowd (low priority).** A final decision layer after the models that
+   more input of v3 (one more term of the pool). Pending: check the API (it was down when
+   tried), its Segunda coverage, a local copy of the ratings, and matching team names between
+   sources. v3 shows that Dixon-Coles adds nothing once the odds are known, so Elo has to be
+   judged the same way: by what it adds on top of the market.
+2. **Playing against the crowd (low priority).** A final decision layer after the models that
    maximises the **expected prize** instead of the hits. Each category's prize is shared among
    the winning tickets, so in close matches a slightly less likely but less popular sign can
    be worth more (e.g. X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). It
