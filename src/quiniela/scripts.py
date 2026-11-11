@@ -5,9 +5,10 @@ Examples:
     quiniela download historical --start 2015 --end 2025
     quiniela download historical --start 2015  # up to the last completed season
     quiniela download current
-    quiniela predict                    # last matchday of the current season
-    quiniela predict --matchday 12
+    quiniela predict                    # last matchday, every model
+    quiniela predict --matchday 12 --model dixon_coles
     quiniela predict --all
+    quiniela backtest --start 2015      # every model over past seasons
     quiniela dashboards
 """
 
@@ -40,14 +41,23 @@ def _build_parser() -> argparse.ArgumentParser:
     targets.add_parser("current", help="Download the season in progress and upcoming fixtures.")
 
     predict = commands.add_parser("predict", help="Predict matchdays of the current season.")
-    predict.add_argument(
-        "--model", default="head_to_head", help="Model key (default: head_to_head)."
-    )
+    predict.add_argument("--model", default="all", help="Model key, or 'all' (default).")
     which = predict.add_mutually_exclusive_group()
     which.add_argument(
         "--matchday", type=int, default=None, help="Matchday to predict (default: the last one)."
     )
     which.add_argument("--all", action="store_true", help="Predict every matchday.")
+
+    backtest = commands.add_parser(
+        "backtest", help="Walk-forward predictions of past seasons, to evaluate the models."
+    )
+    backtest.add_argument(
+        "--start", type=int, default=2015, help="Start year of the first season (default: 2015)."
+    )
+    backtest.add_argument(
+        "--end", type=int, default=None, help="Start year of the last season (default: last one)."
+    )
+    backtest.add_argument("--model", default="all", help="Model key, or 'all' (default).")
 
     commands.add_parser("dashboards", help="Build the HTML dashboards from the downloaded data.")
     return parser
@@ -72,7 +82,14 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "predict":
         from quiniela.prediction.pipeline import run
 
-        paths = [run(args.model, matchday=args.matchday, all_matchdays=args.all)]
+        paths = run(args.model, matchday=args.matchday, all_matchdays=args.all)
+    elif args.command == "backtest":
+        from quiniela.evaluation.backtest import run_backtest, save_backtest, summarize
+
+        results = run_backtest(args.start, args.end, args.model)
+        paths = [save_backtest(results)]
+        columns = ["model", "matches", "hit_rate", "log_loss", "brier", "rps", "prizes"]
+        print(summarize(results)[columns].round(4).to_string(index=False))
     elif args.target == "historical":
         end = args.end if args.end is not None else download.current_season() - 1
         paths = download.download_historical(args.start, end)

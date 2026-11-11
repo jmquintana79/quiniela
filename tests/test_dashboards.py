@@ -147,3 +147,47 @@ def test_predictions_payload_counts_matches_without_prediction() -> None:
     assert payload["totals"]["head_to_head"]["missing"] == 2
     missing = [m for m in payload["matchdays"][0]["matches"] if m["head_to_head_sign"] is None]
     assert len(missing) == 2
+
+
+def test_evaluation_payload() -> None:
+    import numpy as np
+
+    rows = []
+    for model in ("head_to_head", "market"):
+        for i, (league, result) in enumerate([("SP1", "H"), ("SP2", "D"), ("SP1", "A")]):
+            rows.append(
+                {
+                    "model": model,
+                    "league": league,
+                    "season": "2024-25",
+                    "game": f"g{i}",
+                    "matchday": 1,
+                    "date": pd.Timestamp("2024-08-17"),
+                    "home_team": f"H{i}",
+                    "away_team": f"A{i}",
+                    "prediction": "H",
+                    "p_H": 0.5,
+                    "p_D": 0.3,
+                    "p_A": 0.2,
+                    "score_home": np.nan,
+                    "score_away": np.nan,
+                    "FTHG": 1,
+                    "FTAG": 0,
+                    "FTR": result,
+                }
+            )
+    payload = dashboards.evaluation_payload(pd.DataFrame(rows))
+
+    assert [m["key"] for m in payload["models"]] == ["head_to_head", "market"]
+    assert payload["models"][1]["reference"] is True
+    assert payload["seasons"] == ["2024-25"]
+    overall = payload["results"]["all|all"]["head_to_head"]
+    assert overall["matches"] == 3 and overall["hit_rate"] == round(1 / 3, 5)
+    assert payload["results"]["SP1|2024-25"]["market"]["matches"] == 2
+    assert {m["key"] for m in payload["metrics"]} >= {"hit_rate", "log_loss", "brier", "rps"}
+    assert payload["calibration"]["all"]["market"]
+
+
+def test_evaluation_payload_without_backtest() -> None:
+    payload = dashboards.evaluation_payload(pd.DataFrame())
+    assert payload["models"] == [] and payload["results"] == {}

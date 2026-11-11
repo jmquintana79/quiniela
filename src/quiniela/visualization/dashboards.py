@@ -12,6 +12,8 @@ Dashboards:
   plus standings and results of the selected season).
 - ``predictions.html``: every matchday of the current season with the real
   result, one column per model and the quiniela ticket outcome.
+- ``evaluation.html``: backtest metrics of every model over past seasons,
+  one column per model, with the market as reference.
 """
 
 import json
@@ -20,6 +22,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from quiniela.config import CURRENT_DIR, DASHBOARDS_DIR, HISTORICAL_DIR
@@ -291,18 +294,36 @@ def predictions_payload(
     current = current_matchdays() if current is None else current
     predictions = load_predictions() if predictions is None else predictions
     keys = [key for key in MODELS if key in predictions]
-    models = [
-        {"key": k, "name": MODELS[k].name, "description": MODELS[k].description} for k in keys
-    ]
+    models = _model_specs(keys)
 
-    # One column per model: predicted sign and its probability
+    # One column per model: predicted sign, its probability and, for models
+    # that predict goals, the exact score and Pleno al 15 picks
     matches = current.copy()
     for key in keys:
         p = predictions[key].set_index(["league", "game"])
         aligned = p.reindex(pd.MultiIndex.from_frame(matches[["league", "game"]]))
-        matches[f"{key}_sign"] = aligned["prediction"].to_numpy()
-        prob = aligned[["p_H", "p_D", "p_A"]].max(axis=1)
+        signs = aligned["prediction"]
+        matches[f"{key}_sign"] = signs.to_numpy()
+        # Probability of the predicted sign (not always the largest one: see the draw rule)
+        prob = pd.Series(np.nan, index=aligned.index)
+        for outcome in ("H", "D", "A"):
+            chosen = (signs == outcome).to_numpy()
+            prob[chosen] = aligned.loc[chosen, f"p_{outcome}"]
         matches[f"{key}_prob"] = prob.round(4).to_numpy()
+        if "score_home" in aligned.columns and aligned["score_home"].notna().any():
+            scored = aligned["score_home"].notna().to_numpy()
+            score = pd.Series(None, index=aligned.index, dtype=object)
+            pleno = pd.Series(None, index=aligned.index, dtype=object)
+            score[scored] = (
+                aligned.loc[scored, "score_home"].astype(int).astype(str)
+                + "-"
+                + aligned.loc[scored, "score_away"].astype(int).astype(str)
+            )
+            pleno[scored] = (
+                aligned.loc[scored, "pleno_home"] + "-" + aligned.loc[scored, "pleno_away"]
+            )
+            matches[f"{key}_score"] = score.to_numpy()
+            matches[f"{key}_pleno"] = pleno.to_numpy()
 
     totals = {
         key: {"hits": 0, "misses": 0, "missing": 0, "prizes": 0, "tickets": 0} for key in keys
@@ -344,6 +365,7 @@ def predictions_payload(
         columns = ["ticket", "league", "round", "date", "home_team", "away_team"]
         columns += ["FTHG", "FTAG", "FTR"]
         columns += [f"{k}_{field}" for k in keys for field in ("sign", "prob")]
+        columns += [c for k in keys for c in (f"{k}_score", f"{k}_pleno") if c in group.columns]
         matchdays.append(
             {
                 "number": int(number),
@@ -368,6 +390,186 @@ def predictions_payload(
             }
             for k, t in totals.items()
         },
+    }
+
+
+def _model_specs(keys: list[str]) -> list[dict[str, Any]]:
+    """Display information of the given registered models, in registry order."""
+    from quiniela.prediction.registry import MODELS
+
+    return [
+        {
+            "key": key,
+            "name": MODELS[key].name,
+            "version": MODELS[key].version,
+            "reference": MODELS[key].reference,
+            "description": MODELS[key].description,
+        }
+        for key in MODELS
+        if key in keys
+    ]
+
+
+# Metrics shown in the evaluation dashboard: key, label, which direction is
+# better, display format, and the explanation and formula shown in the page
+EVALUATION_METRICS: list[dict[str, str]] = [
+    {
+        "key": "hit_rate",
+        "label": "Hit rate",
+        "better": "higher",
+        "format": "pct",
+        "description": "Share of matches whose predicted sign (1, X or 2) was the real result.",
+        "formula": "hits / N",
+    },
+    {
+        "key": "log_loss",
+        "label": "Log-loss",
+        "better": "lower",
+        "format": "num",
+        "description": "Average surprise: minus the log of the probability given to the real "
+        "result. Punishes confident mistakes hard. Always predicting 1/3 each scores 1.099.",
+        "formula": "−(1/N) Σᵢ log pᵢ,real",
+    },
+    {
+        "key": "brier",
+        "label": "Brier score",
+        "better": "lower",
+        "format": "num",
+        "description": "Average squared distance between the three probabilities and what "
+        "happened (1 for the real result, 0 for the others). From 0 (perfect) to 2.",
+        "formula": "(1/N) Σᵢ Σₖ (pᵢₖ − oᵢₖ)²",
+    },
+    {
+        "key": "rps",
+        "label": "RPS",
+        "better": "lower",
+        "format": "num",
+        "description": "Ranked probability score: like Brier but on cumulative probabilities, "
+        "so 1 → X → 2 are ordered and predicting a draw is a smaller mistake than "
+        "predicting the opposite result. From 0 to 1.",
+        "formula": "(1/N) Σᵢ ½ Σₖ₌₁² (Σⱼ≤ₖ pᵢⱼ − Σⱼ≤ₖ oᵢⱼ)²",
+    },
+    {
+        "key": "draw_picks",
+        "label": "X picks",
+        "better": "info",
+        "format": "pct",
+        "description": "Share of matches where the model predicted a draw, to compare with "
+        "the real share of draws below.",
+        "formula": "",
+    },
+    {
+        "key": "draw_rate",
+        "label": "Real draws",
+        "better": "info",
+        "format": "pct",
+        "description": "Share of matches that ended in a draw.",
+        "formula": "",
+    },
+    {
+        "key": "score_hit_rate",
+        "label": "Exact score",
+        "better": "higher",
+        "format": "pct",
+        "description": "Share of matches whose most likely score was the real one (models "
+        "that predict goals).",
+        "formula": "",
+    },
+    {
+        "key": "pleno_hit_rate",
+        "label": "Pleno al 15",
+        "better": "higher",
+        "format": "pct",
+        "description": "Share of matches where both teams' goals category (0, 1, 2, M) was "
+        "right, as in the Pleno al 15.",
+        "formula": "",
+    },
+    {
+        "key": "prizes",
+        "label": "Prize tickets",
+        "better": "higher",
+        "format": "int",
+        "description": "Matchdays whose 14-match ticket got 10 or more hits (5th category or "
+        "better), out of the complete tickets. Only for both leagues together.",
+        "formula": "",
+    },
+    {
+        "key": "matches",
+        "label": "Matches",
+        "better": "info",
+        "format": "int",
+        "description": "Matches predicted (matches without a prediction, e.g. no odds for the "
+        "market, are left out of every metric).",
+        "formula": "",
+    },
+]
+
+
+def _clean(record: dict[str, Any]) -> dict[str, Any]:
+    """Replace NaN with None and numpy numbers with plain Python ones (JSON-friendly)."""
+    out: dict[str, Any] = {}
+    for key, value in record.items():
+        if isinstance(value, float | np.floating) and np.isnan(value):
+            out[key] = None
+        elif isinstance(value, np.integer):
+            out[key] = int(value)
+        elif isinstance(value, np.floating):
+            out[key] = round(float(value), 5)
+        elif isinstance(value, float):
+            out[key] = round(value, 5)
+        else:
+            out[key] = value
+    return out
+
+
+def evaluation_payload(backtest: pd.DataFrame | None = None) -> dict[str, Any]:
+    """Collect the data shown in the evaluation (backtest) dashboard.
+
+    Args:
+        backtest: Backtest predictions with real results. Defaults to the saved backtest.
+
+    Returns:
+        JSON-serialisable dictionary with the models, metric definitions,
+        metrics for every league/season combination and calibration tables.
+    """
+    # Imported here: only this dashboard needs the evaluation package
+    from quiniela.evaluation.backtest import load_backtest, summarize
+    from quiniela.evaluation.metrics import calibration_table
+
+    backtest = load_backtest() if backtest is None else backtest
+    if backtest.empty:
+        return {"models": [], "metrics": EVALUATION_METRICS, "seasons": [], "results": {}}
+
+    models = _model_specs(list(backtest["model"].unique()))
+    seasons = sorted(backtest["season"].unique())
+
+    # Metrics keyed by "<league>|<season>" ("all" for both leagues / every season)
+    results: dict[str, dict[str, dict[str, Any]]] = {}
+    for by in ([], ["season"], ["league"], ["season", "league"]):
+        for row in summarize(backtest, by).to_dict(orient="records"):
+            key = f"{row.get('league', 'all')}|{row.get('season', 'all')}"
+            results.setdefault(key, {})[row["model"]] = _clean(row)
+
+    calibration: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for league in ["all", *sorted(backtest["league"].unique())]:
+        subset = backtest if league == "all" else backtest[backtest["league"] == league]
+        for model in subset["model"].unique():
+            rows = subset[subset["model"] == model].dropna(subset=["p_H", "p_D", "p_A"])
+            if rows.empty:
+                continue
+            table = calibration_table(rows[["p_H", "p_D", "p_A"]].to_numpy(), rows["FTR"])
+            calibration.setdefault(league, {})[model] = [
+                _clean(r) for r in table.to_dict(orient="records")
+            ]
+
+    return {
+        "models": models,
+        "metrics": EVALUATION_METRICS,
+        "leagues": {"all": "Both leagues", **LEAGUE_NAMES},
+        "seasons": seasons,
+        "matches": int(backtest[backtest["model"] == backtest["model"].iloc[0]].shape[0]),
+        "results": results,
+        "calibration": calibration,
     }
 
 
@@ -418,4 +620,5 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
         render("current.html", current_payload(), output_dir / "current.html"),
         render("historical.html", historical_payload(), output_dir / "historical.html"),
         render("predictions.html", predictions_payload(), output_dir / "predictions.html"),
+        render("evaluation.html", evaluation_payload(), output_dir / "evaluation.html"),
     ]

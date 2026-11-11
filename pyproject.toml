@@ -4,7 +4,7 @@
 
 [tool.poetry]
 name = "quiniela"
-version = "0.1.0"
+version = "0.2.0"
 description = "Predicción de resultados de partidos de fútbol (quiniela 1X2) con Machine Learning"
 authors = ["Juan Quintana"]
 readme = "README.md"

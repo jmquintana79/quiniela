@@ -23,6 +23,9 @@ CURRENT_DIR: Path = DATA_DIR / "current"
 # Model predictions for the season in progress, one file per model
 PREDICTIONS_DIR: Path = DATA_DIR / "predictions"
 
+# Walk-forward predictions of past seasons (backtest), all models in one file
+BACKTEST_DIR: Path = DATA_DIR / "backtest"
+
 # Raw files cached by soccerdata (avoids downloading completed seasons twice)
 CACHE_DIR: Path = DATA_DIR / "cache"
 
@@ -32,5 +35,5 @@ DASHBOARDS_DIR: Path = ROOT_DIR / "dashboards"
 
 def ensure_data_dirs() -> None:
     """Create the data folders if they do not exist yet."""
-    for path in (HISTORICAL_DIR, CURRENT_DIR, PREDICTIONS_DIR, CACHE_DIR):
+    for path in (HISTORICAL_DIR, CURRENT_DIR, PREDICTIONS_DIR, BACKTEST_DIR, CACHE_DIR):
         path.mkdir(parents=True, exist_ok=True)

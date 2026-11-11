@@ -31,3 +31,32 @@ def round_robin(league: str, teams: list[str], first_day: str, rounds: int) -> p
             home, away = rotated[i], rotated[-1 - i]
             rows.append((league, str(day.date()), home, away, 1, 0))
     return make_matches(rows)
+
+
+def simulate_league(
+    strengths: dict[str, float],
+    first_day: str,
+    rounds: int,
+    league: str = "SP1",
+    home_advantage: float = 0.3,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """Weekly double round-robin with Poisson goals driven by team strengths.
+
+    Expected goals: ``exp(0.1 + home_advantage + s_home - s_away)`` for the home
+    side and ``exp(0.1 + s_away - s_home)`` for the away side.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    teams = list(strengths)
+    rows = []
+    for r in range(rounds):
+        day = pd.Timestamp(first_day) + pd.Timedelta(weeks=r)
+        order = rng.permutation(teams)
+        for i in range(0, len(order) - 1, 2):
+            home, away = order[i], order[i + 1]
+            lam = np.exp(0.1 + home_advantage + strengths[home] - strengths[away])
+            nu = np.exp(0.1 + strengths[away] - strengths[home])
+            rows.append((league, str(day.date()), home, away, rng.poisson(lam), rng.poisson(nu)))
+    return make_matches(rows)

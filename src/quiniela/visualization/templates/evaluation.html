@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model Evaluation</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Model evaluation</h1>
+    <span class="meta" id="meta"></span>
+  </header>
+
+  <div class="filters">
+    <div class="segmented" id="league-switch"></div>
+    <label>Season <select id="season"></select></label>
+  </div>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2 id="metrics-title">Metrics</h2>
+    <div class="scroll" id="metrics"></div>
+    <p class="meta" style="margin:10px 0 0">
+      <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
+      not a candidate). ↑ higher is better · ↓ lower is better.
+    </p>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Hit rate by season</h2>
+    <div class="scroll" id="by-season"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Calibration</h2>
+    <p class="meta" style="margin:0 0 10px">
+      Every predicted probability (the three outcomes of every match) grouped in 10% bins, against
+      how often the outcome happened. A calibrated model sits on the diagonal: below it, the model is
+      over-confident in that range; above it, under-confident. All seasons of the selected league.
+    </p>
+    <div class="tiles" id="calibration"></div>
+  </section>
+
+  <section class="card">
+    <h2>How to read the metrics</h2>
+    <p class="meta" style="margin:0 0 10px">
+      Every past season is predicted matchday by matchday, each model trained only on matches played
+      before that matchday (walk-forward backtest). Notation: N matches, p<sub>ik</sub> the probability
+      given to outcome k (1, X, 2) in match i, o<sub>ik</sub> = 1 if that outcome happened, else 0.
+    </p>
+    <div id="definitions"></div>
+  </section>
+</main>
+
+<script>const DATA = /*__DATA__*/null;</script>
+<script>/*__SCRIPT__*/</script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const state = { league: "all", season: "all" };
+  const models = DATA.models;
+
+  function fmt(value, format) {
+    if (value == null) return "–";
+    if (format === "pct") return pct(value, 1);
+    if (format === "int") return String(Math.round(value));
+    return value.toFixed(4);
+  }
+
+  function modelHeader(m) {
+    const label = m.reference ? `${esc(m.name)} <span class="muted">(reference)</span>`
+      : `${esc(m.name)} <span class="muted">${esc(m.version)}</span>`;
+    return `<th class="num" data-tip="${esc(m.description)}">${label}</th>`;
+  }
+
+  // Index of the best candidate model (references excluded) for a metric
+  function bestModel(rows, metric) {
+    if (metric.better === "info") return null;
+    let best = null;
+    models.forEach((m) => {
+      const v = rows[m.key]?.[metric.key];
+      if (m.reference || v == null) return;
+      const better = best == null || (metric.better === "higher" ? v > best.v : v < best.v);
+      if (better) best = { key: m.key, v };
+    });
+    return best?.key ?? null;
+  }
+
+  function metricsTable() {
+    const rows = DATA.results[`${state.league}|${state.season}`] || {};
+    const metrics = DATA.metrics.filter((metric) =>
+      models.some((m) => rows[m.key]?.[metric.key] != null));
+    return `<table><thead><tr><th>Metric</th>${models.map(modelHeader).join("")}</tr></thead>
+      <tbody>${metrics.map((metric) => {
+        const best = bestModel(rows, metric);
+        const arrow = { higher: " ↑", lower: " ↓" }[metric.better] ?? "";
+        return `<tr><td data-tip="${esc(metric.description)}">${esc(metric.label)}<span class="muted">${arrow}</span></td>
+          ${models.map((m) => {
+            const r = rows[m.key] || {};
+            const value = metric.key === "prizes" && r.tickets != null
+              ? `${fmt(r.prizes, "int")} <span class="muted">/ ${r.tickets}</span>` : fmt(r[metric.key], metric.format);
+            return `<td class="num ${best === m.key ? "strong" : ""}">${value}</td>`;
+          }).join("")}</tr>`;
+      }).join("")}</tbody></table>`;
+  }
+
+  function bySeasonTable() {
+    const metric = DATA.metrics.find((m) => m.key === "hit_rate");
+    return `<table><thead><tr><th>Season</th>${models.map(modelHeader).join("")}</tr></thead>
+      <tbody>${DATA.seasons.map((season) => {
+        const rows = DATA.results[`${state.league}|${season}`] || {};
+        const best = bestModel(rows, metric);
+        return `<tr class="clickable ${season === state.season ? "selected" : ""}" data-season="${esc(season)}">
+          <td>${esc(season)}</td>
+          ${models.map((m) => `<td class="num ${best === m.key ? "strong" : ""}">${fmt(rows[m.key]?.hit_rate, "pct")}</td>`).join("")}
+        </tr>`;
+      }).join("")}</tbody></table>`;
+  }
+
+  // One small reliability chart per model (single series each)
+  function calibrationChart(model, rows) {
+    const size = 220, pad = 30, inner = size - pad - 10;
+    const x = (v) => pad + v * inner, y = (v) => size - pad - v * inner;
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+    const points = rows.map((r) => `${x(r.predicted).toFixed(1)},${y(r.observed).toFixed(1)}`).join(" ");
+    return `<div class="tile"><div class="label">${esc(model.name)}</div>
+      <svg viewBox="0 0 ${size} ${size}" width="100%" role="img" aria-label="Calibration of ${esc(model.name)}">
+        ${ticks.map((t) => `<line x1="${x(0)}" x2="${x(1)}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)" stroke-width="1"/>
+          <text x="${pad - 6}" y="${y(t) + 3}" text-anchor="end" font-size="9" fill="var(--text-muted)">${t * 100}%</text>
+          <text x="${x(t)}" y="${size - pad + 14}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${t * 100}%</text>`).join("")}
+        <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--text-muted)" stroke-dasharray="3 3"/>
+        <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        ${rows.map((r) => `<circle cx="${x(r.predicted)}" cy="${y(r.observed)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"
+          data-tip="Predicted ${pct(r.predicted, 1)} → happened ${pct(r.observed, 1)} (${r.count} forecasts)"/>`).join("")}
+      </svg>
+      <div class="detail">x: predicted probability · y: observed frequency</div></div>`;
+  }
+
+  function definitions() {
+    return `<table><tbody>${DATA.metrics.map((m) => `<tr>
+      <td class="strong">${esc(m.label)}</td>
+      <td style="white-space:normal">${esc(m.description)}${m.formula ? `<br><code>${esc(m.formula)}</code>` : ""}</td>
+    </tr>`).join("")}</tbody></table>`;
+  }
+
+  function render() {
+    const seasonLabel = state.season === "all" ? "all seasons" : state.season;
+    $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("metrics").innerHTML = metricsTable();
+    $("by-season").innerHTML = bySeasonTable();
+    $("by-season").querySelectorAll("tr.clickable").forEach((row) => row.addEventListener("click", () => {
+      state.season = row.dataset.season === state.season ? "all" : row.dataset.season;
+      $("season").value = state.season;
+      render();
+    }));
+    const calibration = DATA.calibration[state.league] || {};
+    $("calibration").innerHTML = models.filter((m) => calibration[m.key])
+      .map((m) => calibrationChart(m, calibration[m.key])).join("");
+  }
+
+  $("definitions").innerHTML = definitions();
+  if (models.length) {
+    $("meta").textContent = `Walk-forward backtest · ${DATA.seasons[0]} to ${DATA.seasons[DATA.seasons.length - 1]} · ${DATA.matches} matches`;
+    const leagues = Object.keys(DATA.leagues);
+    segmented($("league-switch"), leagues.map((l) => DATA.leagues[l]), 0, (i) => { state.league = leagues[i]; render(); });
+    $("season").innerHTML = '<option value="all">All seasons</option>' +
+      DATA.seasons.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+    $("season").addEventListener("change", (e) => { state.season = e.target.value; render(); });
+    render();
+  } else {
+    $("meta").textContent = "No backtest yet. Run invoke backtest.run first.";
+  }
+</script>
+</body>
+</html>

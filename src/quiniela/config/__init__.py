@@ -2,6 +2,7 @@
 
 from quiniela.config import paths
 from quiniela.config.paths import (
+    BACKTEST_DIR,
     CACHE_DIR,
     CURRENT_DIR,
     DASHBOARDS_DIR,
@@ -14,6 +15,7 @@ from quiniela.config.paths import (
 
 # The submodule is listed so the API docs (pdoc) include it
 __all__ = [
+    "BACKTEST_DIR",
     "CACHE_DIR",
     "CURRENT_DIR",
     "DASHBOARDS_DIR",

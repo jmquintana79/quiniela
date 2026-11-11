@@ -178,6 +178,7 @@ dashboards/
 data/historical/
 data/current/
 data/predictions/
+data/backtest/
 datasets/
 
 # Local preview server config

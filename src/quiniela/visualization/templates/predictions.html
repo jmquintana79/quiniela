@@ -49,6 +49,9 @@
   const SIGN = { H: "1", D: "X", A: "2" };
   const $ = (id) => document.getElementById(id);
   const models = DATA.models;
+
+  // Column label: name plus version, or "(reference)" for the market
+  const modelLabel = (m) => `${esc(m.name)} <span class="muted">${m.reference ? "(reference)" : esc(m.version)}</span>`;
   let selected = DATA.matchdays.length - 1;
 
   // Prediction cell: green check for a hit, red cross for a miss, outline when
@@ -57,7 +60,10 @@
     const sign = match[`${key}_sign`];
     if (!sign) return '<span class="pick none" data-tip="No prediction available for this match">–</span>';
     const prob = match[`${key}_prob`];
-    const tip = `Predicted ${SIGN[sign]} (${pct(prob, 1)})`;
+    const score = match[`${key}_score`];
+    const pleno = match[`${key}_pleno`];
+    const extra = score ? ` · score ${score} · Pleno al 15 ${pleno}` : "";
+    const tip = `Predicted ${SIGN[sign]} (${pct(prob, 1)})${extra}`;
     if (!match.FTR) return `<span class="pick pending" data-tip="${tip}">${SIGN[sign]}</span>`;
     const hit = sign === match.FTR;
     return `<span class="pick ${hit ? "hit" : "miss"}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
@@ -69,7 +75,7 @@
     return models.map((m) => {
       const t = DATA.totals[m.key];
       return `<div class="tile" data-tip="${esc(m.description)}">
-        <div class="label">${esc(m.name)}</div>
+        <div class="label">${modelLabel(m)}</div>
         <div class="value">${pct(t.rate, 1)}</div>
         <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
         <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets</div>
@@ -102,7 +108,7 @@
   function overviewTable() {
     return `<table><thead><tr>
         <th class="num">#</th><th>Dates</th><th class="num">Played</th>
-        ${models.map((m) => `<th class="num">${esc(m.name)}</th><th>Quiniela</th>`).join("")}
+        ${models.map((m) => `<th class="num">${modelLabel(m)}</th><th>Quiniela</th>`).join("")}
       </tr></thead><tbody>${DATA.matchdays.map((md, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
         <td class="num">${md.number}</td>
         <td class="muted">${fmtDate(md.start)} – ${fmtDate(md.end)}</td>
@@ -142,7 +148,7 @@
     }).join("");
     return `<table><thead><tr>
         <th class="num">Ticket</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>
-        <th>Result</th>${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${esc(m.name)}</th>`).join("")}
+        <th>Result</th>${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}
       </tr></thead><tbody>${md.matches.map((m) => `<tr>
         <td class="num muted">${m.ticket ?? ""}</td>
         <td class="muted">${esc(DATA.leagues[m.league] ?? m.league)} · R${m.round}</td>
