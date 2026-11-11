@@ -44,6 +44,36 @@ Every action is available as an [invoke](https://www.pyinvoke.org) task. List th
 invoke --list
 ```
 
+### Update everything (recommended)
+
+At the start of every matchday, or after weeks without running anything:
+
+```bash
+invoke update               # data, predictions and dashboards
+invoke update --backtest    # also re-run the backtest (after changing a model)
+```
+
+It runs, in order ([`quiniela/update.py`](src/quiniela/update.py)):
+
+| Step | What it does | Avoids repeated work |
+|---|---|---|
+| 1. Missing seasons | Downloads every completed season (per league) that is not in `data/historical/`. Covers the change of season (the season that just ended joins the history), a first installation and gaps. | Seasons already downloaded are skipped; soccerdata also caches their raw files. |
+| 2. Current season | Downloads the results played so far and the upcoming fixtures. | Always downloaded: the source does not tell whether its files changed (a few small CSV files). |
+| 3. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
+| 4. Backtest | Only with `--backtest`: every model over past seasons (about two minutes). | Not run by default. |
+| 5. Dashboards | Rebuilds the four dashboards. | Local data only. |
+
+Special cases:
+
+- **No connection or source down**: if the current season cannot be downloaded, the update
+  stops before touching predictions and dashboards, so old and new data are never mixed.
+- **Off-season (July and August)**: the new season's files may not be published yet. The
+  failed download is then reported as a warning, predictions are skipped and the dashboards
+  are rebuilt.
+- **No matches to predict**: predictions are skipped with a warning.
+
+The steps can also be run one by one with the tasks below.
+
 ### Download data
 
 Seasons are identified by their **start year**: `2015` means the 2015-16 season.
@@ -108,10 +138,10 @@ invoke dashboards.build   # build dashboards/*.html from the downloaded data
 invoke dashboards.open    # open them in the browser (macOS)
 
 # Weekly refresh: new data, new predictions, rebuilt dashboards
-invoke download.current predict.matchday dashboards.build
+invoke update
 
 # After adding or changing a model: re-run the backtest too
-invoke backtest.run predict.all dashboards.build
+invoke update --backtest
 ```
 
 - `dashboards/current.html`: next matchday with the 1X2 probabilities implied by the
@@ -145,6 +175,7 @@ quiniela download historical --start 2015 --end 2025
 quiniela download current
 quiniela predict --matchday 12   # or --all; --model selects one model (default: all)
 quiniela backtest --start 2015   # --end, --model
+quiniela update                  # --backtest
 quiniela dashboards
 ```
 
@@ -410,6 +441,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.2.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.2) | v1 head-to-head, **v2 Dixon-Coles**, market reference | `invoke update`: one task to download what is missing, predict the current season and rebuild the dashboards. |
 | [`v0.2.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.1) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Calibrator and draw rule removed: in the backtest they did not improve the hit rate or the probabilities of v2. |
 | [`v0.2.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.0) | v1 head-to-head, **v2 Dixon-Coles**, v2 + calibrator, market reference | Walk-forward backtest, probabilistic metrics, evaluation dashboard. |
 | [`v0.1.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.1.0) | v1 head-to-head | Project structure, data download and first benchmark, evaluated on the current season only. |
@@ -432,9 +464,10 @@ version in `pyproject.toml`:
 │   ├── prediction/          # model registry, models, pipeline, ticket rules
 │   ├── evaluation/          # metrics and the multi-season backtest
 │   ├── visualization/       # dashboard builder and HTML templates
+│   ├── update.py            # `invoke update`: every step in one go
 │   └── scripts.py           # `quiniela` command line entry point
 ├── docs/api/                # generated API docs (not versioned)
-├── tasks/                   # invoke tasks (download, predict, backtest, dashboards, dev)
+├── tasks/                   # invoke tasks (update, download, predict, backtest, dashboards, dev)
 └── tests/
 ```
 

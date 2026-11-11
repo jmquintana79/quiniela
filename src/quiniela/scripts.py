@@ -2,6 +2,8 @@
 
 Examples:
 
+    quiniela update                     # data, predictions and dashboards
+    quiniela update --backtest          # also re-run the backtest
     quiniela download historical --start 2015 --end 2025
     quiniela download historical --start 2015  # up to the last completed season
     quiniela download current
@@ -60,6 +62,13 @@ def _build_parser() -> argparse.ArgumentParser:
     backtest.add_argument("--model", default="all", help="Model key, or 'all' (default).")
 
     commands.add_parser("dashboards", help="Build the HTML dashboards from the downloaded data.")
+
+    update = commands.add_parser(
+        "update", help="Download what is missing, predict the current season, rebuild dashboards."
+    )
+    update.add_argument(
+        "--backtest", action="store_true", help="Also re-run the backtest of every model."
+    )
     return parser
 
 
@@ -75,6 +84,12 @@ def main(argv: list[str] | None = None) -> None:
     # Imported here so `quiniela --help` does not pay soccerdata's import time
     from quiniela.io import download
 
+    if args.command == "update":
+        from quiniela.update import run_update
+
+        report = run_update(run_backtest=args.backtest)
+        print(report.summary())
+        return
     if args.command == "dashboards":
         from quiniela.visualization.dashboards import build_dashboards
 
