@@ -533,9 +533,3 @@ submodule has to be added to `__all__` to show up in the docs.
 [commitizen](https://commitizen-tools.github.io/commitizen/) is configured in
 `pyproject.toml` for [Conventional Commits](https://www.conventionalcommits.org) messages
 and version bumps (`cz commit`, `cz bump`).
-
-## Background
-
-This repository started in 2021 as a scraper for a Spanish football results dataset (see
-`docs/references.md`). It has been rebuilt as a Poetry-managed project on top of
-football-data.co.uk, which provides historical data and weekly updates from a single source.
