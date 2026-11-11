@@ -3,86 +3,81 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Current Season</title>
+  <title>Current Matchday</title>
   <style>/*__STYLE__*/</style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Current season</h1>
-    <span class="meta" id="updated"></span>
+    <h1 id="title">Current matchday</h1>
+    <span class="meta" id="meta"></span>
   </header>
 
-  <div class="filters"><div class="segmented" id="league-switch"></div></div>
-
-  <section class="card" style="margin-bottom:16px">
-    <h2>Next matchday · market odds</h2>
-    <div class="banner pending">
-      <strong>This is not a prediction of our models.</strong>
-      It is the betting market's current view of the matches not played yet: the probabilities
-      implied by the bookmakers' odds at the last download. The predictions of our models, and
-      whether they were right, are in <a href="predictions.html">predictions.html</a>.
-    </div>
-    <div id="legend"></div>
-    <div class="scroll" id="fixtures"></div>
-    <div class="meta" style="margin:10px 0 0">
-      <p style="margin:0 0 4px"><strong>Where the probabilities come from.</strong>
-        The upcoming fixtures file of football-data.co.uk publishes each match's pre-match odds.
-        Each odd <em>o</em> implies a probability 1/<em>o</em>; the three add up to slightly more
-        than 100% (the bookmaker's margin), so they are normalised:
-        p<sub>k</sub> = (1/o<sub>k</sub>) / (1/o<sub>1</sub> + 1/o<sub>X</sub> + 1/o<sub>2</sub>).
-        The average odds across bookmakers are used, or Bet365's when the average is missing.</p>
-      <p style="margin:0 0 4px"><strong>Current state, not final.</strong>
-        Odds keep moving until kick-off (injuries, line-ups, money). These are the odds as
-        downloaded <span id="odds-downloaded"></span>; run <code>invoke update</code> to refresh them.</p>
-      <p style="margin:0">Only matches not played yet appear here: once played, a match leaves this
-        list and shows up in <strong>Latest results</strong>.</p>
+  <section class="block">
+    <div id="status"></div>
+    <div id="banners" style="margin-bottom:8px"></div>
+    <div class="card">
+      <h2 id="matches-title">Matches</h2>
+      <div class="scroll" id="matches"></div>
+      <p class="meta" style="margin:10px 0 0" id="legend"></p>
+      <p class="meta" style="margin:6px 0 0" id="odds"></p>
     </div>
   </section>
 
-  <div class="grid two">
-    <section class="card"><h2>Standings</h2><div class="scroll" id="standings"></div></section>
-    <section class="card"><h2>Latest results</h2><div class="scroll" id="latest"></div></section>
-  </div>
+  <section class="block">
+    <h2 class="section-title">Standings</h2>
+    <div class="filters"><div class="segmented" id="league-switch"></div></div>
+    <div class="card"><div class="scroll" id="standings"></div></div>
+  </section>
+
+  <p class="meta">Every matchday of the season, with the totals of each model:
+    <a href="season.html">season.html</a>.</p>
 </main>
 
 <script>const DATA = /*__DATA__*/null;</script>
 <script>/*__SCRIPT__*/</script>
 <script>
-  // Upcoming fixtures with the market's 1X2 probability bar (not a model prediction)
-  function fixturesTable(rows) {
-    if (!rows.length) return '<p class="empty">No upcoming fixtures published yet. The source publishes ' +
-      'the next matchday a few days before it is played (later during international breaks); ' +
-      'run <code>invoke update</code> again closer to the matchday.</p>';
-    return `<table><thead><tr>
-        <th>Kick-off</th><th class="num">Home</th><th></th><th>Away</th>
-        <th style="width:40%">Market odds · 1 · X · 2</th>
-      </tr></thead><tbody>${rows.map((f) => `<tr>
-        <td class="muted">${fmtDate(f.date, true)}</td>
-        <td class="num strong">${esc(f.home_team)}</td><td class="muted">vs</td>
-        <td class="strong">${esc(f.away_team)}</td>
-        <td>${outcomeBar(f.p1, f.px, f.p2,
-          [`Market: ${f.home_team} win`, "Market: draw", `Market: ${f.away_team} win`])}</td>
-      </tr>`).join("")}</tbody></table>`;
+  const $ = (id) => document.getElementById(id);
+  const md = DATA.matchday;
+
+  // What the current matchday is, so a finished or unpublished one is never mistaken
+  function statusBanner() {
+    const left = md.matches.length - md.played;
+    const text = {
+      upcoming: ["Upcoming matchday", "No match has been played yet: every column is a prediction."],
+      in_progress: ["Matchday in progress", `${md.played} of ${md.matches.length} matches played, ${left} still to play.`],
+      completed: ["Matchday completed", "Every match of this matchday has been played. The next matchday " +
+        "is not published by the source yet (a few days before it is played, later during " +
+        "international breaks): run <code>invoke update</code> again closer to it."],
+    }[DATA.status];
+    return `<div class="banner ${DATA.status === "completed" ? "" : "pending"}"><strong>${text[0]}</strong>${text[1]}</div>`;
   }
 
-  function show(i) {
-    const league = DATA.leagues[i];
-    document.getElementById("updated").textContent = `Results up to ${fmtDate(league.updated)}`;
-    document.getElementById("odds-downloaded").textContent =
-      league.odds_downloaded ? `on ${fmtDate(league.odds_downloaded, true)}` : "(unknown date)";
-    document.getElementById("fixtures").innerHTML = fixturesTable(league.fixtures);
-    document.getElementById("standings").innerHTML = standingsTable(league.standings);
-    document.getElementById("latest").innerHTML = resultsTable(league.latest);
+  function showStandings(i) {
+    const code = Object.keys(DATA.standings)[i];
+    $("standings").innerHTML = standingsTable(DATA.standings[code]);
   }
 
-  document.getElementById("legend").innerHTML = outcomeLegend();
-  if (DATA.leagues.length) {
-    segmented(document.getElementById("league-switch"), DATA.leagues.map((l) => l.name), 0, show);
-    show(0);
+  $("legend").innerHTML = MATCHDAY_LEGEND;
+  if (md) {
+    $("title").textContent = `Matchday ${md.number}`;
+    $("meta").textContent = `${fmtDate(md.start)} – ${fmtDate(md.end)} · current season, ${DATA.matchdays} matchdays so far`;
+    $("matches-title").textContent = `Matches and predictions · ${md.played}/${md.matches.length} played`;
+    $("status").innerHTML = statusBanner();
+    $("banners").innerHTML = DATA.models.length ? quinielaBanners(md, DATA.models) : "";
+    $("matches").innerHTML = DATA.models.length ? matchdayTable(md, DATA.models, DATA.leagues)
+      : '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+    $("odds").innerHTML = DATA.odds_downloaded
+      ? `Market odds as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`
+      : "";
   } else {
-    document.querySelector("main").insertAdjacentHTML("beforeend",
-      '<p class="empty">No data. Run <code>invoke download.current</code> first.</p>');
+    $("meta").textContent = "No current season data. Run invoke update first.";
+  }
+
+  const codes = Object.keys(DATA.standings);
+  if (codes.length) {
+    segmented($("league-switch"), codes.map((c) => DATA.leagues[c] ?? c), 0, showStandings);
+    showStandings(0);
   }
 </script>
 </body>

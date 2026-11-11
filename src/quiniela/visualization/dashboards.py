@@ -6,12 +6,13 @@ opens with a double click (no server, no network access needed).
 
 Dashboards:
 
-- ``current.html``: season in progress (upcoming fixtures with market
-  probabilities, latest results and standings).
+- ``current.html``: current matchday (matches, results when played, one
+  column per model with the market as reference, hit rate and quiniela
+  ticket) and the standings.
+- ``season.html``: every matchday of the current season, season totals per
+  model and the detail of any matchday.
 - ``historical.html``: completed seasons (1X2 split and goals per season,
   plus standings and results of the selected season).
-- ``predictions.html``: every matchday of the current season with the real
-  result, one column per model and the quiniela ticket outcome.
 - ``evaluation.html``: backtest metrics of every model over past seasons,
   one column per model, with the market as reference.
 """
@@ -27,7 +28,6 @@ import numpy as np
 import pandas as pd
 
 from quiniela.config import CURRENT_DIR, DASHBOARDS_DIR, HISTORICAL_DIR
-from quiniela.data.loading import pending_fixtures
 from quiniela.io.download import LEAGUES
 
 logger = logging.getLogger(__name__)
@@ -46,12 +46,6 @@ FORM_LENGTH = 5
 
 # Columns kept for every match (the rest of the ~200 columns are betting odds)
 MATCH_COLUMNS = ["date", "home_team", "away_team", "FTHG", "FTAG", "FTR"]
-
-# Odds used for the implied probabilities, in order of preference
-ODDS_COLUMNS: list[tuple[str, str, str]] = [
-    ("AvgH", "AvgD", "AvgA"),  # market average
-    ("B365H", "B365D", "B365A"),  # Bet365, available for most fixtures
-]
 
 # Placeholders replaced in the templates
 STYLE_PLACEHOLDER = "/*__STYLE__*/"
@@ -123,30 +117,6 @@ def standings(matches: pd.DataFrame, points_per_win: int = 3) -> pd.DataFrame:
     return table.astype({c: int for c in ["gf", "ga", "gd", "points"]}).reset_index(drop=True)
 
 
-def implied_probabilities(fixtures: pd.DataFrame) -> pd.DataFrame:
-    """Convert 1X2 odds into probabilities, removing the bookmaker margin.
-
-    The market average is used when available, otherwise Bet365.
-
-    Args:
-        fixtures: Upcoming matches with odds columns.
-
-    Returns:
-        DataFrame aligned with ``fixtures`` with columns ``p1``, ``px`` and
-        ``p2`` (NaN when no odds are published for a match).
-    """
-    probs = pd.DataFrame(index=fixtures.index, columns=["p1", "px", "p2"], dtype=float)
-    for columns in ODDS_COLUMNS:
-        if not set(columns).issubset(fixtures.columns):
-            continue
-        inverse = 1 / fixtures[list(columns)].astype(float)
-        # Normalise so the three outcomes add up to 1
-        normalised = inverse.div(inverse.sum(axis=1), axis=0)
-        normalised.columns = probs.columns
-        probs = probs.fillna(normalised)
-    return probs
-
-
 def season_summary(matches: pd.DataFrame) -> dict[str, float | int]:
     """Summarise the outcomes of a set of matches.
 
@@ -184,58 +154,6 @@ def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
 def _matches(df: pd.DataFrame) -> pd.DataFrame:
     """Keep the match columns used by the dashboards, sorted by date."""
     return df.reset_index(drop=True)[MATCH_COLUMNS].sort_values("date").reset_index(drop=True)
-
-
-def current_payload(current_dir: Path = CURRENT_DIR) -> dict[str, Any]:
-    """Collect the data shown in the current season dashboard.
-
-    Args:
-        current_dir: Folder with ``<code>/results.parquet`` and ``<code>/fixtures.parquet``.
-
-    Returns:
-        JSON-serialisable dictionary with one entry per league.
-    """
-    leagues = []
-    for code, name in LEAGUE_NAMES.items():
-        results_path = current_dir / code / "results.parquet"
-        if not results_path.exists():
-            logger.warning("No current data for %s (%s missing)", name, results_path)
-            continue
-        results = _matches(pd.read_parquet(results_path))
-        table = standings(results)
-
-        fixtures_path = current_dir / code / "fixtures.parquet"
-        fixtures = pd.read_parquet(fixtures_path) if fixtures_path.exists() else pd.DataFrame()
-        # Odds change until kick-off: the page says when this snapshot was taken
-        odds_downloaded = (
-            datetime.fromtimestamp(fixtures_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-            if fixtures_path.exists()
-            else None
-        )
-        upcoming: list[dict[str, Any]] = []
-        if not fixtures.empty:
-            # The source can still list matches already played: those are not "next"
-            fixtures = pending_fixtures(fixtures.reset_index(drop=True), results)
-            fixtures = fixtures.sort_values("date")
-            upcoming_df = fixtures[["date", "home_team", "away_team"]].join(
-                implied_probabilities(fixtures).round(4)
-            )
-            upcoming = _records(upcoming_df)
-
-        # A matchday has one match per pair of teams
-        latest = results.tail(len(table) // 2).iloc[::-1]
-        leagues.append(
-            {
-                "code": code,
-                "name": name,
-                "updated": results["date"].max().strftime("%Y-%m-%d"),
-                "odds_downloaded": odds_downloaded,
-                "fixtures": upcoming,
-                "latest": _records(latest),
-                "standings": _records(table),
-            }
-        )
-    return {"leagues": leagues}
 
 
 def historical_payload(historical_dir: Path = HISTORICAL_DIR) -> dict[str, Any]:
@@ -279,11 +197,11 @@ def _score(hits: int, misses: int) -> dict[str, Any]:
     return {"hits": hits, "misses": misses, "rate": round(hits / played, 4) if played else None}
 
 
-def predictions_payload(
+def season_payload(
     current: pd.DataFrame | None = None,
     predictions: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, Any]:
-    """Collect the data shown in the predictions dashboard.
+    """Collect the data shown in the season dashboard.
 
     Every matchday of the current season is listed with the real result (when
     played) and one prediction column per model, plus each model's hits and
@@ -297,7 +215,7 @@ def predictions_payload(
     Returns:
         JSON-serialisable dictionary with the models, matchdays and season totals.
     """
-    # Imported here: only this dashboard needs the prediction package
+    # Imported here: only the current and season dashboards need the prediction package
     from quiniela.prediction.registry import MODELS
     from quiniela.prediction.pipeline import current_matchdays, load_predictions
     from quiniela.prediction.ticket import evaluate_ticket, ticket_positions
@@ -401,6 +319,79 @@ def predictions_payload(
             }
             for k, t in totals.items()
         },
+    }
+
+
+def current_matchday_index(matchdays: list[dict[str, Any]]) -> int | None:
+    """Pick the matchday shown as current: the first one with matches still to play.
+
+    When every published match has been played (e.g. during an international
+    break, before the source publishes the next fixtures) the last matchday is
+    shown instead.
+
+    Args:
+        matchdays: Matchdays of ``season_payload`` in date order.
+
+    Returns:
+        Index of the current matchday, or ``None`` without matchdays.
+    """
+    if not matchdays:
+        return None
+    pending = [i for i, md in enumerate(matchdays) if md["played"] < len(md["matches"])]
+    return pending[0] if pending else len(matchdays) - 1
+
+
+def current_payload(
+    current: pd.DataFrame | None = None,
+    predictions: dict[str, pd.DataFrame] | None = None,
+    current_dir: Path = CURRENT_DIR,
+) -> dict[str, Any]:
+    """Collect the data shown in the current matchday dashboard.
+
+    Args:
+        current: Current season with ``round`` and ``matchday`` columns.
+            Defaults to the downloaded data.
+        predictions: Stored predictions per model key. Defaults to the saved files.
+        current_dir: Folder with the current season files (standings and the
+            download time of the odds).
+
+    Returns:
+        JSON-serialisable dictionary with the models, the current matchday,
+        its status and the standings of each league.
+    """
+    season = season_payload(current, predictions)
+    index = current_matchday_index(season["matchdays"])
+    matchday = None if index is None else season["matchdays"][index]
+    if matchday is None:
+        status = "empty"
+    elif matchday["played"] == 0:
+        status = "upcoming"
+    elif matchday["played"] < len(matchday["matches"]):
+        status = "in_progress"
+    else:
+        status = "completed"
+
+    standings_by_league: dict[str, list[dict[str, Any]]] = {}
+    odds_downloaded = None
+    for code in LEAGUE_NAMES:
+        results_path = current_dir / code / "results.parquet"
+        if results_path.exists():
+            results = _matches(pd.read_parquet(results_path))
+            standings_by_league[code] = _records(standings(results))
+        fixtures_path = current_dir / code / "fixtures.parquet"
+        if fixtures_path.exists():
+            # Odds change until kick-off: the page says when this snapshot was taken
+            stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
+            odds_downloaded = max(odds_downloaded or stamp, stamp)
+
+    return {
+        "models": season["models"],
+        "leagues": season["leagues"],
+        "matchday": matchday,
+        "status": status,
+        "matchdays": len(season["matchdays"]),
+        "standings": standings_by_league,
+        "odds_downloaded": odds_downloaded.strftime("%Y-%m-%d %H:%M") if odds_downloaded else None,
     }
 
 
@@ -618,6 +609,10 @@ def render(template: str, payload: dict[str, Any], output: Path) -> Path:
     return output
 
 
+# Dashboards of earlier versions, deleted when the dashboards are rebuilt
+RETIRED_DASHBOARDS = ["predictions.html"]
+
+
 def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     """Build every dashboard from the current data folders.
 
@@ -627,9 +622,11 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     Returns:
         Paths of the dashboards written.
     """
+    for name in RETIRED_DASHBOARDS:
+        (output_dir / name).unlink(missing_ok=True)
     return [
         render("current.html", current_payload(), output_dir / "current.html"),
+        render("season.html", season_payload(), output_dir / "season.html"),
         render("historical.html", historical_payload(), output_dir / "historical.html"),
-        render("predictions.html", predictions_payload(), output_dir / "predictions.html"),
         render("evaluation.html", evaluation_payload(), output_dir / "evaluation.html"),
     ]

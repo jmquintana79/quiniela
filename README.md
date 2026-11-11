@@ -144,20 +144,34 @@ invoke update
 invoke update --backtest
 ```
 
-- `dashboards/current.html`: current standings with recent form, latest results, and the
-  matches not played yet with the 1X2 probabilities implied by the **market odds** at the last
-  download. Those are the betting market's current view, **not a prediction of our models**
-  (see `predictions.html` for those). Matches already played are never listed as upcoming,
-  even when the source's fixtures file still includes them.
+Four dashboards, each answering one question:
+
+| Dashboard | Question | Content |
+|---|---|---|
+| `current.html` | What happens this week? | Current matchday and standings. |
+| `season.html` | How are the models doing this season? | Every matchday of the current season. |
+| `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
+| `evaluation.html` | Which model is better? | Backtest metrics over past seasons. |
+
+- `dashboards/current.html`: the **current matchday**: its matches (kick-off, teams, result
+  when played) with one column per model in registry order and the **market** last as the
+  reference column. Each cell shows the predicted sign and its probability, green with ✓ when
+  right and red with ✗ when wrong; the footer gives each model's hit rate on the played
+  matches. Above the table, a status banner (upcoming, in progress or completed) and the
+  14-match quiniela ticket outcome of each model; below, the standings of each league with
+  recent form. The current matchday is the first one with matches still to play; when every
+  published match has been played (e.g. during an international break, before the source
+  publishes the next fixtures) the last one is shown and marked as completed. The market
+  column is the bookmakers' odds at the last download, **not a prediction of our models**.
+- `dashboards/season.html`: the **current season**: totals per model (hit rate and prize
+  tickets), a table of every matchday with each model's hits and quiniela outcome, and the
+  detail of any matchday (same table as `current.html`). The ticket is approximated with the
+  matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
+  12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict
+  goals show their exact score and Pleno al 15 picks in the tooltip.
 - `dashboards/historical.html`: home win, draw and away win shares and goals per match for
   every season, plus the final standings and results of the selected season (filterable by
   team).
-- `dashboards/predictions.html`: every matchday of the current season with the real result
-  and one column per model (green when right, red when wrong), the hits and misses of each
-  model, and whether its 14-match quiniela ticket would have won a prize (14 hits 1st, 13 2nd,
-  12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). The ticket is
-  approximated with the matchday's La Liga matches followed by Segunda matches, up to 14.
-  Models that predict goals show their exact score and Pleno al 15 picks in the tooltip.
 - `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
   registry order (benchmark first, market last as reference), by league and season, plus
   calibration charts and an explanation of each metric.

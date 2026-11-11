@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Current Season</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Current season</h1>
+    <span class="meta" id="meta"></span>
+  </header>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Season so far</h2>
+    <div class="tiles" id="totals"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Matchdays</h2>
+    <div class="scroll" id="overview"></div>
+    <p class="meta" style="margin:10px 0 0">Click a matchday to open it below. The current matchday is
+      also in <a href="current.html">current.html</a>.</p>
+  </section>
+
+  <div class="filters">
+    <label>Matchday <select id="matchday"></select></label>
+    <span class="meta" id="matchday-dates"></span>
+  </div>
+
+  <section style="margin-bottom:8px" id="banners"></section>
+
+  <section class="card">
+    <h2 id="matches-title">Matches</h2>
+    <div class="scroll" id="matches"></div>
+    <p class="meta" style="margin:10px 0 0" id="legend"></p>
+  </section>
+</main>
+
+<script>const DATA = /*__DATA__*/null;</script>
+<script>/*__SCRIPT__*/</script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const models = DATA.models;
+  let selected = DATA.matchdays.length - 1;
+
+  function totalsTiles() {
+    if (!models.length) return '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+    return models.map((m) => {
+      const t = DATA.totals[m.key];
+      return `<div class="tile" data-tip="${esc(m.description)}">
+        <div class="label">${modelLabel(m)}</div>
+        <div class="value">${pct(t.rate, 1)}</div>
+        <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
+        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets</div>
+      </div>`;
+    }).join("");
+  }
+
+  function overviewTable() {
+    return `<table><thead><tr>
+        <th class="num">#</th><th>Dates</th><th class="num">Played</th>
+        ${models.map((m) => `<th class="num">${modelLabel(m)}</th><th>Quiniela</th>`).join("")}
+      </tr></thead><tbody>${DATA.matchdays.map((md, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
+        <td class="num">${md.number}</td>
+        <td class="muted">${fmtDate(md.start)} – ${fmtDate(md.end)}</td>
+        <td class="num">${md.played}/${md.matches.length}</td>
+        ${models.map((m) => {
+          const s = md.summary[m.key];
+          const played = s.hits + s.misses;
+          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s)}</td>`;
+        }).join("")}
+      </tr>`).join("")}</tbody></table>`;
+  }
+
+  function select(i) {
+    selected = i;
+    const md = DATA.matchdays[i];
+    $("matchday").value = i;
+    $("matchday-dates").textContent = `${fmtDate(md.start)} – ${fmtDate(md.end)}`;
+    $("matches-title").textContent = `Matchday ${md.number}`;
+    $("banners").innerHTML = quinielaBanners(md, models);
+    $("matches").innerHTML = matchdayTable(md, models, DATA.leagues);
+    $("overview").innerHTML = overviewTable();
+    $("overview").querySelectorAll("tr.clickable").forEach((row) =>
+      row.addEventListener("click", () => select(Number(row.dataset.i))));
+  }
+
+  $("legend").innerHTML = MATCHDAY_LEGEND;
+  $("totals").innerHTML = totalsTiles();
+  if (DATA.matchdays.length && models.length) {
+    $("meta").textContent = `${DATA.matchdays.length} matchdays`;
+    $("matchday").innerHTML = DATA.matchdays.map((md, i) =>
+      `<option value="${i}">${md.number}</option>`).join("");
+    $("matchday").addEventListener("change", (e) => select(Number(e.target.value)));
+    select(selected);
+  } else {
+    $("meta").textContent = "No current season data or predictions. Run invoke update first.";
+  }
+</script>
+</body>
+</html>

@@ -38,24 +38,6 @@ def test_standings_two_points_per_win() -> None:
     assert table.set_index("team").loc["A", "points"] == 4
 
 
-def test_implied_probabilities_remove_margin_and_fall_back() -> None:
-    fixtures = pd.DataFrame(
-        {
-            "AvgH": [2.0, None],
-            "AvgD": [4.0, None],
-            "AvgA": [4.0, None],
-            "B365H": [1.5, 3.0],
-            "B365D": [4.0, 3.0],
-            "B365A": [6.0, 3.0],
-        }
-    )
-    probs = dashboards.implied_probabilities(fixtures)
-
-    assert probs.sum(axis=1).round(6).tolist() == [1.0, 1.0]
-    assert probs.iloc[0].tolist() == pytest.approx([0.5, 0.25, 0.25])  # market average
-    assert probs.iloc[1].tolist() == pytest.approx([1 / 3] * 3)  # Bet365 fallback
-
-
 def test_season_summary() -> None:
     summary = dashboards.season_summary(MATCHES)
     assert summary == {"matches": 4, "home": 0.5, "draw": 0.25, "away": 0.25, "goals": 2.5}
@@ -84,7 +66,7 @@ def test_historical_payload_sorts_seasons_by_year(tmp_path: Path) -> None:
     assert league["seasons"][0]["standings"][0]["points"] == 6
 
 
-def test_predictions_payload_scores_models_and_tickets() -> None:
+def test_season_payload_scores_models_and_tickets() -> None:
     from tests.helpers import make_matches
 
     # Matchday 1: 14 La Liga matches, all home wins, played
@@ -94,7 +76,7 @@ def test_predictions_payload_scores_models_and_tickets() -> None:
         prediction=["H"] * 11 + ["A"] * 3, p_H=0.5, p_D=0.3, p_A=0.2
     )
 
-    payload = dashboards.predictions_payload(current, {"head_to_head": predictions})
+    payload = dashboards.season_payload(current, {"head_to_head": predictions})
 
     assert [m["key"] for m in payload["models"]] == ["head_to_head"]
     summary = payload["matchdays"][0]["summary"]["head_to_head"]
@@ -113,18 +95,18 @@ def test_predictions_payload_scores_models_and_tickets() -> None:
     assert first["head_to_head_sign"] == "H" and first["ticket"] == 1
 
 
-def test_predictions_payload_without_predictions() -> None:
+def test_season_payload_without_predictions() -> None:
     from tests.helpers import make_matches
 
     current = make_matches([("SP1", "2026-08-15", "A", "B", None, None)]).assign(
         round=1, matchday=1
     )
-    payload = dashboards.predictions_payload(current, {})
+    payload = dashboards.season_payload(current, {})
     assert payload["models"] == [] and payload["totals"] == {}
     assert payload["matchdays"][0]["played"] == 0
 
 
-def test_predictions_payload_counts_matches_without_prediction() -> None:
+def test_season_payload_counts_matches_without_prediction() -> None:
     from tests.helpers import make_matches
 
     # 15 played home wins; the model has no prediction for two of them
@@ -134,7 +116,7 @@ def test_predictions_payload_counts_matches_without_prediction() -> None:
         current[["league", "game"]].iloc[2:].assign(prediction="H", p_H=0.5, p_D=0.3, p_A=0.2)
     )
 
-    payload = dashboards.predictions_payload(current, {"head_to_head": predictions})
+    payload = dashboards.season_payload(current, {"head_to_head": predictions})
 
     summary = payload["matchdays"][0]["summary"]["head_to_head"]
     # Missing predictions are their own category, outside the hit rate
@@ -193,14 +175,76 @@ def test_evaluation_payload_without_backtest() -> None:
     assert payload["models"] == [] and payload["results"] == {}
 
 
-def test_current_payload_hides_played_fixtures(tmp_path: Path) -> None:
+def _current_season(played: list[bool]) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
+    """Two matchdays of 14 La Liga matches; ``played`` says which ones have results."""
+    from tests.helpers import make_matches
+
+    rows = []
+    for matchday, done in enumerate(played, start=1):
+        day = f"2026-08-{14 + 7 * matchday}"
+        goals = (1, 0) if done else (None, None)
+        rows += [("SP1", day, f"H{matchday}{i}", f"A{matchday}{i}", *goals) for i in range(14)]
+    current = make_matches(rows)
+    current["matchday"] = [1] * 14 + [2] * 14
+    current["round"] = current["matchday"]
+    predictions = current[["league", "game"]].assign(prediction="H", p_H=0.5, p_D=0.3, p_A=0.2)
+    return current, {"head_to_head": predictions}
+
+
+@pytest.mark.parametrize(
+    ("played", "number", "status"),
+    [
+        ([True, False], 2, "upcoming"),  # next matchday published, nothing played yet
+        ([True, True], 2, "completed"),  # e.g. international break: next one not published
+    ],
+)
+def test_current_payload_picks_the_current_matchday(
+    tmp_path: Path, played: list[bool], number: int, status: str
+) -> None:
+    current, predictions = _current_season(played)
+    payload = dashboards.current_payload(current, predictions, current_dir=tmp_path)
+
+    assert payload["matchday"]["number"] == number
+    assert payload["status"] == status
+    assert payload["matchdays"] == 2
+    assert [m["key"] for m in payload["models"]] == ["head_to_head"]
+
+
+def test_current_matchday_in_progress() -> None:
+    matchdays = [
+        {"played": 10, "matches": [{}] * 10},
+        {"played": 3, "matches": [{}] * 10},
+        {"played": 0, "matches": [{}] * 10},
+    ]
+    assert dashboards.current_matchday_index(matchdays) == 1
+    assert dashboards.current_matchday_index([]) is None
+
+
+def test_current_payload_standings_and_odds_time(tmp_path: Path) -> None:
     from tests.test_loading import _write
 
     _write(tmp_path / "SP1" / "results.parquet", [("2026-11-08", "A", "B", 1, 0)])
-    _write(tmp_path / "SP1" / "fixtures.parquet", [("2026-11-08", "A", "B", None, None)])
+    _write(tmp_path / "SP1" / "fixtures.parquet", [("2026-11-15", "C", "D", None, None)])
+    current, predictions = _current_season([True, False])
 
-    league = dashboards.current_payload(tmp_path)["leagues"][0]
+    payload = dashboards.current_payload(current, predictions, current_dir=tmp_path)
 
-    assert league["fixtures"] == []  # already played: not "next matchday"
-    assert league["odds_downloaded"] is not None
-    assert len(league["latest"]) == 1
+    assert [row["team"] for row in payload["standings"]["SP1"]] == ["A", "B"]
+    assert payload["odds_downloaded"] is not None
+
+
+def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("current", "season", "historical", "evaluation"):
+        monkeypatch.setattr(dashboards, f"{name}_payload", lambda: {"leagues": [], "models": []})
+    old = tmp_path / "predictions.html"
+    old.write_text("old")
+
+    paths = dashboards.build_dashboards(tmp_path)
+
+    assert not old.exists()
+    assert sorted(p.name for p in paths) == [
+        "current.html",
+        "evaluation.html",
+        "historical.html",
+        "season.html",
+    ]
