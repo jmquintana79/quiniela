@@ -115,7 +115,8 @@ function modelLabel(m) {
 }
 
 /**
- * Prediction cell: sign and its probability; green check for a hit, red cross
+ * Prediction cell: the predicted sign only (probability, score and Pleno al 15
+ * in the tooltip, to keep columns narrow); green check for a hit, red cross
  * for a miss, outline while pending, dashed outline without a prediction.
  */
 function pickCell(match, key) {
@@ -125,7 +126,7 @@ function pickCell(match, key) {
   const score = match[`${key}_score`];
   const extra = score ? ` · score ${score} · Pleno al 15 ${match[`${key}_pleno`]}` : "";
   const tip = `Predicted ${SIGN[sign]} (${pct(prob, 1)})${extra}`;
-  const label = `${SIGN[sign]} <small>${pct(prob)}</small>`;
+  const label = SIGN[sign];
   if (!match.FTR) return `<span class="pick pending" data-tip="${tip}">${label}</span>`;
   const hit = sign === match.FTR;
   return `<span class="pick ${hit ? "hit" : "miss"}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
@@ -207,6 +208,6 @@ function matchdayTable(md, models, leagues) {
 const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La Liga first, then
   Segunda, in kick-off order). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
   Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
-  international breaks, with only Segunda). Each cell shows the predicted sign and its probability:
-  ✓ hit · ✗ miss · outline: pending · – no prediction. The market column is the reference
+  international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
+  probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market column is the reference
   (bookmakers' odds), not one of our models.`;

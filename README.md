@@ -155,8 +155,10 @@ Four dashboards, each answering one question:
 
 - `dashboards/current.html`: the **current matchday**: its matches (kick-off, teams, result
   when played) with one column per model in registry order and the **market** last as the
-  reference column. Each cell shows the predicted sign and its probability, green with ✓ when
-  right and red with ✗ when wrong; the footer gives each model's hit rate on the played
+  reference column. Each cell shows only the predicted sign, green with ✓ when right and red
+  with ✗ when wrong, so the table has room for more models; hovering it shows the probability
+  (and, for models that predict goals, the exact score and Pleno al 15 picks). The footer gives
+  each model's hit rate on the played
   matches. Above the table, a status banner (upcoming, in progress or completed) and the
   14-match quiniela ticket outcome of each model; below, the standings of each league with
   recent form. The current matchday is the first one with matches still to play; when every
@@ -458,6 +460,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.2.3`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.3) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Dashboards split into `current.html` (current matchday with every model, the market and hit rates) and `season.html`; prediction cells show only the sign (probability on hover); played matches never listed as upcoming. |
 | [`v0.2.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.2) | v1 head-to-head, **v2 Dixon-Coles**, market reference | `invoke update`: one task to download what is missing, predict the current season and rebuild the dashboards. |
 | [`v0.2.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.1) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Calibrator and draw rule removed: in the backtest they did not improve the hit rate or the probabilities of v2. |
 | [`v0.2.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.0) | v1 head-to-head, **v2 Dixon-Coles**, v2 + calibrator, market reference | Walk-forward backtest, probabilistic metrics, evaluation dashboard. |
