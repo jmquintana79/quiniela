@@ -154,11 +154,43 @@ Accuracy alone is a crude measure (it only looks at the most likely sign, and a 
 matches leave a margin of about ±3 points), so every model is evaluated on **probabilities**,
 over many seasons, and against two references:
 
-- **Always "1"**: predicting a home win in every match (45.3% hit rate in the backtest).
-- **Market**: the probabilities implied by the bookmakers' odds with their margin removed,
-  $p_k = (1/o_k) / \sum_j (1/o_j)$ ([`quiniela/prediction/market.py`](src/quiniela/prediction/market.py)).
-  It is the realistic ceiling: getting close to it means a model captures most of the
-  available information.
+- **Always "1"**: predicting a home win in every match (45.3% hit rate in the backtest). The
+  floor: a model that does not beat it adds nothing.
+- **Market**: the bookmakers' own forecast, explained below. The ceiling.
+
+### The market reference
+
+"Market" is **not a model of ours**: it is the forecast hidden in the betting odds that
+football-data.co.uk publishes with every match
+([`quiniela/prediction/market.py`](src/quiniela/prediction/market.py)).
+
+**From odds to probabilities.** A decimal odd $o$ pays $o$ times the stake, so it implies a
+probability of $1/o$ (odds of 2.00 mean 50%). The three implied probabilities of a match add up
+to slightly more than 100%; the excess is the **bookmaker's margin**. Normalising them removes
+it:
+
+```math
+p_k = \frac{1/o_k}{1/o_1 + 1/o_X + 1/o_2}, \qquad k \in \{1, X, 2\}
+```
+
+For example, odds of 2.10 / 3.40 / 3.60 imply 47.6% + 29.4% + 27.8% = 104.8% (a 4.8% margin),
+which normalise to 45.4% / 28.1% / 26.5%.
+
+**Which odds.** Pre-match odds (not closing odds, so no information from the last hours before
+kick-off is used). For each match, the first bookmaker with the three odds available, in this
+order: market average across bookmakers (`Avg`, since 2019-20), Betbrain average (`BbAv`,
+2005-2019), Pinnacle (`PS`), then single bookmakers available in older seasons (`B365`, `BW`,
+`IW`, `WH`, `LB`). A match without any odds gets no prediction (21 of the 9,262 backtest
+matches) and is left out of the market's metrics.
+
+**Why it is the ceiling.** Odds summarise everything the betting market knows before the
+match: team form, injuries, line-ups, news and the money of many bettors, and bookmakers lose
+money if they are wrong. Getting close to the market means a model captures most of the
+available information; beating it consistently is very hard. It is shown in every table as a
+**reference**, not a candidate: it never counts as the best model (bold) and it is not used to
+train any model.
+
+### Metrics
 
 With $N$ matches, $p_{ik}$ the probability given to outcome $k$ (1, X or 2) in match $i$, and
 $o_{ik} = 1$ if that outcome happened (0 otherwise):
@@ -171,9 +203,41 @@ $o_{ik} = 1$ if that outcome happened (0 otherwise):
 | RPS | $\frac{1}{N}\sum_i \frac{1}{2}\sum_{k=1}^{2}\left(\sum_{j \le k} p_{ij} - \sum_{j \le k} o_{ij}\right)^2$ | lower | Ranked probability score: Brier on cumulative probabilities, so 1, X, 2 are ordered and a draw is a smaller miss than the opposite result (0 to 1). |
 | Calibration | predicted probability vs observed frequency, in 10% bins | on the diagonal | When the model says 60%, does it happen 60% of the times? |
 
-Also reported: share of X picks against real draws, exact score and Pleno al 15 hit rates (for
-models that predict goals), and quiniela prize tickets (matchdays whose 14-match ticket got
-10 or more hits). The metrics are implemented in
+Also reported:
+
+| Metric | Meaning |
+|---|---|
+| X picks | Share of matches where the predicted sign is X (draw). See below. |
+| Real draws | Share of matches that actually ended in a draw (28.3% in the backtest), to compare with X picks. |
+| Exact score | Share of matches whose most likely score was the real one (models that predict goals). |
+| Pleno al 15 | Share of matches where both teams' goal categories (0, 1, 2, M = 3+) were right. |
+| Prize tickets | Matchdays whose 14-match ticket got 10 or more hits (5th category or better), out of the matchdays with a full ticket. |
+
+### X picks
+
+**X picks** is the share of matches in which a model's predicted sign is a draw:
+
+```math
+\text{X picks} = \frac{1}{N}\sum_i \mathbb{1}[\hat r_i = X]
+```
+
+It is not a quality metric (there is no "better" direction): it shows how a model handles
+draws, next to **real draws**, the share of matches that actually ended level.
+
+Every model picks far fewer X than there are draws (Dixon-Coles 1.2% and the market 0.5%,
+against 28.3% real draws). This is expected, not a bug. The predicted sign is the **single most
+likely** outcome, and a draw is rarely the most likely one even when it is quite probable. With
+probabilities 1 = 40%, X = 32%, 2 = 28%, the draw is a real possibility, but "1" is still the
+best single bet. Draws happen often, but they are spread across many matches where they are
+never the favourite.
+
+Picking more X does not help by itself either: the head-to-head benchmark picks X in 15.1% of
+the matches and still has the lowest hit rate, because many of those draws do not happen. For
+a well-calibrated model, choosing the most likely sign already maximises the expected number of
+hits. A model that predicted X more often would only gain hits if it identified draws better,
+for instance through better probabilities.
+
+The metrics are implemented in
 [`quiniela/evaluation/metrics.py`](src/quiniela/evaluation/metrics.py) and the backtest in
 [`quiniela/evaluation/backtest.py`](src/quiniela/evaluation/backtest.py).
 
