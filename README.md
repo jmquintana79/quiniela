@@ -144,8 +144,11 @@ invoke update
 invoke update --backtest
 ```
 
-- `dashboards/current.html`: next matchday with the 1X2 probabilities implied by the
-  market odds, current standings with recent form, and latest results.
+- `dashboards/current.html`: current standings with recent form, latest results, and the
+  matches not played yet with the 1X2 probabilities implied by the **market odds** at the last
+  download. Those are the betting market's current view, **not a prediction of our models**
+  (see `predictions.html` for those). Matches already played are never listed as upcoming,
+  even when the source's fixtures file still includes them.
 - `dashboards/historical.html`: home win, draw and away win shares and goals per match for
   every season, plus the final standings and results of the selected season (filterable by
   team).

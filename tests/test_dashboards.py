@@ -191,3 +191,16 @@ def test_evaluation_payload() -> None:
 def test_evaluation_payload_without_backtest() -> None:
     payload = dashboards.evaluation_payload(pd.DataFrame())
     assert payload["models"] == [] and payload["results"] == {}
+
+
+def test_current_payload_hides_played_fixtures(tmp_path: Path) -> None:
+    from tests.test_loading import _write
+
+    _write(tmp_path / "SP1" / "results.parquet", [("2026-11-08", "A", "B", 1, 0)])
+    _write(tmp_path / "SP1" / "fixtures.parquet", [("2026-11-08", "A", "B", None, None)])
+
+    league = dashboards.current_payload(tmp_path)["leagues"][0]
+
+    assert league["fixtures"] == []  # already played: not "next matchday"
+    assert league["odds_downloaded"] is not None
+    assert len(league["latest"]) == 1

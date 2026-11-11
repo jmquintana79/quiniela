@@ -37,6 +37,9 @@ MATCH_COLUMNS = [
 ODDS_PREFIXES = ["Avg", "BbAv", "PS", "B365", "BW", "IW", "WH", "LB"]
 ODDS_COLUMNS = [f"{prefix}{outcome}" for prefix in ODDS_PREFIXES for outcome in "HDA"]
 
+# A league pairing (home team at its ground) is played once per season
+FIXTURE_KEY = ["league", "home_team", "away_team"]
+
 
 def season_label(code: str) -> str:
     """Convert a football-data.co.uk season code into a label (``"9900"`` -> ``"1999-00"``).
@@ -106,8 +109,11 @@ def load_historical(historical_dir: Path = HISTORICAL_DIR) -> pd.DataFrame:
 def load_current(current_dir: Path = CURRENT_DIR) -> pd.DataFrame:
     """Load the season in progress: played matches plus upcoming fixtures.
 
-    A fixture that already appears among the results (same league and game id)
-    is dropped, so each match appears once.
+    A fixture that already appears among the results is dropped, so each match
+    appears once. The source's fixtures file can lag behind (it may still list
+    last weekend's matches) and a rescheduled match changes its date, so a
+    fixture is matched by league, home team and away team: each pairing is
+    played once per season at the same ground.
 
     Args:
         current_dir: Folder with ``<code>/results.parquet`` and ``<code>/fixtures.parquet``.
@@ -123,5 +129,20 @@ def load_current(current_dir: Path = CURRENT_DIR) -> pd.DataFrame:
                 frames.append(_read_matches(path, league_dir.name))
     matches = _concat(frames)
     # Results come first, so keep="first" keeps the played version of a match
-    matches = matches.drop_duplicates(subset=["league", "game"], keep="first")
+    matches = matches.drop_duplicates(subset=FIXTURE_KEY, keep="first")
     return matches.sort_values("date", ignore_index=True)
+
+
+def pending_fixtures(fixtures: pd.DataFrame, results: pd.DataFrame) -> pd.DataFrame:
+    """Drop the fixtures that have already been played.
+
+    Args:
+        fixtures: Upcoming matches of one league (``home_team``, ``away_team``).
+        results: Played matches of the same league and season.
+
+    Returns:
+        The fixtures whose home/away pairing is not among the results.
+    """
+    played = pd.MultiIndex.from_frame(results[["home_team", "away_team"]])
+    pairs = pd.MultiIndex.from_frame(fixtures[["home_team", "away_team"]])
+    return fixtures[~pairs.isin(played)]

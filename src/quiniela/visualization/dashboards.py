@@ -18,6 +18,7 @@ Dashboards:
 
 import json
 import logging
+from datetime import datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from quiniela.config import CURRENT_DIR, DASHBOARDS_DIR, HISTORICAL_DIR
+from quiniela.data.loading import pending_fixtures
 from quiniela.io.download import LEAGUES
 
 logger = logging.getLogger(__name__)
@@ -204,9 +206,17 @@ def current_payload(current_dir: Path = CURRENT_DIR) -> dict[str, Any]:
 
         fixtures_path = current_dir / code / "fixtures.parquet"
         fixtures = pd.read_parquet(fixtures_path) if fixtures_path.exists() else pd.DataFrame()
+        # Odds change until kick-off: the page says when this snapshot was taken
+        odds_downloaded = (
+            datetime.fromtimestamp(fixtures_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            if fixtures_path.exists()
+            else None
+        )
         upcoming: list[dict[str, Any]] = []
         if not fixtures.empty:
-            fixtures = fixtures.reset_index(drop=True).sort_values("date")
+            # The source can still list matches already played: those are not "next"
+            fixtures = pending_fixtures(fixtures.reset_index(drop=True), results)
+            fixtures = fixtures.sort_values("date")
             upcoming_df = fixtures[["date", "home_team", "away_team"]].join(
                 implied_probabilities(fixtures).round(4)
             )
@@ -219,6 +229,7 @@ def current_payload(current_dir: Path = CURRENT_DIR) -> dict[str, Any]:
                 "code": code,
                 "name": name,
                 "updated": results["date"].max().strftime("%Y-%m-%d"),
+                "odds_downloaded": odds_downloaded,
                 "fixtures": upcoming,
                 "latest": _records(latest),
                 "standings": _records(table),

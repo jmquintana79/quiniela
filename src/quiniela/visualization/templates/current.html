@@ -16,10 +16,28 @@
   <div class="filters"><div class="segmented" id="league-switch"></div></div>
 
   <section class="card" style="margin-bottom:16px">
-    <h2>Next matchday</h2>
+    <h2>Next matchday · market odds</h2>
+    <div class="banner pending">
+      <strong>This is not a prediction of our models.</strong>
+      It is the betting market's current view of the matches not played yet: the probabilities
+      implied by the bookmakers' odds at the last download. The predictions of our models, and
+      whether they were right, are in <a href="predictions.html">predictions.html</a>.
+    </div>
     <div id="legend"></div>
     <div class="scroll" id="fixtures"></div>
-    <p class="meta" style="margin:10px 0 0">Probabilities implied by the average market odds, with the bookmaker margin removed.</p>
+    <div class="meta" style="margin:10px 0 0">
+      <p style="margin:0 0 4px"><strong>Where the probabilities come from.</strong>
+        The upcoming fixtures file of football-data.co.uk publishes each match's pre-match odds.
+        Each odd <em>o</em> implies a probability 1/<em>o</em>; the three add up to slightly more
+        than 100% (the bookmaker's margin), so they are normalised:
+        p<sub>k</sub> = (1/o<sub>k</sub>) / (1/o<sub>1</sub> + 1/o<sub>X</sub> + 1/o<sub>2</sub>).
+        The average odds across bookmakers are used, or Bet365's when the average is missing.</p>
+      <p style="margin:0 0 4px"><strong>Current state, not final.</strong>
+        Odds keep moving until kick-off (injuries, line-ups, money). These are the odds as
+        downloaded <span id="odds-downloaded"></span>; run <code>invoke update</code> to refresh them.</p>
+      <p style="margin:0">Only matches not played yet appear here: once played, a match leaves this
+        list and shows up in <strong>Latest results</strong>.</p>
+    </div>
   </section>
 
   <div class="grid two">
@@ -31,23 +49,28 @@
 <script>const DATA = /*__DATA__*/null;</script>
 <script>/*__SCRIPT__*/</script>
 <script>
-  // Upcoming fixtures with the 1X2 probability bar
+  // Upcoming fixtures with the market's 1X2 probability bar (not a model prediction)
   function fixturesTable(rows) {
-    if (!rows.length) return '<p class="empty">No upcoming fixtures published yet.</p>';
+    if (!rows.length) return '<p class="empty">No upcoming fixtures published yet. The source publishes ' +
+      'the next matchday a few days before it is played (later during international breaks); ' +
+      'run <code>invoke update</code> again closer to the matchday.</p>';
     return `<table><thead><tr>
         <th>Kick-off</th><th class="num">Home</th><th></th><th>Away</th>
-        <th style="width:40%">1 · X · 2</th>
+        <th style="width:40%">Market odds · 1 · X · 2</th>
       </tr></thead><tbody>${rows.map((f) => `<tr>
         <td class="muted">${fmtDate(f.date, true)}</td>
         <td class="num strong">${esc(f.home_team)}</td><td class="muted">vs</td>
         <td class="strong">${esc(f.away_team)}</td>
-        <td>${outcomeBar(f.p1, f.px, f.p2, [`${f.home_team} win`, "Draw", `${f.away_team} win`])}</td>
+        <td>${outcomeBar(f.p1, f.px, f.p2,
+          [`Market: ${f.home_team} win`, "Market: draw", `Market: ${f.away_team} win`])}</td>
       </tr>`).join("")}</tbody></table>`;
   }
 
   function show(i) {
     const league = DATA.leagues[i];
     document.getElementById("updated").textContent = `Results up to ${fmtDate(league.updated)}`;
+    document.getElementById("odds-downloaded").textContent =
+      league.odds_downloaded ? `on ${fmtDate(league.odds_downloaded, true)}` : "(unknown date)";
     document.getElementById("fixtures").innerHTML = fixturesTable(league.fixtures);
     document.getElementById("standings").innerHTML = standingsTable(league.standings);
     document.getElementById("latest").innerHTML = resultsTable(league.latest);
