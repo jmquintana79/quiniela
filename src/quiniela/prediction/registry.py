@@ -17,7 +17,6 @@ from typing import Any, Protocol, Self
 import numpy as np
 import pandas as pd
 
-from quiniela.prediction.calibration import CalibratedModel
 from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
@@ -74,13 +73,6 @@ MODELS: dict[str, ModelSpec] = {
         factory=DixonColesModel,
         description="Poisson goals from time-weighted team attack and defence strengths, "
         "with league goal levels, home advantage and a low-score correction.",
-        version="v2",
-    ),
-    "dixon_coles_calibrated": ModelSpec(
-        name="Dixon-Coles + calibrator",
-        factory=lambda: CalibratedModel(DixonColesModel()),
-        description="Dixon-Coles probabilities re-weighted by an outcome calibrator learned "
-        "on held-out matches, with the draw rule as final decision.",
         version="v2",
     ),
     "market": ModelSpec(

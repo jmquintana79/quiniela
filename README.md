@@ -191,8 +191,7 @@ bold = best candidate model):
 | Version | Key | Status | Hit rate | Log-loss | Brier | RPS | X picks | Prize tickets |
 |---|---|---|---|---|---|---|---|---|
 | v1 · Head-to-head | `head_to_head` | Benchmark | 43.3% | 1.1155 | 0.6689 | 0.2261 | 15.1% | 14 / 376 |
-| v2 · Dixon-Coles | `dixon_coles` | **Current** | **48.7%** | **1.0215** | **0.6130** | **0.2059** | 1.2% | 27 / 376 |
-| v2 · Dixon-Coles + calibrator | `dixon_coles_calibrated` | Experimental | 48.4% | 1.0225 | 0.6138 | 0.2061 | 6.9% | **30 / 376** |
+| v2 · Dixon-Coles | `dixon_coles` | **Current** | **48.7%** | **1.0215** | **0.6130** | **0.2059** | 1.2% | **27 / 376** |
 | Market | `market` | Reference | 50.0% | 1.0046 | 0.6013 | 0.2007 | 0.5% | 40 / 376 |
 
 *Real draws: 28.3%. Always "1": 45.3%. Exact score and Pleno al 15 hit rates of v2: 14.1% and
@@ -200,10 +199,10 @@ bold = best candidate model):
 
 By league (hit rate):
 
-| League | Always "1" | v1 | v2 | v2 + calibrator | Market |
-|---|---|---|---|---|---|
-| La Liga | 45.7% | 47.0% | 52.9% | 52.8% | 53.9% |
-| Segunda | 45.0% | 40.2% | 45.3% | 44.8% | 46.8% |
+| League | Always "1" | v1 | v2 | Market |
+|---|---|---|---|---|
+| La Liga | 45.7% | 47.0% | 52.9% | 53.9% |
+| Segunda | 45.0% | 40.2% | 45.3% | 46.8% |
 
 ### v1 · Head-to-head benchmark (`head_to_head`)
 
@@ -331,43 +330,6 @@ the matrix by category.
 - The fitted $\rho$ is close to 0 in this data: the low-score correction barely changes the
   probabilities.
 
-### Calibrator and draw rule (`dixon_coles_calibrated`)
-
-[`quiniela/prediction/calibration.py`](src/quiniela/prediction/calibration.py)
-
-A post-processing step that can follow any model, as a final decision layer, with the
-scikit-learn API: `OutcomeCalibrator` (`fit(probabilities, results)`) and `CalibratedModel`,
-which wraps a model and a calibrator into one estimator.
-
-**Calibrated probabilities.** One offset per outcome ($b_1 = 0$), learned by minimising the
-log-loss:
-
-```math
-q_k = \frac{p_k\, e^{b_k}}{\sum_j p_j\, e^{b_j}}
-```
-
-**Draw rule.** The sign is X when the calibrated draw probability is within a margin $m$ of the
-favourite; $m$ is chosen to maximise hits and stays 0 unless picking more draws helps:
-
-```math
-\hat r =
-\begin{cases}
-X & \text{if } q_X + m \ge \max(q_1, q_2) \\
-\arg\max_{k \in \{1, 2\}} q_k & \text{otherwise}
-\end{cases}
-```
-
-**Out-of-sample fitting.** `CalibratedModel.fit` trains the model without its last 365 days,
-predicts those matches, fits the calibrator on them and finally refits the model on all the
-data, so the calibrator never learns from in-sample predictions.
-
-**Observations.** The calibrator picks more X (6.9% of matches) and wins a few more prize
-tickets (30 vs 27), but its hit rate and probabilities are slightly worse than plain v2. That
-is what theory predicts for an already well-calibrated model: picking the most likely sign
-maximises the expected hits, so a draw rule cannot add hits on average. The prize difference is
-within chance, so plain v2 stays the current model; the calibrator is kept for models that are
-not well calibrated.
-
 ### Next steps
 
 - **Pi-ratings** (Constantinou & Fenton, 2013): separate home and away ratings learned from
@@ -384,6 +346,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.2.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.1) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Calibrator and draw rule removed: in the backtest they did not improve the hit rate or the probabilities of v2. |
 | [`v0.2.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.0) | v1 head-to-head, **v2 Dixon-Coles**, v2 + calibrator, market reference | Walk-forward backtest, probabilistic metrics, evaluation dashboard. |
 | [`v0.1.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.1.0) | v1 head-to-head | Project structure, data download and first benchmark, evaluated on the current season only. |
 
@@ -402,7 +365,7 @@ version in `pyproject.toml`:
 │   ├── config/paths.py      # filesystem paths used by the project
 │   ├── io/download.py       # historical and current season downloads
 │   ├── data/                # match loaders and matchday inference
-│   ├── prediction/          # model registry, models, calibrator, pipeline, ticket rules
+│   ├── prediction/          # model registry, models, pipeline, ticket rules
 │   ├── evaluation/          # metrics and the multi-season backtest
 │   ├── visualization/       # dashboard builder and HTML templates
 │   └── scripts.py           # `quiniela` command line entry point

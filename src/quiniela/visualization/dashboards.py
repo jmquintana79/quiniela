@@ -304,7 +304,7 @@ def predictions_payload(
         aligned = p.reindex(pd.MultiIndex.from_frame(matches[["league", "game"]]))
         signs = aligned["prediction"]
         matches[f"{key}_sign"] = signs.to_numpy()
-        # Probability of the predicted sign (not always the largest one: see the draw rule)
+        # Probability of the predicted sign (a model may not always pick the largest one)
         prob = pd.Series(np.nan, index=aligned.index)
         for outcome in ("H", "D", "A"):
             chosen = (signs == outcome).to_numpy()

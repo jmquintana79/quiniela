@@ -10,14 +10,12 @@ Submodules:
 - ``registry``: model interface and registered models.
 - ``head_to_head``: v1, head-to-head benchmark.
 - ``dixon_coles``: v2, Dixon-Coles team strengths with time decay.
-- ``calibration``: outcome calibrator and draw rule applied after any model.
 - ``market``: market reference (bookmakers' implied probabilities).
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``ticket``: quiniela ticket composition and prize rules.
 """
 
 from quiniela.prediction import (
-    calibration,
     dixon_coles,
     head_to_head,
     market,
@@ -25,7 +23,6 @@ from quiniela.prediction import (
     registry,
     ticket,
 )
-from quiniela.prediction.calibration import CalibratedModel, OutcomeCalibrator
 from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
@@ -35,14 +32,11 @@ from quiniela.prediction.registry import DEFAULT_MODEL, MODELS, ModelSpec, Predi
 __all__ = [
     "DEFAULT_MODEL",
     "MODELS",
-    "CalibratedModel",
     "DixonColesModel",
     "HeadToHeadModel",
     "MarketModel",
     "ModelSpec",
-    "OutcomeCalibrator",
     "Predictor",
-    "calibration",
     "dixon_coles",
     "head_to_head",
     "market",

@@ -66,6 +66,9 @@ def typecheck(ctx: Context) -> None:
 @task(help={"serve": "Start a live docs server and open it in the browser instead."})
 def docs(ctx: Context, serve: bool = False) -> None:
     """Generate the HTML API documentation of src/ with pdoc."""
+    if not serve:
+        # pdoc never deletes pages, so start empty to drop those of removed modules
+        ctx.run(f"rm -rf {DOCS_DIR}")
     output = "" if serve else f" --output-directory {DOCS_DIR}"
     # pdoc imports the package; allow the subprocesses some libraries start on import
     ctx.run(
