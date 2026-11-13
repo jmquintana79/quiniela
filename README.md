@@ -210,13 +210,22 @@ Four dashboards, each answering one question:
 - `dashboards/current.html`: the **current matchday**. When the next official ticket is saved
   (`data/lae/upcoming.json`, see [the next ticket](#official-draws-real-tickets-winners-and-prizes))
   and its sales closed less than four days ago, the current matchday is **that ticket**, in its
-  official order: the sales deadline with a live countdown at the very top, its La Liga and
+  official order: the sales deadline (Madrid time, in large type) at the very top, its La Liga and
   Segunda matches predicted by every model (trained on all played matches; the other matches,
   women's league or national teams, have no prediction and count with the league shares of 1,
   X and 2 for doubles and triples), no colours until there are results, and a notice saying
   whether **football-data's fixtures are available**: until they are (Friday afternoon for
   weekend matches), there are no odds and v3 predicts with Dixon-Coles only. Otherwise (no saved
-  ticket, or an old one) the current matchday comes from the football-data matches: its
+  ticket, or an old one) the current matchday comes from the football-data matches. The
+  official ticket also shows its **Pleno al 15**: one pick of the goals categories (0, 1, 2, M)
+  of each team, the same on the v3, v4 and v5 tickets: Dixon-Coles' most likely pair when it is
+  a La Liga / Segunda match, otherwise the categories the public marks most. The v4 and v5
+  banners give the **price of their ticket** (0.75 € × 2^doubles × 3^triples bets), the
+  table's footer gives every model's hits on the 14 ticket matches, and under the Pleno al 15 a
+  table gives the price of each ticket (14 matches and the Pleno, which adds no bets). Before the
+  draw, Loterías does not publish the date of the women's and other matches (only football-data
+  has the La Liga / Segunda kick-offs), so they show none until the draw is saved. Without a
+  saved ticket, the current matchday comes from the football-data matches: its
   matches (kick-off, teams, result when played) with one column per model in registry order. The **market** reference is not
   shown here: v3 follows the odds closely, so it would repeat v3's signs; it stays in
   `evaluation.html`, where it is the benchmark. Each cell shows only the predicted sign, green with ✓ when right and red
@@ -274,8 +283,11 @@ historical) shows two columns, with a legend:
 football-data matches are M; the official tickets saved from LAE add the F and O ones. LAE only
 marks women's teams (since 2023-24) and men's teams (since 2026-27), so an older unmatched match
 counts as O. `current.html` only shows v3 and the tickets built on it (v4 and v5); every model is
-in `season.html`, which also lists the official tickets of the season with the v3 sign of their
-La Liga / Segunda matches.
+in `season.html`, which also lists the official tickets of the season with what every model
+marked: v1, v2 and v3 their sign on the La Liga / Segunda matches, v4 and v5 their doubles and
+triples on the 14 matches (on the v3 probabilities, the league shares of 1, X and 2 where no
+model predicts: the public's picks of past tickets were not saved), the Pleno al 15 pick
+(Dixon-Coles) and each ticket's hits and price.
 
 All are self-contained HTML files (data embedded, no external libraries) that open with a
 double click, also offline. New models appear as new columns automatically.
@@ -970,6 +982,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.7.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Pleno al 15 of the official ticket in `current.html` (Dixon-Coles' goals categories for a La Liga / Segunda match, the public's most marked ones otherwise); price of each ticket under the Pleno and hits of the 14 matches in the table footer; sales deadline in large type, without the countdown; `season.html` official tickets with what v1 to v5 marked, the Pleno pick and each ticket's hits and price. |
 | [`v0.6.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.6.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | The next official ticket in `current.html` (saved with `tools/lae_upcoming.js`): sales deadline with countdown, predictions without colours until results, notice of football-data's fixtures; v3 uses the public's picks for the matches no model covers (women's football, national teams), and v4/v5 plan on them; match category (M, F, O, U) and official-ticket flag in every table, official tickets in the historical and season dashboards, ticket matches by category in the evaluation; `current.html` shows only v3, v4 and v5. Backtests recalculated (unchanged: past public picks do not exist). |
 | [`v0.5.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.5.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, v4 ticket planner, **v5 money ticket**, market reference | Official draws from LAE (real tickets, takings, winners and prizes since 2010-11); v4 aims at 11+ hits; v5 money ticket: prize model driven by the surprise of the results, ticket with the best expected prize within 48 bets, played only when it pays; prudent by default (only 10-13 hit prizes count), and in 414 real draws 2015-16 to 2025-26 it never found one worth playing (v4: 35% of the money back; v5 counting 14 hits and the Pleno al 15: 40%). Dashboards: v5 column with its verdict and euros won; evaluation: real tickets in euros. README: when to run v3 (the odds arrive on Friday afternoon). |
 | [`v0.4.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.4.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, **v4 ticket planner** (doubles and triples on v3), market reference | Confidence and margin of every prediction; chance of each prize before the matchday; v4 ticket planner (48 bets, best mix of doubles and triples for 10+ hits): 160 prizes in 376 backtest matchdays, against 130 with random doubles and 35 without them. Dashboards: confidence column and sorting, prize chances, v4 column; evaluation: hit rate by confidence tier and ticket strategies. |

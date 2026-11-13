@@ -462,7 +462,8 @@ def test_current_payload_shows_the_official_ticket(tmp_path: Path) -> None:
 
     assert out["jornada"] == 21 and out["deadline"] == "2026-11-14T14:00:00+01:00"
     assert out["status"] == "upcoming"
-    assert out["fixtures"] == info
+    assert out["fixtures"] == {k: v for k, v in info.items() if k != "pleno"}
+    assert out["pleno"]["pick_home"] == "2" and out["pleno"]["source"] == "public"
     rows = out["matchday"]["matches"]
     # Official order and leagues; no kick-off known; no result
     assert [r["ticket"] for r in rows] == [1, 2]

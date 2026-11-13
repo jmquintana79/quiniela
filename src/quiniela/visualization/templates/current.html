@@ -22,6 +22,7 @@
       <h2 id="matches-title">Matches</h2>
       <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
       <div class="scroll" id="matches"></div>
+      <div id="pleno" style="margin-top:12px"></div>
       <p class="meta" style="margin:10px 0 0" id="legend"></p>
       <p class="meta" style="margin:6px 0 0" id="odds"></p>
     </div>
@@ -56,7 +57,7 @@
     const left = md.matches.length - md.played;
     const text = {
       upcoming: [DATA.jornada ? `Official ticket of jornada ${DATA.jornada}` : "Upcoming matchday",
-        DATA.jornada ? "The 14 matches and the Pleno al 15 published by Loterías y Apuestas del Estado. No result yet: every column is a prediction (La Liga and Segunda matches only; the others have none)."
+        DATA.jornada ? "The 14 matches and the Pleno al 15 published by Loterías y Apuestas del Estado. No result yet: every column is a prediction (v3: Dixon-Coles + market for La Liga and Segunda, the public's picks for the other matches)."
           : "No match has been played yet: every column is a prediction."],
       in_progress: ["Matchday in progress", `${md.played} of ${md.matches.length} matches played, ${left} still to play.`],
       completed: ["Matchday completed", "Every match of this matchday has been played. The next matchday " +
@@ -66,24 +67,16 @@
     return `<div class="banner ${DATA.status === "completed" ? "" : "pending"}"><strong>${text[0]}</strong>${text[1]}</div>`;
   }
 
-  // Sales deadline of the official ticket, with a live countdown
+  // Sales deadline of the official ticket (Madrid time), large; closed once it passes
   function showDeadline() {
     if (!DATA.deadline) { $("deadline").innerHTML = ""; return; }
     const end = new Date(DATA.deadline);
-    const left = end - new Date();
+    const open = end > new Date();
     const when = end.toLocaleString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric",
       hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
-    let count;
-    if (left <= 0) {
-      count = "Betting is closed.";
-    } else {
-      const days = Math.floor(left / 86400000);
-      const hours = Math.floor((left % 86400000) / 3600000);
-      const minutes = Math.floor((left % 3600000) / 60000);
-      count = `Time left: <span style="font-size:20px;font-weight:600">${days ? `${days} d ` : ""}${hours} h ${String(minutes).padStart(2, "0")} min</span>`;
-    }
-    $("deadline").innerHTML = `<div class="banner ${left > 0 ? "pending" : "no_prize"}" style="margin-bottom:12px">` +
-      `<strong>Jornada ${DATA.jornada} · betting closes ${esc(when)} (Madrid time)</strong>${count}</div>`;
+    $("deadline").innerHTML = `<div class="banner ${open ? "pending" : "no_prize"}" style="margin-bottom:12px">` +
+      `<span class="muted">Jornada ${DATA.jornada} · ${open ? "betting closes" : "betting closed"} (Madrid time)</span>` +
+      `<div style="font-size:26px;font-weight:700;line-height:1.25;margin-top:2px">${esc(when)}</div></div>`;
   }
 
   // Whether football-data already has the fixtures (and odds) of the matchday's matches
@@ -101,6 +94,46 @@
       `weekend matches on Friday afternoon and of midweek ones on Tuesday afternoon: run <code>invoke update</code> then.</div>`;
   }
 
+  // Pleno al 15: one match, goals category of each team (0, 1, 2, M); no doubles
+  function plenoTable() {
+    const p = DATA.pleno;
+    if (!p) return "";
+    const pick = p.pick_home ? `${p.pick_home} - ${p.pick_away}` : "–";
+    const source = p.source === "model" ? "Dixon-Coles' most likely goals categories"
+      : p.source === "public" ? "the categories the public marks most (no model for this match)" : "no data";
+    const share = (shares, c) => shares && shares[c] != null ? ` (${shares[c]}% of the public)` : "";
+    const hit = p.result ? (p.result[0] === p.pick_home && p.result[1] === p.pick_away) : null;
+    const cell = !p.pick_home ? '<span class="pick none">–</span>'
+      : `<span class="pick ${hit == null ? "pending" : hit ? "hit" : "miss"}" data-tip="${esc(`Pick ${pick}: ${source}`)}">` +
+        `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
+    return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
+      <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
+        <th class="num">Pick on the v3, v4 and v5 tickets</th></tr></thead><tbody><tr>
+        <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
+        <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
+        <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
+        <td class="num">${cell}</td></tr></tbody></table>
+      <p class="meta" style="margin:6px 0 0">Goals categories 0, 1, 2 and M (3 or more) of each team. Pick: ${esc(source)}:
+        ${esc(p.home)} ${esc(p.pick_home ?? "–")}${share(p.public_home, p.pick_home)},
+        ${esc(p.away)} ${esc(p.pick_away ?? "–")}${share(p.public_away, p.pick_away)}.</p>`;
+  }
+
+  // Price of each ticket (14 matches + Pleno al 15), shown under the Pleno al 15
+  function pricesTable() {
+    if (!DATA.models.length || !md) return "";
+    const rows = DATA.models.map((m) => {
+      const plan = md.summary[m.key]?.plan;
+      const bets = plan?.bets ?? 1;
+      const marks = plan ? `${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} triple${plan.triples === 1 ? "" : "s"}` : "one sign per match";
+      return `<tr><td>${modelLabel(m)}</td><td>${marks}</td><td class="num">${bets}</td><td class="num strong">${eur(bets * 0.75)}</td></tr>`;
+    }).join("");
+    return `<h3 style="margin:14px 0 6px;font-size:14px">Price of each ticket</h3>
+      <table><thead><tr><th>Ticket</th><th>Marks</th><th class="num">Bets</th><th class="num">Price</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <p class="meta" style="margin:6px 0 0">14 matches and the Pleno al 15. Each bet costs 0.75 €; doubles and triples
+        multiply the bets (2 and 3 each). The Pleno al 15 is one pick per ticket and adds no bets.</p>`;
+  }
+
   function showStandings(i) {
     const code = Object.keys(DATA.standings)[i];
     $("standings").innerHTML = standingsTable(DATA.standings[code]);
@@ -115,8 +148,10 @@
     $("matches-title").textContent = `Matches and predictions · ${md.played}/${md.matches.length} played`;
     $("status").innerHTML = statusBanner();
     $("fixtures").innerHTML = fixturesBanner();
+    $("pleno").innerHTML = plenoTable() + pricesTable();
     showDeadline();
-    setInterval(showDeadline, 30000);
+    // It turns into "betting closed" once the deadline passes
+    setInterval(showDeadline, 60000);
     $("banners").innerHTML = DATA.models.length ? quinielaBanners(md, DATA.models) : "";
     segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
     showMatches();

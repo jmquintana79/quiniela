@@ -36,7 +36,10 @@
     <h2 id="ticket-title">Official tickets</h2>
     <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
     <p class="meta" style="margin:0 0 10px">Every official ticket of the season saved from Loterías y Apuestas del Estado,
-      with all its matches and the v3 sign of the La Liga / Segunda ones (✓ hit, ✗ miss).</p>
+      with all its matches and what every model marked: v1, v2 and v3 their sign on the La Liga / Segunda
+      matches, v4 and v5 their doubles and triples on the 14 matches (with the v3 probabilities; the league
+      shares of 1, X and 2 where no model predicts), and the Pleno al 15 pick (Dixon-Coles' goals categories)
+      when it is a La Liga / Segunda match. ✓ hit · ✗ miss. The footer gives the hits and the price of each ticket.</p>
     <div class="scroll" id="ticket"></div>
   </section>
 
@@ -110,7 +113,7 @@
   // Official tickets of the season (every match: men's, women's and other competitions)
   function showTicket(i) {
     const t = (DATA.tickets || [])[i];
-    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, true) + categoryLegend(DATA.categories);
+    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, models) + categoryLegend(DATA.categories);
     $("ticket-title").textContent = t ? `Official ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Official tickets";
   }
   if ((DATA.tickets || []).length) {

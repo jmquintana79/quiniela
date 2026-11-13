@@ -485,6 +485,7 @@ def official_tickets(draws: pd.DataFrame, matched: pd.DataFrame) -> dict[str, li
             )
         out.setdefault(str(season), []).append(
             {
+                "draw_id": str(draw_id),
                 "jornada": int(rows["jornada"].iloc[0]) if rows["jornada"].notna().any() else None,
                 "date": date.strftime("%Y-%m-%d")
                 if date is not None and not pd.isna(date)

@@ -147,7 +147,13 @@ def test_predict_upcoming(tmp_path: Path) -> None:
     assert matches["league"].tolist() == ["SP2", pipeline.WOMEN_LEAGUE]
     assert matches["home_team"].tolist() == ["Valladolid", "Alavés"]
     # No football-data fixture yet: no kick-off, no odds, no result
-    assert info == {"ours": 1, "fixtures": 0, "odds": 0, "results": 0, "public": 1}
+    assert {k: v for k, v in info.items() if k != "pleno"} == {
+        "ours": 1,
+        "fixtures": 0,
+        "odds": 0,
+        "results": 0,
+        "public": 1,
+    }
     assert not matches["_kickoff_known"].any()
     # Only the La Liga / Segunda match is predicted; the market has no odds
     dc = predictions["dixon_coles"]
@@ -159,3 +165,25 @@ def test_predict_upcoming(tmp_path: Path) -> None:
     assert v3.loc["Alavés", "source"] == "public"
     assert v3.loc["Alavés", "p_H"] == pytest.approx(0.35)
     assert matches[[f"_fill_p_{o}" for o in "HDA"]].sum(axis=1).round(6).eq(1).all()
+
+
+def test_pleno_pick_from_the_public(tmp_path: Path) -> None:
+    from quiniela.data.prizes import load_upcoming
+    from tests.helpers import make_matches
+    from tests.test_prizes import _upcoming_file
+
+    _upcoming_file(tmp_path)
+    ticket = load_upcoming(tmp_path)
+    assert ticket is not None
+    current = make_matches([("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]).assign(
+        season="2026-27"
+    )
+    history = make_matches([("SP2", "2025-10-03", "Valladolid", "Castellon", 2, 0)]).assign(
+        season="2025-26"
+    )
+    _, _, info = pipeline.predict_upcoming(ticket, history=history, current=current)
+    pleno = info["pleno"]
+    # National teams: no model, the goals categories the public marks most (51% and 53%)
+    assert (pleno["home"], pleno["away"], pleno["category"]) == ("España", "Inglaterra", "O")
+    assert (pleno["pick_home"], pleno["pick_away"], pleno["source"]) == ("2", "1", "public")
+    assert pleno["result"] is None

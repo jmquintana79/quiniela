@@ -17,7 +17,7 @@ matchday replaces that matchday's rows and keeps the rest.
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -272,7 +272,7 @@ def predict_upcoming(
     upcoming: "UpcomingTicket",
     history: pd.DataFrame | None = None,
     current: pd.DataFrame | None = None,
-) -> tuple[pd.DataFrame, dict[str, pd.DataFrame], dict[str, int]]:
+) -> tuple[pd.DataFrame, dict[str, pd.DataFrame], dict[str, Any]]:
     """Predict the La Liga and Segunda matches of the next official ticket.
 
     The official ticket (saved from the betting page) is known days before
@@ -294,7 +294,8 @@ def predict_upcoming(
         ``SP2``, ``WOMEN`` or ``OTHER``; results when football-data has them),
         the predictions of every model for the La Liga / Segunda ones, and
         ``info`` with how many are ``ours``, have a football-data ``fixture``,
-        ``odds`` and ``results``.
+        ``odds`` and ``results``, how many use the ``public``'s picks, and the
+        ``pleno`` al 15 pick (``_pleno_pick``).
     """
     from quiniela.data.prizes import team_names, translate_team
     from quiniela.prediction.market import MarketModel
@@ -382,8 +383,93 @@ def predict_upcoming(
         "odds": with_odds,
         "results": int(matches["FTR"].notna().sum()),
         "public": len(public),
+        "pleno": _pleno_pick(upcoming, names, league_of, pending, recent, played, closes),
     }
     return matches.drop(columns=["_fixture"]), predictions, info
+
+
+# Pleno al 15 goal categories of each team
+PLENO_CATEGORIES = ["0", "1", "2", "M"]
+
+
+def _pleno_pick(
+    upcoming: "UpcomingTicket",
+    names: dict[str, str],
+    league_of: dict[str, str],
+    pending: pd.DataFrame,
+    recent: pd.DataFrame,
+    played: pd.DataFrame,
+    closes: pd.Timestamp,
+) -> dict[str, Any] | None:
+    """Pick of the Pleno al 15 of the next ticket: goals category (0, 1, 2, M) of each team.
+
+    A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
+    (from its score matrix); any other match, the categories the public marks
+    most ("Pronósticos más apostados"). The same pick goes on the v3, v4 and v5
+    tickets (the Pleno al 15 is a single match: no doubles).
+
+    Returns:
+        ``home``, ``away``, ``category`` (M, F, O), ``pick_home``,
+        ``pick_away``, ``source`` (``model`` or ``public``), the public's
+        shares and ``result`` (categories, when football-data has it); or
+        ``None`` without a 15th match.
+    """
+    from quiniela.data.prizes import match_category, translate_team
+
+    fifteen = upcoming.matches[upcoming.matches["position"] == 15]
+    if fifteen.empty:
+        return None
+    match = fifteen.iloc[0]
+    home = translate_team(names, match["lae_home"])
+    away = translate_team(names, match["lae_away"])
+    league = league_of.get(home) if home and away else None
+    ours = league is not None and away is not None and league == league_of.get(away)
+    out: dict[str, Any] = {
+        "home": home if ours else _plain(match["lae_home"]),
+        "away": away if ours else _plain(match["lae_away"]),
+        "category": match_category(match["lae_home"], match["lae_away"], league if ours else None),
+        "public_home": upcoming.pleno_public.get("home") or None,
+        "public_away": upcoming.pleno_public.get("away") or None,
+        "pick_home": None,
+        "pick_away": None,
+        "source": None,
+        "result": None,
+    }
+    if ours:
+        found = _pairing(recent, str(home), str(away))
+        source = found if not found.empty else _pairing(pending, str(home), str(away))
+        target = (
+            source.iloc[:1].copy()
+            if not source.empty
+            else pd.DataFrame(
+                [{"league": league, "date": closes, "home_team": home, "away_team": away}]
+            )
+        )
+        target["matchday"] = upcoming.jornada
+        target["game"] = target.get("game", pd.Series(dtype=object)).fillna(
+            f"{closes:%Y-%m-%d} {home}-{away}"
+        )
+        dc = walk_forward(
+            "dixon_coles", target.drop(columns=RESULT_COLUMNS, errors="ignore"), played
+        )
+        if not dc.empty and dc["pleno_home"].notna().any():
+            out.update(
+                pick_home=dc["pleno_home"].iloc[0],
+                pick_away=dc["pleno_away"].iloc[0],
+                source="model",
+            )
+        if not found.empty and found["FTHG"].notna().any():
+            goals = [min(int(found["FTHG"].iloc[0]), 3), min(int(found["FTAG"].iloc[0]), 3)]
+            out["result"] = [PLENO_CATEGORIES[g] for g in goals]
+    if out["source"] is None and out["public_home"] and out["public_away"]:
+
+        def most(shares: dict[str, float]) -> str:
+            return max(PLENO_CATEGORIES, key=lambda c: float(shares.get(c, 0)))
+
+        out.update(
+            pick_home=most(out["public_home"]), pick_away=most(out["public_away"]), source="public"
+        )
+    return out
 
 
 def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:

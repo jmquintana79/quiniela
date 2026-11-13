@@ -81,25 +81,53 @@ function categoryLegend(legend = {}) {
     `<span>${quinielaCell(21).replace(/21/g, "N")} on the official quiniela ticket of jornada N</span></div>`;
 }
 
+/** A model's mark on an official ticket match: sign(s), with ✓ / ✗ once played. */
+function ticketPick(picks, result) {
+  if (!picks) return '<span class="muted">–</span>';
+  const label = [...picks].map((p) => ({ H: "1", D: "X", A: "2" }[p])).join("");
+  if (!result) return `<span class="pick pending ${picks.length > 1 ? "multi" : ""}">${label}</span>`;
+  const hit = picks.includes(result);
+  return `<span class="pick ${hit ? "hit" : "miss"} ${picks.length > 1 ? "multi" : ""}">${label} ${hit ? "✓" : "✗"}</span>`;
+}
+
 /**
  * An official quiniela ticket: its 15 matches in order with category, result
- * and, when given, the v3 sign (hit or miss) of the La Liga / Segunda ones.
+ * and, when ``models`` are given, what each one marked (✓ hit, ✗ miss) and
+ * the Pleno al 15 pick; the footer gives each model's hits and ticket price.
  */
-function officialTicketTable(ticket, legend = {}, withV3 = false) {
+function officialTicketTable(ticket, legend = {}, models = null) {
   if (!ticket) return '<p class="empty">No official ticket.</p>';
-  return `<table><thead><tr><th class="num">#</th><th>Cat.</th><th class="num">Home</th><th>Away</th>
-      <th class="num">Score</th><th class="num">1X2</th>${withV3 ? '<th class="num">v3</th>' : ""}</tr></thead>
-    <tbody>${ticket.matches.map((m) => {
-      const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
-      let v3 = "";
-      if (withV3) {
-        v3 = !m.v3 ? '<td class="num muted">–</td>' : `<td class="num"><span class="pick ${m.sign ? (m.v3 === m.sign ? "hit" : "miss") : "pending"}">` +
-          `${{ H: "1", D: "X", A: "2" }[m.v3]}${m.sign ? (m.v3 === m.sign ? " ✓" : " ✗") : ""}</span></td>`;
+  const cols = models || [];
+  const rows = ticket.matches.map((m) => {
+    const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
+    const marks = cols.map((model) => {
+      if (m.position === 15) {
+        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2 to v5 tickets
+        if (!m.pleno_pick || model.key === "head_to_head") return '<td class="num muted">–</td>';
+        const pick = `${m.pleno_pick[0]}-${m.pleno_pick[1]}`;
+        if (!m.score) return `<td class="num"><span class="pick pending">${pick}</span></td>`;
+        const goals = m.score.split("-").map((g) => ["0", "1", "2"][Number(g)] ?? "M");
+        const hit = goals[0] === m.pleno_pick[0] && goals[1] === m.pleno_pick[1];
+        return `<td class="num"><span class="pick ${hit ? "hit" : "miss"}">${pick} ${hit ? "✓" : "✗"}</span></td>`;
       }
-      return `<tr><td class="num muted">${m.position}</td><td>${categoryChip(m.category, legend)}</td>
-        <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
-        <td class="num">${m.score ?? "–"}</td><td class="num">${sign}</td>${v3}</tr>`;
-    }).join("")}</tbody></table>`;
+      return `<td class="num">${ticketPick(m.picks?.[model.key], m.sign)}</td>`;
+    }).join("");
+    return `<tr><td class="num muted">${m.position}</td><td>${categoryChip(m.category, legend)}</td>
+      <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
+      <td class="num">${m.score ?? "–"}</td><td class="num">${sign}</td>${marks}</tr>`;
+  }).join("");
+  const footer = cols.length ? `<tfoot><tr><td colspan="6">Hits <span class="muted">(14 matches) · price</span></td>${cols.map((model) => {
+    const first14 = ticket.matches.filter((m) => m.position <= 14 && m.sign);
+    const marked = first14.filter((m) => m.picks?.[model.key]);
+    const hits = marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
+    const plan = ticket.plans?.[model.key];
+    const bets = plan ? plan.bets : 1;
+    return `<td class="num"><span class="strong">${marked.length ? `${hits}/${marked.length}` : "–"}</span>` +
+      `<br><span class="muted">${eur(bets * 0.75)}${plan ? ` · ${plan.bets} bets` : ""}</span></td>`;
+  }).join("")}</tr></tfoot>` : "";
+  return `<table><thead><tr><th class="num">#</th><th>Cat.</th><th class="num">Home</th><th>Away</th>
+      <th class="num">Score</th><th class="num">1X2</th>${cols.map((m) => `<th class="num">${modelLabel(m)}</th>`).join("")}</tr></thead>
+    <tbody>${rows}</tbody>${footer}</table>`;
 }
 
 /** Played matches as a results table. */
@@ -224,11 +252,13 @@ function oddsLine(summary) {
   const odds = summary.odds;
   if (!odds) return "";
   const plan = summary.plan;
-  const cost = plan ? `${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} ` +
-    `triple${plan.triples === 1 ? "" : "s"} (${plan.bets} bets) · ` : "";
+  // Price of the ticket: 0.75 EUR per bet, 2^doubles * 3^triples bets
+  const price = plan ? `<br><strong style="display:inline">Price of the ticket: ${eur(plan.bets * 0.75)}</strong>` +
+    `<span class="muted"> · ${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} ` +
+    `triple${plan.triples === 1 ? "" : "s"} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  return `<br><span class="muted">${cost}Chance before the matchday: ${parts.join(" · ")}</span>`;
+  return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>`;
 }
 
 /** Euros with two decimals. */
@@ -337,6 +367,13 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
     return `<td class="num"><span class="strong">${played ? pct(s.rate, 1) : "–"}</span>` +
       `<br><span class="muted">${details.join(" · ")}</span></td>`;
   }).join("");
+  // Hits of the 14-match ticket
+  const ticketFooter = models.map((m) => {
+    const t = md.summary[m.key].ticket;
+    if (t.status === "incomplete") return '<td class="num muted">–</td>';
+    const pending = t.pending ? `<br><span class="muted">${t.pending} pending</span>` : "";
+    return `<td class="num"><span class="strong">${t.hits}/${t.size}</span>${pending}</td>`;
+  }).join("");
   return `<table><thead><tr>
       <th class="num">Ticket</th><th>Cat.</th><th>Quiniela</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>
       <th>Result</th>${confHeader}${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}
@@ -350,7 +387,8 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
       ${confModel ? `<td class="num">${confidenceCell(m, confKey, tiers)}</td>` : ""}
       ${models.map((model) => `<td class="num">${pickCell(m, model.key)}</td>`).join("")}
     </tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr></tfoot></table>`;
+    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr>
+      <tr><td colspan="${confModel ? 9 : 8}">Hits <span class="muted">(14 matches)</span></td>${ticketFooter}</tr></tfoot></table>`;
 }
 
 /** Legend under the prediction tables. */

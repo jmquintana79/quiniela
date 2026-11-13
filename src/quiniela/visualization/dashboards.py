@@ -354,28 +354,88 @@ def _categorise(matches: pd.DataFrame, prizes: Any) -> pd.DataFrame:
 def _season_tickets(
     current: pd.DataFrame, predictions: dict[str, pd.DataFrame], prizes: Any, key: str
 ) -> list[dict[str, Any]]:
-    """Official tickets of the current season, with the v3 sign of their La Liga / Segunda matches."""
+    """Official tickets of the current season with what every model would have marked.
+
+    v1, v2 and v3 give their sign on the La Liga / Segunda matches; v4 and v5
+    plan their doubles and triples on the 14 matches with the v3 probabilities
+    (the league shares of 1, X and 2 for the matches no model predicts: the
+    public's picks of past tickets were not saved); the Pleno al 15 gets
+    Dixon-Coles' goals categories when it is a La Liga / Segunda match.
+    """
     from quiniela.data.prizes import official_tickets
+    from quiniela.prediction.money import plan_big_win
+    from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket
 
     if prizes is None or current.empty or "season" not in current.columns:
         return []
     season = str(current["season"].iloc[-1])
     tickets = official_tickets(prizes.draws, prizes.matched).get(season, [])
-    stored = predictions.get(key)
-    signs = (
-        dict(
-            zip(
-                zip(stored["league"], stored["game"], strict=True),
-                stored["prediction"],
-                strict=True,
-            )
-        )
-        if stored is not None
-        else {}
-    )
-    for ticket in tickets:
+    stored = {
+        k: frame.set_index(["league", "game"])
+        for k, frame in predictions.items()
+        if {"league", "game", "prediction"} <= set(frame.columns)
+    }
+    shares = current["FTR"].value_counts(normalize=True)
+    prior = np.array([float(shares.get(o, 1 / 3)) for o in ("H", "D", "A")])
+    jackpots = dict(zip(prizes.draws["draw_id"], prizes.draws["jackpot"].fillna(0), strict=True))
+    for number, ticket in enumerate(tickets):
+        probs, crowd = [], []
         for match in ticket["matches"]:
-            match["v3"] = signs.get((match["league"], match["game"]))
+            index = (match["league"], match["game"])
+            match["picks"] = {
+                k: frame.loc[index, "prediction"] if index in frame.index else None
+                for k, frame in stored.items()
+                if k != "market"
+            }
+            if match["position"] == 15:
+                dc = stored.get("dixon_coles")
+                if (
+                    dc is not None
+                    and index in dc.index
+                    and not pd.isna(dc.loc[index, "pleno_home"])
+                ):
+                    match["pleno_pick"] = [dc.loc[index, "pleno_home"], dc.loc[index, "pleno_away"]]
+                continue
+            v3 = stored.get(key)
+            row = (
+                v3.loc[index, ["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
+                if v3 is not None and index in v3.index
+                else prior
+            )
+            market = stored.get("market")
+            public = (
+                market.loc[index, ["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
+                if market is not None and index in market.index
+                else row
+            )
+            probs.append(prior if np.isnan(row).any() else row)
+            crowd.append(row if np.isnan(public).any() else public)
+        if len(probs) != 14:
+            continue
+        probs_array, crowd_array = np.array(probs), np.array(crowd)
+        v4 = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
+        v5 = plan_big_win(
+            probs_array,
+            crowd_array,
+            prizes.model,
+            prizes.bets,
+            float(jackpots.get(ticket["draw_id"], 0) or 0),
+            per_mix=20,
+            simulations=3000,
+            rng=np.random.default_rng([MONEY_SEED, number]),
+        )
+        first14 = [m for m in ticket["matches"] if m["position"] <= 14]
+        for match, planned_picks, money_picks in zip(first14, v4.picks, v5.plan.picks, strict=True):
+            match["picks"][PLANNED_KEY] = planned_picks
+            match["picks"][MONEY_KEY] = money_picks
+        ticket["plans"] = {
+            PLANNED_KEY: {"doubles": v4.doubles, "triples": v4.triples, "bets": v4.bets},
+            MONEY_KEY: {
+                "doubles": v5.plan.doubles,
+                "triples": v5.plan.triples,
+                "bets": v5.plan.bets,
+            },
+        }
     return tickets
 
 
@@ -760,7 +820,7 @@ def current_payload(
     predictions: dict[str, pd.DataFrame] | None = None,
     current_dir: Path = CURRENT_DIR,
     season: dict[str, Any] | None = None,
-    upcoming: tuple[Any, dict[str, Any], dict[str, int]] | None = None,
+    upcoming: tuple[Any, dict[str, Any], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the current matchday dashboard.
 
@@ -792,13 +852,15 @@ def current_payload(
     deadline: str | None = None
     jornada: int | None = None
     fixtures: dict[str, Any] | None = None
+    pleno: dict[str, Any] | None = None
     if upcoming is not None:
         ticket, payload, info = upcoming
         season = {**season, "models": payload["models"], "leagues": payload["leagues"]}
         matchday = payload["matchdays"][0] if payload["matchdays"] else matchday
         deadline = ticket.closes.isoformat()
         jornada = ticket.jornada
-        fixtures = info
+        fixtures = {k: v for k, v in info.items() if k != "pleno"}
+        pleno = info.get("pleno")
     elif matchday is not None and matchday["played"] < len(matchday["matches"]):
         pending = [m for m in matchday["matches"] if not m.get("FTR")]
         fixtures = {"ours": len(pending), "fixtures": len(pending), "odds": None, "results": 0}
@@ -843,6 +905,8 @@ def current_payload(
         "jornada": jornada,
         "deadline": deadline,
         "fixtures": fixtures,
+        # Pleno al 15 of the official ticket: the same pick on the v3, v4 and v5 tickets
+        "pleno": pleno,
     }
 
 
@@ -1265,7 +1329,7 @@ UPCOMING_DAYS = 4
 
 def _upcoming_view(
     prizes: Any, now: pd.Timestamp | None = None
-) -> tuple[Any, dict[str, Any], dict[str, int]] | None:
+) -> tuple[Any, dict[str, Any], dict[str, Any]] | None:
     """The next official ticket as a matchday, while it is current (or None)."""
     from quiniela.data.prizes import load_upcoming
     from quiniela.prediction.pipeline import predict_upcoming
