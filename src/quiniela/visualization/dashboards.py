@@ -7,11 +7,12 @@ opens with a double click (no server, no network access needed).
 Dashboards:
 
 - ``current.html``: current matchday (matches, results when played, one
-  column per model with the market as reference, the confidence of each
+  column per model (the market reference is left out: v3 follows it
+  closely), the confidence of each
   match, hit rate, quiniela ticket with the chance of each prize, and the
   v4 ticket with doubles and triples) and the standings.
 - ``season.html``: every matchday of the current season, season totals per
-  model and the detail of any matchday.
+  model and the detail of any matchday (without the market reference).
 - ``historical.html``: completed seasons (1X2 split and goals per season,
   plus standings and results of the selected season).
 - ``evaluation.html``: backtest metrics of every model over past seasons,
@@ -279,7 +280,8 @@ def season_payload(
 
     current = current_matchdays() if current is None else current
     predictions = load_predictions() if predictions is None else predictions
-    keys = [key for key in MODELS if key in predictions]
+    # Models hidden in the matchday views (the market reference) are only in the evaluation
+    keys = [key for key in MODELS if key in predictions and MODELS[key].show_in_matchday]
     models = _model_specs(keys)
     # The v4 planned ticket needs the planner model's predictions; it goes
     # right after that model (before the references)

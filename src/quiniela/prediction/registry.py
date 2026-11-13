@@ -51,6 +51,9 @@ class ModelSpec:
         description: One-line summary shown in the dashboard.
         version: Model version (``v1``, ``v2``...); empty for references.
         reference: True for baselines that are not candidate models (the market).
+        show_in_matchday: Show the model in the current matchday and season
+            dashboards. The market is hidden there (v3 already follows it
+            closely) but kept in the evaluation dashboard as the benchmark.
     """
 
     name: str
@@ -58,6 +61,7 @@ class ModelSpec:
     description: str
     version: str = ""
     reference: bool = False
+    show_in_matchday: bool = True
 
 
 # Registry: key (used in tasks and file names) -> model
@@ -89,6 +93,7 @@ MODELS: dict[str, ModelSpec] = {
         description="Probabilities implied by the bookmakers' pre-match odds (margin "
         "removed): the reference every model is compared against.",
         reference=True,
+        show_in_matchday=False,
     ),
 }
 

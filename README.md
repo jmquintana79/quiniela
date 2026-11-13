@@ -158,8 +158,9 @@ Four dashboards, each answering one question:
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers and tickets with doubles and triples. |
 
 - `dashboards/current.html`: the **current matchday**: its matches (kick-off, teams, result
-  when played) with one column per model in registry order and the **market** last as the
-  reference column. Each cell shows only the predicted sign, green with ✓ when right and red
+  when played) with one column per model in registry order. The **market** reference is not
+  shown here: v3 follows the odds closely, so it would repeat v3's signs; it stays in
+  `evaluation.html`, where it is the benchmark. Each cell shows only the predicted sign, green with ✓ when right and red
   with ✗ when wrong, so the table has room for more models; hovering it shows the probability
   (and, for models that predict goals, the exact score and Pleno al 15 picks). The footer gives
   each model's hit rate on the played
@@ -172,10 +173,10 @@ Four dashboards, each answering one question:
   with the **chance of each prize before the matchday** (10+ to 14 hits); below, the standings of each league with
   recent form. The current matchday is the first one with matches still to play; when every
   published match has been played (e.g. during an international break, before the source
-  publishes the next fixtures) the last one is shown and marked as completed. The market
-  column is the bookmakers' odds at the last download, **not a prediction of our models**.
+  publishes the next fixtures) the last one is shown and marked as completed. A note says when
+  the odds used by v3 were downloaded (they keep moving until kick-off).
 - `dashboards/season.html`: the **current season**: totals per model and for the v4 ticket
-  (hit rate and prize tickets), a table of every matchday with each model's hits and quiniela outcome, and the
+  (hit rate and prize tickets, without the market), a table of every matchday with each model's hits and quiniela outcome, and the
   detail of any matchday (same table as `current.html`). The ticket is approximated with the
   matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
   12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict

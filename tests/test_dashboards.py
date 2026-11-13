@@ -343,3 +343,20 @@ def test_evaluation_payload_confidence_and_tickets() -> None:
     assert strategies["v4"]["prizes"] == 1 and strategies["single"]["prizes"] == 0
     assert payload["tickets"]["2024-25"]
     assert payload["ticket_budget"]["max_bets"] == 48
+
+
+def test_market_is_left_out_of_the_matchday_views() -> None:
+    from tests.helpers import make_matches
+
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", 1, 0) for i in range(14)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    predictions = current[["league", "game"]].assign(prediction="H", p_H=0.5, p_D=0.3, p_A=0.2)
+
+    payload = dashboards.season_payload(
+        current, {"head_to_head": predictions, "market": predictions}
+    )
+
+    # Only in the evaluation dashboard (test_evaluation_payload keeps it there)
+    assert [m["key"] for m in payload["models"]] == ["head_to_head"]
+    assert "market" not in payload["totals"]
+    assert "market_sign" not in payload["matchdays"][0]["matches"][0]

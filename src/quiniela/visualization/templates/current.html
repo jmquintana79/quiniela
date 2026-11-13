@@ -77,7 +77,7 @@
     segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
     showMatches();
     $("odds").innerHTML = DATA.odds_downloaded
-      ? `Market odds as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`
+      ? `Odds (an input of v3) as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`
       : "";
   } else {
     $("meta").textContent = "No current season data. Run invoke update first.";

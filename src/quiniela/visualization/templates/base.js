@@ -251,8 +251,8 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La 
   Segunda, in kick-off order). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
   Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
-  probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market column is the reference
-  (bookmakers' odds), not one of our models. Confidence: probability of the v3 sign, green high
+  probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
+  odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
   (60% or more), amber medium (45-60%), red low (below 45%). Planned ticket (v4): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of a prize;
   the chance of each prize before the matchday is under each ticket banner.`;
