@@ -1115,18 +1115,7 @@ and version bumps (`cz commit`, `cz bump`).
 ## Roadmap
 
 Pending improvements, in order of priority. The detailed plan (in Spanish) is in
-[`TODO.todo`](TODO.todo).
-
-Done:
-
-- **Market odds as model input** (v3, released in `v0.3.0`, see
-  [v3](#v3--dixon-coles--market-market_blend)).
-- **Confidence of each prediction and doubles/triples planner** (v4, released in `v0.4.0`, see
-  [v4](#v4--ticket-planner-planner)).
-- **Official draws and the money ticket** (v5, `v0.5.0`): real tickets, winners and prizes
-  from LAE, a prize model driven by the surprise of the results, and the ticket with the best
-  expected prize, played only when it pays (see [v5](#v5--money-ticket-money)). It covers the
-  part of "playing against the crowd" that the public's overall behaviour allows.
+[`TODO.todo`](TODO.todo); what is already done is in [Releases](#releases).
 
 1. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
    of European clubs with decades of history and current values. They include cup and
@@ -1135,20 +1124,17 @@ Done:
    tried), its Segunda coverage, a local copy of the ratings, and matching team names between
    sources. v3 shows that Dixon-Coles adds nothing once the odds are known, so Elo has to be
    judged the same way: by what it adds on top of the market.
-2. **Playing against the crowd, sign by sign (low priority).** v5 already maximises the
-   expected prize, with the market probabilities standing in for what the public marks. The
-   missing piece is the real share of bettors per sign of every match: in close matches a
-   slightly less likely but less popular sign can be worth more (e.g. X at 35% picked by 10% of
-   bettors, against 1 at 40% picked by 80%). With that history the prize model could use the
-   public's own picks instead of the market.
-3. **The public's picks of the next ticket.** `current.html` already shows the official ticket
-   (saved by hand from the betting page) and its file holds the public's share of each sign.
-   They could replace the market as the public in v5, and give the matches no model predicts
-   (women's league, national teams) better probabilities than the league shares.
+2. **Playing against the crowd with the public's picks (low priority).** v5 already maximises
+   the expected prize, with the market probabilities standing in for what the public marks.
+   The official ticket file (`data/lae/upcoming.json`) holds the real share of bettors per
+   sign: in close matches a slightly less likely but less popular sign can be worth more (e.g.
+   X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). No official history of
+   those shares exists, so it has to be built by saving the file every week; with it, the
+   prize model of v5 could use the public's own picks instead of the market, judged by the
+   euro backtest.
 
 Other ideas:
 
 - **Pi-ratings** (Constantinou & Fenton, 2013): separate home and away ratings learned from
   goal differences.
 - **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals.
-- **Pleno al 15**: use the exact-score predictions of Dixon-Coles.

@@ -1,57 +1,13 @@
 Quiniela · tareas pendientes
 ==============================================================================
-Orden de prioridad propuesto: 1 → 2 → 3.
-  1. y 2. mejoran las PROBABILIDADES (un nuevo modelo v3 combinado).
-  3. mejora la DECISIÓN (una capa final que actúa después de los modelos).
+Orden de prioridad propuesto: 1 → 2.
+  1. mejora las PROBABILIDADES (una variable más en la v3).
+  2. mejora la DECISIÓN (el público en el modelo de premios de v5).
 Formato: ☐ pendiente · ✔ hecho
+Lo ya hecho está en el README (Releases y cada modelo).
 
 
-1. Usar el mercado como información del modelo (v3 combinada) · HECHO (v0.3.0)
-==============================================================================
-Idea:
-  "Mercado" no es un modelo nuestro: son las probabilidades que se deducen de las
-  cuotas de las casas de apuestas de cada partido, que football-data.co.uk ya trae
-  en sus CSV. Hoy solo se usa como referencia; la idea es usarlo también como
-  contexto/entrada de un modelo.
-
-Por qué:
-  - Es la mejora con más impacto esperado y la más barata: los datos ya están
-    descargados (desde 2000) y existen también para los próximos partidos.
-  - El mercado es nuestro mejor "modelo" en el backtest (50,0 % de acierto frente al
-    48,7 % de Dixon-Coles v2). Una combinación aprendida de ambos suele superar a
-    cada uno por separado, aunque sea por poco.
-
-Matices:
-  - Usar SOLO cuotas previas al partido (como ahora), nunca las de cierre, para no
-    filtrar información posterior.
-  - Si la fuente aún no ha publicado las cuotas de la jornada, el modelo debe poder
-    volver a Dixon-Coles solo.
-  - Se pierde independencia: un modelo que usa las cuotas ya no "bate al mercado"
-    por sí mismo. Por eso v2 se mantiene como modelo independiente y esto sería v3.
-
-Tareas:
-  ✔ Diseñar v3: combinación aprendida (regresión logística multinomial / stacking)
-    de las probabilidades de Dixon-Coles y del mercado, con estructura fit/predict.
-  ✔ Entrenar la combinación solo con predicciones fuera de muestra (walk-forward).
-  ✔ Fallback a Dixon-Coles cuando falten las cuotas.
-  ✔ Registrar v3 en el registro de modelos (columna nueva en los dashboards).
-  ✔ Evaluar con el backtest (acierto, log-loss, Brier, RPS, premios) frente a v2 y
-    al mercado.
-  ✔ Documentar en el README con fórmulas.
-  ✔ Crear el tag v0.3.0.
-
-Resultado (backtest 2015-16 a 2025-26, 9.262 partidos):
-  - v3 (`market_blend`) es un "pool log-lineal": P(k) ∝ pDC^a · pM^b · e^c_k, con 4
-    parámetros entrenados con 5 años de predicciones fuera de muestra. Fue mejor que la
-    regresión multinomial completa (21 parámetros) y que una combinación por liga.
-  - Acierto 50,0 % (igual que el mercado, +1,3 puntos sobre v2); log-loss 1,0028 frente
-    a 1,0046 del mercado y 1,0215 de v2: el mejor modelo en las 11 temporadas.
-  - Pesos estables: b ≈ 1,2 (afina el mercado, que es algo prudente) y a ≈ -0,1: con
-    las cuotas, Dixon-Coles no aporta información propia. Cualquier variable nueva
-    (ClubElo) hay que medirla por lo que añade encima del mercado.
-
-
-2. Fuerza de los clubes (ClubElo) · PRIORIDAD MEDIA · después de 1.
+1. Fuerza de los clubes (ClubElo) · PRIORIDAD MEDIA
 ==============================================================================
 Idea:
   La librería soccerdata incluye ClubElo: un rating Elo diario de los clubes
@@ -73,6 +29,8 @@ Matices:
   - Confirmar que cubre Segunda División en todas las temporadas.
   - No recoge los fichajes de verano (Elo solo cambia con los partidos); para eso
     servirían más las valoraciones de SoFIFA.
+  - v3 muestra que, con las cuotas, Dixon-Coles no aporta nada: Elo hay que medirlo
+    igual, por lo que añade encima del mercado.
 
 Tareas:
   ☐ Comprobar que la API funciona y qué cubre (Primera, Segunda, desde qué año).
@@ -84,141 +42,30 @@ Tareas:
     lo incluye en buena parte).
 
 
-3. Jugar contra la mayoría (premio esperado) · PRIORIDAD BAJA · después de 1 y 2.
+2. Jugar contra la mayoría con los porcentajes del público · PRIORIDAD BAJA
 ==============================================================================
 Idea:
-  Podría usarse como DECISOR final para optimizar lo conseguido. Es una idea de
-  decisión pura, que viene de cómo funciona la quiniela: el bote de cada categoría
-  se reparte entre todos los acertantes. No basta con acertar: importa con cuántos
-  compartes el premio.
-
-Ejemplo:
-  - Partido igualado: 1 = 40 %, X = 35 %, 2 = 25 %.
-  - El 80 % de los apostantes marca "1" (favorito mediático) y solo el 10 % marca "X".
-  - Con "1" aciertas algo más a menudo (40 % frente a 35 %), pero cuando aciertas
-    compartes el premio con muchísima gente.
-  - Con "X" aciertas un poco menos, pero si sale quedan muchos menos boletos
-    acertantes y cada uno cobra más.
-  El valor esperado (probabilidad de acertar × premio cuando aciertas) puede ser
-  mayor marcando "X". No aumenta los aciertos; aumenta cuánto se cobra de media. En
-  partidos claros no compensa ir contra la mayoría; en los igualados, sí puede.
-
-Lo que hace falta (hoy no lo tenemos):
-  - El porcentaje de apostantes que marca cada signo en cada partido. Webs de
-    pronósticos citan una estimación de cierre de Loterías y Apuestas del Estado en
-    cada jornada; no se ha encontrado un conjunto de datos oficial descargable.
-  - Los 14 partidos reales de cada boleto (hoy se aproximan).
-  - Los premios reales por categoría de cada jornada (escrutinio de Loterías).
-  - El histórico de todo lo anterior, para poder evaluarlo con el backtest.
+  v5 ya maximiza el premio esperado, pero usa el mercado como "lo que marca el
+  público". El boleto oficial (data/lae/upcoming.json) trae el porcentaje real de
+  apostantes por signo: en partidos igualados, un signo algo menos probable pero
+  poco apostado puede valer más (p. ej. X al 35 % marcada por el 10 %, frente a 1
+  al 40 % marcado por el 80 %).
 
 Matices:
-  - Es una capa final después de los modelos, pero optimiza otra cosa: el PREMIO
-    ESPERADO, no los aciertos. Necesita otra métrica en el backtest (euros
-    esperados por boleto).
-  - Pesa sobre todo en las categorías altas (14 y 13 aciertos), donde el bote se
-    reparte entre pocos; en la 5.ª categoría (10 aciertos) el efecto es pequeño.
-  - Se puede apoyar en el mercado como "probabilidad real" y en los porcentajes de
-    Loterías como "lo que cree el público": los partidos donde el público
-    sobreapuesta respecto al mercado son los candidatos.
-  - Solo tiene sentido con probabilidades buenas (cerca del mercado).
+  - No hay histórico oficial descargable de esos porcentajes: hay que construirlo
+    guardando upcoming.json cada semana antes del cierre.
+  - Pesa sobre todo en las categorías altas (14 y 13 aciertos); en la de 10 el
+    efecto es pequeño.
 
 Tareas:
-  ☐ Buscar y confirmar fuentes de porcentajes de apuesta por signo y su histórico.
-  ☐ Scraping/descarga y almacenamiento local de porcentajes, boletos y premios.
-  ☐ Casar partidos y nombres de equipo con los de football-data.
-  ☐ Métrica de premio esperado y su evaluación en el backtest.
-  ☐ Decisor con estructura fit/predict aplicado después del modelo elegido.
-
-
-4. Confianza de la predicción y dobles/triples (v4) · HECHO (v0.4.0)
-==============================================================================
-Idea:
-  Medir lo predecible que es cada partido y usarlo para repartir dobles y triples
-  en el boleto donde más suben la probabilidad de premio.
-
-Tareas:
-  ✔ Columnas confidence (p de signo elegido) y margin (p1 - p2) en todas las
-    predicciones, calculadas solo de p_H, p_D, p_A.
-  ✔ Dashboards: columna de confianza (v3) con colores alta/media/baja, orden
-    "más predecibles primero" y probabilidad de cada categoría antes de la jornada.
-  ✔ Planificador de dobles y triples (presupuesto en dobles/triples o en apuestas,
-    objetivo 10+ o 14 aciertos) y v4 = v3 + mejor reparto con 48 apuestas.
-  ✔ Backtest: sin dobles, al azar, "a ojo", óptimo (10+ y 14) y v4.
-  ✔ Documentar en el README y crear el tag v0.4.0.
-
-Resultado (376 jornadas con boleto completo, signos de v3):
-  - Sin dobles: 35 premios; con 48 apuestas al azar: 130; "a ojo" (triple y
-    dobles en los partidos menos predecibles): 158; v4: 160.
-  - La probabilidad de premio calculada antes de la jornada acierta (41,3 %
-    prevista frente a 42,6 % real): las probabilidades de los dashboards son fiables.
-  - Lo que más importa es DÓNDE van los dobles: la regla "a ojo" casi iguala al
-    óptimo. Ninguna estrategia sacó un pleno de 14 con este presupuesto.
-  - Se cuentan premios, no euros: para optimizar dinero hacen falta los premios
-    reales por categoría (punto 3).
-
-
-5. Premios oficiales y boleto en euros (v5) · HECHO (v0.5.0, sin publicar)
-==============================================================================
-Tareas:
-  ✔ Dataset de sorteos oficiales de LAE (boletos reales, recaudación, acertantes y
-    premios por categoría) desde 2010-11, en data/lae/ (se guarda a mano desde el
-    navegador: el servicio responde "Access Denied" a los scripts).
-  ✔ v4 apunta a 11+ aciertos (el premio de 10 a menudo no se paga).
-  ✔ Modelo de premios según la sorpresa de los resultados y v5: boleto con el
-    mayor premio esperado en euros, solo cuando compensa; versión prudente por
-    defecto (el 14 y el Pleno al 15 no cuentan para decidir).
-  ✔ Backtest en euros con los boletos y premios reales.
-  ✔ Dashboards: columna v5 con veredicto y euros ganados; evaluación en euros.
-  ✔ README: cuándo ejecutar v3 (las cuotas llegan el viernes por la tarde).
-  ✔ Commit, tag v0.5.0 y push.
-
-Resultado (414 sorteos reales 2015-16 a 2025-26 con 10+ partidos de Liga):
-  - Todas las estrategias pierden dinero (la quiniela se queda el 45 %).
-  - v5 prudente (solo cuentan los premios de 10 a 13 aciertos) no juega ninguno
-    de los 414 sorteos: nunca compensó (como mucho cubría el 60 % del coste).
-  - v5 contando también el 14 y el Pleno al 15: juega 143 y recupera el 40 %
-    (46 % en otra tanda de simulaciones); v4 siempre, el 35 %.
-  - El premio esperado de 10-13 aciertos acierta (11,68 € previsto, 12,37 € real).
-  - La mayor parte del valor esperado del v5 completo viene del 14 y el Pleno al
-    15 con bote: rarísimo, no salió y el backtest no puede confirmarlo.
-
-Modo "gran premio" de v5 (después de v0.5.0):
-  ✔ Boleto con la mayor probabilidad de un premio de 10.000 € o más con 50 € a la
-    semana (muchos aciertos y pocos acertantes a la vez).
-  ✔ current.html: en lugar de "no juegues", gráfico de lo que puede pasar con el
-    boleto (probabilidad de cada tramo de premio).
-  Resultado: casi siempre 6 dobles (48 €); 10.000 € o más ≈ 0,06 % por jornada
-  (1 de cada ~1.700); en 414 sorteos no salió ninguno (se esperaban 0,25); recupera
-  el 37 % de lo gastado.
-
-Boleto oficial de la jornada en current.html (después de v0.5.0):
-  ✔ data/lae/upcoming.json desde la página de apuestas (tools/lae_upcoming.js):
-    partidos, cierre de ventas y porcentajes del público (guardados, sin usar).
-  ✔ current.html muestra ese boleto (orden oficial) con predicciones sin colores,
-    contador hasta el cierre y aviso de si football-data ya tiene los fixtures.
-  ✔ Partidos sin modelo (liga femenina, selecciones): v3 usa los porcentajes del
-    público (v0.6.0); v4 y v5 se planifican con ellos.
-  ✔ Categoría de cada partido (M, F, O, U) y si entra en la quiniela, en todos los
-    dashboards; boletos oficiales en histórico y temporada (v0.6.0).
-  ✔ Pleno al 15 del boleto oficial (Dixon-Coles si es de Liga; si no, lo más
-    apostado), precio de los boletos v4 y v5, y en season.html los boletos
-    oficiales con v1 a v5 y el pleno.
-  ✔ Semáforos en current.html (v0.7.1): v5 por probabilidad de 10.000 € o más y de
-    13+ aciertos, v4 por 11+ aciertos, según el percentil entre los boletos reales
-    pasados; aviso en rojo de que ninguno hace rentable la quiniela.
-  ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
-    modelo de premios de v5.
   ☐ Guardar cada semana upcoming.json para tener histórico de porcentajes del
     público y poder evaluarlos.
-
-Pendiente relacionado:
-  ☐ Porcentaje de apostantes por signo (jugar contra la mayoría partido a partido).
-  ✔ Boleto oficial de la jornada actual (se guarda a mano con tools/lae_upcoming.js;
-    desde 2026-27 incluye 4 partidos de la liga femenina).
+  ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
+    modelo de premios de v5.
+  ☐ Medir con el backtest en euros si mejora frente al mercado.
 
 
 Otras ideas (ya en el README)
 ==============================================================================
   ☐ Pi-ratings (Constantinou & Fenton, 2013): ratings separados en casa y fuera.
   ☐ Tiros a puerta (HST, AST) como medida de rendimiento menos ruidosa que los goles.
-  ☐ Pleno al 15: aprovechar las predicciones de marcador exacto de Dixon-Coles.
