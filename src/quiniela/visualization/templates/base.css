@@ -192,3 +192,13 @@ section.block { margin-bottom: 32px; }
 section.block > h2.section-title {
   font-size: 18px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--grid);
 }
+
+/* Match categories (M, F, O, U): a neutral chip with the letter; Q marks the official ticket */
+.cat {
+  display: inline-block; min-width: 18px; text-align: center; border-radius: 4px; padding: 0 4px;
+  font-size: 11px; font-weight: 600; border: 1px solid var(--border); color: var(--text-secondary);
+}
+.cat-M { color: var(--text-primary); }
+.cat-F, .cat-O { background: var(--row-hover); }
+.cat-U { color: var(--text-muted); border-style: dashed; }
+.badge.q { font-size: 11px; padding: 0 6px; }

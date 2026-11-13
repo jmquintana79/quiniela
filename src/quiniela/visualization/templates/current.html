@@ -8,6 +8,7 @@
 </head>
 <body>
 <main>
+  <div id="deadline"></div>
   <header>
     <h1 id="title">Current matchday</h1>
     <span class="meta" id="meta"></span>
@@ -15,6 +16,7 @@
 
   <section class="block">
     <div id="status"></div>
+    <div id="fixtures"></div>
     <div id="banners" style="margin-bottom:8px"></div>
     <div class="card">
       <h2 id="matches-title">Matches</h2>
@@ -45,7 +47,7 @@
 
   function showMatches() {
     $("matches").innerHTML = DATA.models.length
-      ? matchdayTable(md, DATA.models, DATA.leagues, DATA.confidence_model, DATA.confidence_tiers, sort)
+      ? matchdayTable(md, DATA.models, DATA.leagues, DATA.confidence_model, DATA.confidence_tiers, sort, DATA.categories)
       : '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
   }
 
@@ -53,7 +55,9 @@
   function statusBanner() {
     const left = md.matches.length - md.played;
     const text = {
-      upcoming: ["Upcoming matchday", "No match has been played yet: every column is a prediction."],
+      upcoming: [DATA.jornada ? `Official ticket of jornada ${DATA.jornada}` : "Upcoming matchday",
+        DATA.jornada ? "The 14 matches and the Pleno al 15 published by Loterías y Apuestas del Estado. No result yet: every column is a prediction (La Liga and Segunda matches only; the others have none)."
+          : "No match has been played yet: every column is a prediction."],
       in_progress: ["Matchday in progress", `${md.played} of ${md.matches.length} matches played, ${left} still to play.`],
       completed: ["Matchday completed", "Every match of this matchday has been played. The next matchday " +
         "is not published by the source yet (a few days before it is played, later during " +
@@ -62,17 +66,57 @@
     return `<div class="banner ${DATA.status === "completed" ? "" : "pending"}"><strong>${text[0]}</strong>${text[1]}</div>`;
   }
 
+  // Sales deadline of the official ticket, with a live countdown
+  function showDeadline() {
+    if (!DATA.deadline) { $("deadline").innerHTML = ""; return; }
+    const end = new Date(DATA.deadline);
+    const left = end - new Date();
+    const when = end.toLocaleString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric",
+      hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
+    let count;
+    if (left <= 0) {
+      count = "Betting is closed.";
+    } else {
+      const days = Math.floor(left / 86400000);
+      const hours = Math.floor((left % 86400000) / 3600000);
+      const minutes = Math.floor((left % 3600000) / 60000);
+      count = `Time left: <span style="font-size:20px;font-weight:600">${days ? `${days} d ` : ""}${hours} h ${String(minutes).padStart(2, "0")} min</span>`;
+    }
+    $("deadline").innerHTML = `<div class="banner ${left > 0 ? "pending" : "no_prize"}" style="margin-bottom:12px">` +
+      `<strong>Jornada ${DATA.jornada} · betting closes ${esc(when)} (Madrid time)</strong>${count}</div>`;
+  }
+
+  // Whether football-data already has the fixtures (and odds) of the matchday's matches
+  function fixturesBanner() {
+    const f = DATA.fixtures;
+    if (!f || !f.ours) return "";
+    if (f.odds == null) return "";
+    if (f.odds >= f.ours) {
+      return `<div class="banner prize"><strong>football-data fixtures: available</strong>` +
+        `Odds for all ${f.ours} La Liga / Segunda matches of the ticket: v3 predicts with the market.</div>`;
+    }
+    const part = f.odds ? `Odds for ${f.odds} of the ${f.ours} La Liga / Segunda matches` : `Not published yet for the ${f.ours} La Liga / Segunda matches of the ticket`;
+    return `<div class="banner pending"><strong>football-data fixtures: ${f.odds ? "partly available" : "not available yet"}</strong>` +
+      `${part}. Until they are, v3 predicts with Dixon-Coles only (the same as v2). football-data adds the odds of ` +
+      `weekend matches on Friday afternoon and of midweek ones on Tuesday afternoon: run <code>invoke update</code> then.</div>`;
+  }
+
   function showStandings(i) {
     const code = Object.keys(DATA.standings)[i];
     $("standings").innerHTML = standingsTable(DATA.standings[code]);
   }
 
-  $("legend").innerHTML = MATCHDAY_LEGEND;
+  $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
+    "<br>Only v3 and the tickets built on it (v4, v5) are shown here; every model is in season.html.";
   if (md) {
-    $("title").textContent = `Matchday ${md.number}`;
-    $("meta").textContent = `${fmtDate(md.start)} – ${fmtDate(md.end)} · current season, ${DATA.matchdays} matchdays so far`;
+    $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;
+    $("meta").textContent = DATA.jornada ? "Official ticket · current season"
+      : `${fmtDate(md.start)} – ${fmtDate(md.end)} · current season, ${DATA.matchdays} matchdays so far`;
     $("matches-title").textContent = `Matches and predictions · ${md.played}/${md.matches.length} played`;
     $("status").innerHTML = statusBanner();
+    $("fixtures").innerHTML = fixturesBanner();
+    showDeadline();
+    setInterval(showDeadline, 30000);
     $("banners").innerHTML = DATA.models.length ? quinielaBanners(md, DATA.models) : "";
     segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
     showMatches();

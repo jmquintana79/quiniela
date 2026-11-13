@@ -191,10 +191,24 @@ Modo "gran premio" de v5 (después de v0.5.0):
   (1 de cada ~1.700); en 414 sorteos no salió ninguno (se esperaban 0,25); recupera
   el 37 % de lo gastado.
 
+Boleto oficial de la jornada en current.html (después de v0.5.0):
+  ✔ data/lae/upcoming.json desde la página de apuestas (tools/lae_upcoming.js):
+    partidos, cierre de ventas y porcentajes del público (guardados, sin usar).
+  ✔ current.html muestra ese boleto (orden oficial) con predicciones sin colores,
+    contador hasta el cierre y aviso de si football-data ya tiene los fixtures.
+  ✔ Partidos sin modelo (liga femenina, selecciones): v3 usa los porcentajes del
+    público (v0.6.0); v4 y v5 se planifican con ellos.
+  ✔ Categoría de cada partido (M, F, O, U) y si entra en la quiniela, en todos los
+    dashboards; boletos oficiales en histórico y temporada (v0.6.0).
+  ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
+    modelo de premios de v5.
+  ☐ Guardar cada semana upcoming.json para tener histórico de porcentajes del
+    público y poder evaluarlos.
+
 Pendiente relacionado:
   ☐ Porcentaje de apostantes por signo (jugar contra la mayoría partido a partido).
-  ☐ Boleto oficial de la jornada actual (LAE lo publica antes, pero no es legible
-    por scripts; desde 2026-27 incluye 4 partidos de la liga femenina).
+  ✔ Boleto oficial de la jornada actual (se guarda a mano con tools/lae_upcoming.js;
+    desde 2026-27 incluye 4 partidos de la liga femenina).
 
 
 Otras ideas (ya en el README)

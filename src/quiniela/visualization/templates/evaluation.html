@@ -47,6 +47,17 @@
   </section>
 
   <section class="card" style="margin-bottom:16px">
+    <h2>Official tickets by category</h2>
+    <p class="meta" style="margin:0 0 10px">
+      The 14 matches of every official ticket of the backtest seasons, by category, and how v3 did on the
+      La Liga / Segunda ones (M) it could predict. Women's (F) and other matches (O) have no model: v3 uses the
+      public's picks for them, which are only known for the ticket being sold, not for past ones.
+    </p>
+    <div class="scroll" id="ticket-categories"></div>
+    <div id="category-legend" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
     <h2>Real tickets in euros</h2>
     <p class="meta" style="margin:0 0 10px">
       The official tickets of past draws (Loterías y Apuestas del Estado, saved in data/lae) with at
@@ -235,6 +246,20 @@
         14 ... 10: draws whose best column got that many hits.</p>`;
   }
 
+  function ticketCategoriesTable() {
+    const data = DATA.ticket_categories || {};
+    const keys = Object.keys(data).filter((k) => k !== "all").sort();
+    if (!keys.length) return '<p class="empty">No official tickets saved (data/lae).</p>';
+    const row = (label, r) => `<tr><td>${esc(label)}</td><td class="num">${r.matches}</td>
+      ${["M", "F", "O", "U"].map((c) => `<td class="num">${r[c]} <span class="muted">${pct(r.matches ? r[c] / r.matches : null)}</span></td>`).join("")}
+      <td class="num">${r.v3_matches ? pct(r.v3_hits / r.v3_matches, 1) : "–"} <span class="muted">${r.v3_hits}/${r.v3_matches}</span></td></tr>`;
+    return `<table><thead><tr><th>Season</th><th class="num">Ticket matches</th>
+        ${["M", "F", "O", "U"].map((c) => `<th class="num">${categoryChip(c, DATA.categories)}</th>`).join("")}
+        <th class="num">v3 hit rate (M)</th></tr></thead>
+      <tbody>${keys.map((k) => row(k, data[k])).join("")}</tbody>
+      <tfoot>${data.all ? row("All seasons", data.all) : ""}</tfoot></table>`;
+  }
+
   function definitions() {
     return `<table><tbody>${DATA.metrics.map((m) => `<tr>
       <td class="strong">${esc(m.label)}</td>
@@ -249,6 +274,8 @@
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();
     $("money").innerHTML = moneyTable();
+    $("ticket-categories").innerHTML = ticketCategoriesTable();
+    $("category-legend").innerHTML = categoryLegend(DATA.categories || {});
     $("by-season").innerHTML = bySeasonTable();
     $("by-season").querySelectorAll("tr.clickable").forEach((row) => row.addEventListener("click", () => {
       state.season = row.dataset.season === state.season ? "all" : row.dataset.season;

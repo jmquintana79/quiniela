@@ -31,6 +31,15 @@
     <section class="card"><h2 id="standings-title">Final standings</h2><div class="scroll" id="standings"></div></section>
     <section class="card"><h2 id="results-title">Results</h2><div class="scroll" id="results"></div></section>
   </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2 id="tickets-title">Official quiniela tickets</h2>
+    <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
+    <p class="meta" style="margin:0 0 10px">The tickets of the season as Loterías y Apuestas del Estado published them
+      (data/lae), with every match: men's La Liga and Segunda (M), women's football (F) and other competitions (O).</p>
+    <div class="scroll" id="tickets"></div>
+    <div id="categories" style="margin-top:10px"></div>
+  </section>
 </main>
 
 <script>const DATA = /*__DATA__*/null;</script>
@@ -69,7 +78,23 @@
     $("standings-title").textContent = `Final standings ${season.season}`;
     $("results-title").textContent = `Results ${season.season}${state.team ? ` · ${state.team}` : ""} (${matches.length})`;
     $("standings").innerHTML = standingsTable(season.standings);
-    $("results").innerHTML = resultsTable(matches);
+    $("results").innerHTML = resultsTable(matches, DATA.categories);
+    renderTickets(season.season);
+  }
+
+  // Official quiniela tickets of the selected season (all competitions)
+  function renderTickets(seasonLabel, index = null) {
+    const tickets = (DATA.tickets || {})[seasonLabel] || [];
+    $("tickets-title").textContent = `Official quiniela tickets ${seasonLabel} (${tickets.length})`;
+    if (!tickets.length) {
+      $("ticket-select").innerHTML = "";
+      $("tickets").innerHTML = '<p class="empty">No official tickets saved for this season (data/lae).</p>';
+      return;
+    }
+    const i = index ?? tickets.length - 1;
+    $("ticket-select").innerHTML = tickets.map((t, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${t.jornada ?? "–"} · ${t.date ? fmtDate(t.date) : ""}</option>`).join("");
+    $("ticket-select").onchange = (e) => renderTickets(seasonLabel, Number(e.target.value));
+    $("tickets").innerHTML = officialTicketTable(tickets[i], DATA.categories);
   }
 
   function selectSeason(i) {
@@ -93,6 +118,7 @@
   }
 
   $("legend").innerHTML = outcomeLegend();
+  $("categories").innerHTML = categoryLegend(DATA.categories || {});
   $("season").addEventListener("change", (e) => selectSeason(Number(e.target.value)));
   $("team").addEventListener("change", (e) => { state.team = e.target.value; renderSeason(); });
 

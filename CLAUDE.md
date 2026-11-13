@@ -43,6 +43,10 @@ model is evaluated with a walk-forward backtest against the betting market.
   ticket with the best expected prize in euros, from the official draws in `data/lae/`
   (`quiniela.data.prizes`); its backtest in euros is `quiniela.evaluation.money`
   (`data/backtest/money.parquet`).
+- The next official ticket (`data/lae/upcoming.json`, saved with `tools/lae_upcoming.js` in a
+  browser) drives `current.html` (`quiniela.prediction.pipeline.predict_upcoming`); v3 uses its
+  public picks for the matches no model covers. Matches carry a category (M, F, O, U:
+  `quiniela.data.prizes.match_category`) and the official jornada they were on.
 - New submodules of packages with `__all__` (`quiniela.config`, `quiniela.prediction`,
   `quiniela.evaluation`) must be added to `__all__` so pdoc documents them.
 

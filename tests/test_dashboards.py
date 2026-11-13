@@ -207,7 +207,9 @@ def test_current_payload_picks_the_current_matchday(
     assert payload["matchday"]["number"] == number
     assert payload["status"] == status
     assert payload["matchdays"] == 2
-    assert [m["key"] for m in payload["models"]] == ["head_to_head"]
+    # current.html only shows v3 and the tickets built on it (v1 and v2 stay in season.html)
+    assert [m["key"] for m in payload["models"]] == []
+    assert payload["categories"]["M"].startswith("Male")
 
 
 def test_current_matchday_in_progress() -> None:
@@ -236,8 +238,11 @@ def test_current_payload_standings_and_odds_time(tmp_path: Path) -> None:
 def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("current", "season", "historical", "evaluation"):
         monkeypatch.setattr(
-            dashboards, f"{name}_payload", lambda **_: {"leagues": [], "models": []}
+            dashboards, f"{name}_payload", lambda *_, **__: {"leagues": [], "models": []}
         )
+    # No real data: no prize context nor saved ticket
+    monkeypatch.setattr("quiniela.evaluation.money.prize_context", lambda: None)
+    monkeypatch.setattr(dashboards, "_upcoming_view", lambda *_, **__: None)
     old = tmp_path / "predictions.html"
     old.write_text("old")
 
@@ -427,3 +432,49 @@ def test_season_payload_money_ticket_and_euros() -> None:
     assert euros["played"] and euros["cost"] == 0.75 and euros["source"] == "model"
     assert euros["payout"] > 0
     assert payload["totals"][dashboards.PLANNED_KEY]["euros"]["played"] == 1
+
+
+def _upcoming(tmp_path: Path):  # type: ignore[no-untyped-def]
+    from quiniela.data.prizes import load_upcoming
+    from quiniela.prediction import pipeline
+    from tests.helpers import make_matches
+    from tests.test_prizes import _upcoming_file
+
+    _upcoming_file(tmp_path)
+    ticket = load_upcoming(tmp_path)
+    rows = [("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]
+    current = make_matches(rows).assign(season="2026-27")
+    history = make_matches([("SP2", "2025-10-03", "Valladolid", "Castellon", 2, 0)]).assign(
+        season="2025-26"
+    )
+    matches, predictions, info = pipeline.predict_upcoming(ticket, history=history, current=current)
+    return ticket, matches, predictions, info, current
+
+
+def test_current_payload_shows_the_official_ticket(tmp_path: Path) -> None:
+    ticket, matches, predictions, info, current = _upcoming(tmp_path)
+    payload = dashboards.season_payload(matches, predictions)
+    current = current.assign(round=1, matchday=1)
+
+    out = dashboards.current_payload(
+        current, {}, current_dir=tmp_path, upcoming=(ticket, payload, info)
+    )
+
+    assert out["jornada"] == 21 and out["deadline"] == "2026-11-14T14:00:00+01:00"
+    assert out["status"] == "upcoming"
+    assert out["fixtures"] == info
+    rows = out["matchday"]["matches"]
+    # Official order and leagues; no kick-off known; no result
+    assert [r["ticket"] for r in rows] == [1, 2]
+    assert [r["league"] for r in rows] == ["SP2", "WOMEN"]
+    assert all(r["kickoff_known"] is False and r["FTR"] is None for r in rows)
+    assert rows[0]["dixon_coles_sign"] in ("H", "D", "A") and rows[1]["dixon_coles_sign"] is None
+
+
+def test_upcoming_view_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    ticket, *_ = _upcoming(tmp_path)
+    monkeypatch.setattr("quiniela.data.prizes.load_upcoming", lambda: ticket)
+    later = ticket.closes + pd.Timedelta(days=dashboards.UPCOMING_DAYS + 1)
+    assert dashboards._upcoming_view(None, now=later) is None
+    monkeypatch.setattr("quiniela.data.prizes.load_upcoming", lambda: None)
+    assert dashboards._upcoming_view(None) is None

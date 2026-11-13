@@ -111,3 +111,97 @@ def test_normalise() -> None:
 def test_empty_folder(tmp_path: Path) -> None:
     assert prizes.load_draws(tmp_path).empty
     assert prizes.load_tickets(tmp_path).empty
+
+
+def _upcoming_file(folder: Path, closes: str = "14/11/2026 - 14:00") -> Path:
+    matches = [
+        {
+            "position": 1,
+            "home": "R. Valladolid (M)",
+            "away": "Castellón (M)",
+            "public": {"1": 30, "X": 25, "2": 45},
+        },
+        {
+            "position": 2,
+            "home": "Alavés (F)",
+            "away": "Eibar (F)",
+            "public": {"1": 35, "X": 34, "2": 31},
+        },
+        {
+            "position": 15,
+            "home": "España (M)",
+            "away": "Inglaterra (M)",
+            "public_home": {"0": 4, "1": 19, "2": 51, "M": 26},
+            "public_away": {"0": 14, "1": 53, "2": 25, "M": 8},
+        },
+    ]
+    path = folder / prizes.UPCOMING_FILE
+    path.write_text(
+        json.dumps(
+            {
+                "jornada": 21,
+                "closes": closes,
+                "saved_at": "2026-11-13T15:00:00Z",
+                "matches": matches,
+            }
+        )
+    )
+    return path
+
+
+def test_load_upcoming(tmp_path: Path) -> None:
+    _upcoming_file(tmp_path)
+    ticket = prizes.load_upcoming(tmp_path)
+    assert ticket is not None and ticket.jornada == 21
+    # Madrid time (CET in November: UTC+1)
+    assert ticket.closes.isoformat() == "2026-11-14T14:00:00+01:00"
+    first = ticket.matches.iloc[0]
+    assert (first["lae_home"], first["public_2"]) == ("R. Valladolid (M)", 45)
+    assert ticket.pleno_public["home"]["2"] == 51
+    assert prizes.load_upcoming(tmp_path / "missing") is None
+
+
+def test_load_upcoming_ignores_a_broken_file(tmp_path: Path) -> None:
+    (tmp_path / prizes.UPCOMING_FILE).write_text('{"jornada": 21}')
+    assert prizes.load_upcoming(tmp_path) is None
+
+
+def test_translate_team() -> None:
+    known = {prizes.normalise(t): t for t in ["Valladolid", "Ath Madrid", "Castellon"]}
+    assert prizes.translate_team(known, "R. Valladolid (M)") == "Valladolid"
+    assert prizes.translate_team(known, "At. Madrid") == "Ath Madrid"
+    assert prizes.translate_team(known, "Castellón (M)") == "Castellon"
+    assert prizes.translate_team(known, "At. Madrid (F)") is None
+
+
+@pytest.mark.parametrize(
+    ("home", "away", "league", "expected"),
+    [
+        (None, None, "SP1", "M"),
+        ("At. Madrid (m)", "Barcelona (m)", "SP1", "M"),
+        ("Athletic Club (F)", "Real Madrid (F)", None, "F"),
+        ("Bélgica (M)", "Italia (M)", None, "O"),
+        ("Arsenal", "Chelsea", None, "O"),
+        (None, None, None, "U"),
+    ],
+)
+def test_match_category(
+    home: str | None, away: str | None, league: str | None, expected: str
+) -> None:
+    assert prizes.match_category(home, away, league) == expected
+    assert set(prizes.CATEGORY_LEGEND) == {"M", "F", "O", "U"}
+
+
+def test_ticket_flags_and_official_tickets(lae_dir: Path, matches: pd.DataFrame) -> None:
+    matched = prizes.match_tickets(prizes.load_tickets(lae_dir), matches)
+    flags = prizes.ticket_flags(matched)
+    # The two football-data matches of the ticket, with its jornada
+    assert len(flags) == 3 and flags["quiniela"].eq(7).all()
+    assert set(flags["game"]) >= {"2025-10-04 Ath Madrid-Barcelona"}
+    tickets = prizes.official_tickets(prizes.load_draws(lae_dir), matched)
+    ticket = tickets["2025-26"][0]
+    assert ticket["jornada"] == 7 and ticket["date"] == "2025-10-05"
+    categories = {m["position"]: m["category"] for m in ticket["matches"]}
+    assert categories == {1: "M", 2: "M", 3: "O", 4: "F", 15: "M"}
+    first = ticket["matches"][0]
+    assert (first["home"], first["sign"], first["score"]) == ("Ath Madrid", "D", "1-1")

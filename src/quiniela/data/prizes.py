@@ -28,8 +28,10 @@ leagues...) stay unmatched.
 import json
 import logging
 import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -149,6 +151,8 @@ def _read_draws(lae_dir: Path) -> list[dict[str, Any]]:
     """Every draw of the saved LAE files, without repetitions."""
     draws: dict[str, dict[str, Any]] = {}
     for path in sorted(lae_dir.glob("*.json")):
+        if path.name == UPCOMING_FILE:
+            continue  # the next ticket, not a list of past draws
         content = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(content, list):
             logger.warning("Skipping %s: not a list of draws", path.name)
@@ -234,6 +238,35 @@ def load_tickets(lae_dir: Path = LAE_DIR) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=TICKET_COLUMNS)
 
 
+def team_names(matches: pd.DataFrame) -> dict[str, dict[str, str]]:
+    """football-data team names of every season, keyed by their normalised form."""
+    names: dict[str, dict[str, str]] = {}
+    for season, group in matches.groupby("season"):
+        teams = set(group["home_team"]) | set(group["away_team"])
+        names[str(season)] = {normalise(str(team)): str(team) for team in teams}
+    return names
+
+
+def translate_team(known: dict[str, str], lae_name: str) -> str | None:
+    """football-data name of an LAE team, or None for teams of other competitions.
+
+    Args:
+        known: Normalised name -> football-data name of one season (``team_names``).
+        lae_name: Team name as LAE writes it (e.g. ``"At. Madrid (m)"``).
+
+    Returns:
+        The football-data name, or ``None`` (women's teams, national teams...).
+    """
+    key = normalise(lae_name)
+    candidate = TEAM_ALIASES.get(key)
+    options = [candidate] if candidate else []
+    options += ALTERNATIVE_NAMES.get(candidate or "", [])
+    for option in options:
+        if normalise(option) in known:
+            return known[normalise(option)]
+    return known.get(key)
+
+
 def match_tickets(tickets: pd.DataFrame, matches: pd.DataFrame) -> pd.DataFrame:
     """Find the football-data match of every ticket match.
 
@@ -246,21 +279,10 @@ def match_tickets(tickets: pd.DataFrame, matches: pd.DataFrame) -> pd.DataFrame:
         ``tickets`` with ``league``, ``game``, ``home_team`` and
         ``away_team`` (``NaN`` for matches of other competitions or teams).
     """
-    names: dict[str, dict[str, str]] = {}
-    for season, group in matches.groupby("season"):
-        teams = set(group["home_team"]) | set(group["away_team"])
-        names[str(season)] = {normalise(str(team)): str(team) for team in teams}
+    names = team_names(matches)
 
     def translate(season: str, lae_name: str) -> str | None:
-        known = names.get(season, {})
-        key = normalise(lae_name)
-        candidate = TEAM_ALIASES.get(key)
-        options = [candidate] if candidate else []
-        options += ALTERNATIVE_NAMES.get(candidate or "", [])
-        for option in options:
-            if normalise(option) in known:
-                return known[normalise(option)]
-        return known.get(key)
+        return translate_team(names.get(season, {}), lae_name)
 
     out = tickets.copy()
     out["home_team"] = [
@@ -294,3 +316,180 @@ def draw_coverage(matched: pd.DataFrame) -> pd.DataFrame:
     first14 = matched[matched["position"] <= 14]
     counts = first14.groupby("draw_id")["game"].apply(lambda g: int(g.notna().sum()))
     return counts.rename("matched").reset_index()
+
+
+# The next ticket, saved by hand from the betting page (tools/lae_upcoming.js)
+UPCOMING_FILE = "upcoming.json"
+
+# Sales close at Spanish local time
+MADRID = ZoneInfo("Europe/Madrid")
+
+
+@dataclass(frozen=True)
+class UpcomingTicket:
+    """The next official ticket, as the betting page shows it.
+
+    Attributes:
+        jornada: Quiniela matchday number.
+        closes: When sales close (Madrid time, timezone-aware).
+        saved_at: When the page was saved (UTC), if known.
+        matches: One row per match: ``position`` (1-15), ``lae_home``,
+            ``lae_away`` and the public's share of each sign, ``public_1``,
+            ``public_X``, ``public_2`` (percent; empty for the Pleno al 15).
+        pleno_public: Public's share of each goals category of the Pleno al 15
+            (``{"home": {...}, "away": {...}}``), if saved.
+    """
+
+    jornada: int
+    closes: pd.Timestamp
+    saved_at: pd.Timestamp | None
+    matches: pd.DataFrame
+    pleno_public: dict[str, dict[str, float]]
+
+
+def load_upcoming(lae_dir: Path = LAE_DIR) -> UpcomingTicket | None:
+    """Read the next ticket saved from the betting page.
+
+    Args:
+        lae_dir: Folder with ``upcoming.json``.
+
+    Returns:
+        The ticket, or ``None`` when the file is missing or not valid.
+    """
+    path = lae_dir / UPCOMING_FILE
+    if not path.exists():
+        return None
+    try:
+        content = json.loads(path.read_text(encoding="utf-8"))
+        closes = pd.to_datetime(str(content["closes"]).replace(" ", ""), format="%d/%m/%Y-%H:%M")
+        rows = []
+        pleno: dict[str, dict[str, float]] = {}
+        for match in content["matches"]:
+            public = match.get("public") or {}
+            rows.append(
+                {
+                    "position": int(match["position"]),
+                    "lae_home": str(match["home"]).strip(),
+                    "lae_away": str(match["away"]).strip(),
+                    **{f"public_{sign}": public.get(sign) for sign in ("1", "X", "2")},
+                }
+            )
+            if int(match["position"]) == 15:
+                pleno = {
+                    "home": dict(match.get("public_home") or {}),
+                    "away": dict(match.get("public_away") or {}),
+                }
+        saved = content.get("saved_at")
+        return UpcomingTicket(
+            jornada=int(content["jornada"]),
+            closes=closes.tz_localize(MADRID),
+            saved_at=pd.Timestamp(saved) if saved else None,
+            matches=pd.DataFrame(rows).sort_values("position").reset_index(drop=True),
+            pleno_public=pleno,
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        logger.warning("Ignoring %s: %s", path, error)
+        return None
+
+
+# Category of every match shown in the dashboards (legend shown next to the tables)
+CATEGORY_LEGEND: dict[str, str] = {
+    "M": "Male: men's La Liga or Segunda, in football-data (the models predict them)",
+    "F": "Female: women's football (marked (F) on the official ticket)",
+    "O": "Other: another competition (national teams, cups, foreign or lower leagues)",
+    "U": "Unknown: not enough information to tell",
+}
+
+
+def match_category(lae_home: object, lae_away: object, league: object) -> str:
+    """Category of a match: ``M``, ``F``, ``O`` or ``U`` (see ``CATEGORY_LEGEND``).
+
+    Args:
+        lae_home: Home team as LAE writes it (``None`` for football-data matches).
+        lae_away: Away team as LAE writes it.
+        league: football-data league of the match (``SP1``/``SP2``), if any.
+
+    Returns:
+        The category code.
+    """
+    if isinstance(league, str) and league in ("SP1", "SP2"):
+        return "M"
+    if not isinstance(lae_home, str) or not isinstance(lae_away, str):
+        return "U"
+    if "(f)" in f"{lae_home} {lae_away}".lower():
+        return "F"
+    # LAE only marks men's teams since 2026-27: an unmatched team is another competition
+    return "O"
+
+
+def ticket_flags(matched: pd.DataFrame) -> pd.DataFrame:
+    """football-data matches that were on an official ticket, with its jornada.
+
+    Args:
+        matched: Output of :func:`match_tickets`.
+
+    Returns:
+        ``season``, ``league``, ``game``, ``home_team``, ``away_team``,
+        ``quiniela`` (jornada) and ``quiniela_position`` (1-15).
+    """
+    rows = matched.dropna(subset=["game"])
+    rows = rows.rename(columns={"jornada": "quiniela", "position": "quiniela_position"})
+    columns = [
+        "season",
+        "league",
+        "game",
+        "home_team",
+        "away_team",
+        "quiniela",
+        "quiniela_position",
+    ]
+    return rows[columns].drop_duplicates(subset=["league", "game"])
+
+
+def official_tickets(draws: pd.DataFrame, matched: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
+    """Every official ticket by season, its 15 matches with category and result.
+
+    Args:
+        draws: Output of :func:`load_draws`.
+        matched: Output of :func:`match_tickets` for the same draws.
+
+    Returns:
+        ``{season: [ticket, ...]}`` in date order; each ticket has ``jornada``,
+        ``date`` and ``matches`` (``position``, ``home``, ``away``,
+        ``category``, ``sign``, ``score``, ``league`` and ``game`` when it is a
+        football-data match).
+    """
+    dates = dict(zip(draws["draw_id"], draws["date"], strict=True))
+    out: dict[str, list[dict[str, Any]]] = {}
+    ordered = matched.assign(_date=matched["draw_id"].map(dates)).sort_values(["_date", "position"])
+    for (draw_id, season), rows in ordered.groupby(["draw_id", "season"], sort=False):
+        date = dates.get(draw_id)
+        matches = []
+        for row in rows.itertuples():
+            score = (
+                f"{int(row.FTHG)}-{int(row.FTAG)}"
+                if not pd.isna(row.FTHG) and not pd.isna(row.FTAG)
+                else None
+            )
+            matches.append(
+                {
+                    "position": int(row.position),
+                    "home": row.home_team if isinstance(row.league, str) else row.lae_home,
+                    "away": row.away_team if isinstance(row.league, str) else row.lae_away,
+                    "category": match_category(row.lae_home, row.lae_away, row.league),
+                    "sign": row.sign,
+                    "score": score,
+                    "league": row.league if isinstance(row.league, str) else None,
+                    "game": row.game if isinstance(row.game, str) else None,
+                }
+            )
+        out.setdefault(str(season), []).append(
+            {
+                "jornada": int(rows["jornada"].iloc[0]) if rows["jornada"].notna().any() else None,
+                "date": date.strftime("%Y-%m-%d")
+                if date is not None and not pd.isna(date)
+                else None,
+                "matches": matches,
+            }
+        )
+    return out

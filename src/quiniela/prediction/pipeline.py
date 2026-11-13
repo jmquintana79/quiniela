@@ -17,6 +17,7 @@ matchday replaces that matchday's rows and keeps the rest.
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -25,9 +26,16 @@ from quiniela.config import CURRENT_DIR, HISTORICAL_DIR, PREDICTIONS_DIR
 from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
+from quiniela.prediction.planner import PLANNER_MODEL
 from quiniela.prediction.registry import MODELS
 
+if TYPE_CHECKING:
+    from quiniela.data.prizes import UpcomingTicket
+
 logger = logging.getLogger(__name__)
+
+# Outcome order of every probability array
+OUTCOMES = ["H", "D", "A"]
 
 # Columns of the match being predicted that a model must not see
 RESULT_COLUMNS = ["FTHG", "FTAG", "FTR"]
@@ -250,3 +258,174 @@ def run(
         predictions = predict_matchdays(key, selected, history=history, current=current)
         paths.append(save_predictions(predictions, key, replace_all=all_matchdays))
     return paths
+
+
+# League codes of the ticket matches the models cannot predict
+WOMEN_LEAGUE = "WOMEN"
+OTHER_LEAGUE = "OTHER"
+
+# Days after sales close during which a result found for a ticket pairing belongs to it
+RESULT_WINDOW = pd.Timedelta(days=4)
+
+
+def predict_upcoming(
+    upcoming: "UpcomingTicket",
+    history: pd.DataFrame | None = None,
+    current: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, dict[str, pd.DataFrame], dict[str, int]]:
+    """Predict the La Liga and Segunda matches of the next official ticket.
+
+    The official ticket (saved from the betting page) is known days before
+    football-data publishes the fixtures and their odds. Its La Liga and
+    Segunda matches are predicted with every model trained on all played
+    matches; without odds the market reference has no prediction and v3 is
+    Dixon-Coles alone. Matches of other competitions (women's league, national
+    teams) get no prediction; for doubles and triples they count with the
+    league shares of 1, X and 2.
+
+    Args:
+        upcoming: The next ticket (``quiniela.data.prizes.load_upcoming``).
+        history: Historical matches. Defaults to the downloaded seasons.
+        current: Current season matches. Defaults to the downloaded files.
+
+    Returns:
+        ``(matches, predictions, info)``: the 14 ticket matches as a matchday
+        (``official_position`` gives the ticket order; ``league`` is ``SP1``,
+        ``SP2``, ``WOMEN`` or ``OTHER``; results when football-data has them),
+        the predictions of every model for the La Liga / Segunda ones, and
+        ``info`` with how many are ``ours``, have a football-data ``fixture``,
+        ``odds`` and ``results``.
+    """
+    from quiniela.data.prizes import team_names, translate_team
+    from quiniela.prediction.market import MarketModel
+
+    history = load_historical(HISTORICAL_DIR) if history is None else history
+    current = load_current(CURRENT_DIR) if current is None else current
+    played = pd.concat([history, current], ignore_index=True).dropna(subset=["FTR"])
+    season = str(current["season"].iloc[-1]) if not current.empty else ""
+    names = team_names(current).get(season, {})
+    # League of every team: the one of its latest current-season match
+    by_date = current.sort_values("date")
+    league_of = {
+        **dict(zip(by_date["away_team"], by_date["league"], strict=True)),
+        **dict(zip(by_date["home_team"], by_date["league"], strict=True)),
+    }
+    closes = upcoming.closes.tz_localize(None)
+    pending = current[current["FTR"].isna()]
+    recent = current[current["FTR"].notna() & (current["date"] >= closes - RESULT_WINDOW)]
+
+    rows = []
+    for match in upcoming.matches[upcoming.matches["position"] <= 14].itertuples():
+        home = translate_team(names, match.lae_home)
+        away = translate_team(names, match.lae_away)
+        league = league_of.get(home) if home and away else None
+        row: dict[str, object] = {
+            "position": match.position,
+            "home_team": home if league else _plain(match.lae_home),
+            "away_team": away if league else _plain(match.lae_away),
+            "league": league if league and league == league_of.get(away) else None,
+        }
+        if row["league"] is None:
+            women = "(f)" in f"{match.lae_home} {match.lae_away}".lower()
+            row["league"] = WOMEN_LEAGUE if women else OTHER_LEAGUE
+            row["home_team"], row["away_team"] = _plain(match.lae_home), _plain(match.lae_away)
+        fixture = _pairing(pending, str(row["home_team"]), str(row["away_team"]))
+        result = _pairing(recent, str(row["home_team"]), str(row["away_team"]))
+        source = result if not result.empty else fixture
+        if row["league"] not in (WOMEN_LEAGUE, OTHER_LEAGUE) and not source.empty:
+            row.update(source.iloc[0].to_dict())
+            row["position"] = match.position
+        row["_fixture"] = not fixture.empty or not result.empty
+        rows.append(row)
+
+    matches = pd.DataFrame(rows).reindex(columns=list(dict.fromkeys([*current.columns, *rows[0]])))
+    matches["season"] = season
+    matches["matchday"] = upcoming.jornada
+    # League rounds are not known for the official ticket (and mix competitions)
+    matches["round"] = None
+    matches["official_position"] = matches.pop("position")
+    ours = ~matches["league"].isin([WOMEN_LEAGUE, OTHER_LEAGUE])
+    # Without a football-data fixture the match has no date yet: the closing day is used
+    known_date = matches["date"].notna()
+    matches["date"] = pd.to_datetime(matches["date"]).fillna(closes)
+    matches["_kickoff_known"] = known_date
+    matches["game"] = matches["game"].fillna(
+        matches["date"].dt.strftime("%Y-%m-%d")
+        + " "
+        + matches["home_team"]
+        + "-"
+        + matches["away_team"]
+    )
+    # League shares of 1, X and 2: the probabilities of matches no model predicts
+    shares = played["FTR"].value_counts(normalize=True)
+    for outcome in ("H", "D", "A"):
+        matches[f"_fill_p_{outcome}"] = float(shares.get(outcome, 1 / 3))
+
+    target = matches[ours]
+    predictions = (
+        {key: walk_forward(key, target, played) for key in MODELS} if not target.empty else {}
+    )
+    with_odds = 0
+    if not target.empty:
+        odds = MarketModel().fit(target).predict_proba(target)
+        with_odds = int((~np.isnan(odds).any(axis=1)).sum())
+    public = _public_predictions(upcoming, matches[~ours])
+    if PLANNER_MODEL in predictions:
+        # v3: Dixon-Coles + market where there is data, the public's picks elsewhere
+        model_rows = predictions[PLANNER_MODEL].assign(source="model")
+        predictions[PLANNER_MODEL] = pd.concat([model_rows, public], ignore_index=True)
+    elif not public.empty:
+        predictions[PLANNER_MODEL] = public
+    info = {
+        "ours": int(ours.sum()),
+        "fixtures": int(matches.loc[ours, "_fixture"].sum()),
+        "odds": with_odds,
+        "results": int(matches["FTR"].notna().sum()),
+        "public": len(public),
+    }
+    return matches.drop(columns=["_fixture"]), predictions, info
+
+
+def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:
+    """v3 predictions of the ticket matches without data, from the public's picks.
+
+    Women's league and national-team matches have no model; the share of
+    bettors marking each sign ("Pronósticos más apostados") is the best
+    estimate available, normalised to probabilities.
+
+    Args:
+        upcoming: The next ticket, with the public's shares.
+        matches: The ticket matches no model predicts (``official_position``).
+
+    Returns:
+        Predictions with ``PREDICTION_COLUMNS`` and ``source`` = ``"public"``.
+    """
+    shares = upcoming.matches.set_index("position")[["public_1", "public_X", "public_2"]]
+    rows = matches.join(shares, on="official_position").dropna(
+        subset=["public_1", "public_X", "public_2"]
+    )
+    if rows.empty:
+        return pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
+    probs = rows[["public_1", "public_X", "public_2"]].to_numpy(dtype=float)
+    probs = probs / probs.sum(axis=1, keepdims=True)
+    out = rows.assign(
+        p_H=probs[:, 0],
+        p_D=probs[:, 1],
+        p_A=probs[:, 2],
+        prediction=np.array(OUTCOMES)[probs.argmax(axis=1)],
+    )
+    out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
+    out = out.reindex(columns=PREDICTION_COLUMNS)
+    return out.assign(source="public")
+
+
+def _pairing(matches: pd.DataFrame, home: str, away: str) -> pd.DataFrame:
+    """Matches between ``home`` and ``away`` (at ``home``'s ground)."""
+    return matches[(matches["home_team"] == home) & (matches["away_team"] == away)]
+
+
+def _plain(lae_name: str) -> str:
+    """LAE team name without the men's / women's mark (``"Eibar (F)"`` -> ``"Eibar"``)."""
+    return (
+        lae_name.replace("(M)", "").replace("(F)", "").replace("(m)", "").replace("(f)", "").strip()
+    )

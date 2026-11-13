@@ -32,6 +32,14 @@
 
   <section style="margin-bottom:8px" id="banners"></section>
 
+  <section class="card" style="margin-bottom:16px">
+    <h2 id="ticket-title">Official tickets</h2>
+    <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
+    <p class="meta" style="margin:0 0 10px">Every official ticket of the season saved from Loterías y Apuestas del Estado,
+      with all its matches and the v3 sign of the La Liga / Segunda ones (✓ hit, ✗ miss).</p>
+    <div class="scroll" id="ticket"></div>
+  </section>
+
   <section class="card">
     <h2 id="matches-title">Matches</h2>
     <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
@@ -51,7 +59,7 @@
 
   function showMatches() {
     $("matches").innerHTML = matchdayTable(DATA.matchdays[selected], models, DATA.leagues,
-      DATA.confidence_model, DATA.confidence_tiers, sort);
+      DATA.confidence_model, DATA.confidence_tiers, sort, DATA.categories);
   }
 
   function totalsTiles() {
@@ -97,7 +105,22 @@
       row.addEventListener("click", () => select(Number(row.dataset.i))));
   }
 
-  $("legend").innerHTML = MATCHDAY_LEGEND;
+  $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories);
+
+  // Official tickets of the season (every match: men's, women's and other competitions)
+  function showTicket(i) {
+    const t = (DATA.tickets || [])[i];
+    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, true) + categoryLegend(DATA.categories);
+    $("ticket-title").textContent = t ? `Official ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Official tickets";
+  }
+  if ((DATA.tickets || []).length) {
+    $("ticket-select").innerHTML = DATA.tickets.map((t, i) => `<option value="${i}">${t.jornada} · ${fmtDate(t.date)}</option>`).join("");
+    $("ticket-select").value = DATA.tickets.length - 1;
+    $("ticket-select").addEventListener("change", (e) => showTicket(Number(e.target.value)));
+    showTicket(DATA.tickets.length - 1);
+  } else {
+    $("ticket").innerHTML = '<p class="empty">No official tickets of this season saved in data/lae.</p>';
+  }
   $("totals").innerHTML = totalsTiles();
   if (DATA.matchdays.length && models.length) {
     $("meta").textContent = `${DATA.matchdays.length} matchdays`;

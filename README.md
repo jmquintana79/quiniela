@@ -55,6 +55,16 @@ season's file every week, after the draw, to get its prizes.
 | 10 hits (5th) | 9%, not paid when it would be below 1.50 € (5 to 27 draws per season) |
 | Pleno al 15 (14 hits + 15th match) | 7.5% plus the announced jackpot (weekend draws) |
 
+**The next ticket.** The matches of the next ticket, its sales deadline and the public's share
+of each sign ("Pronósticos más apostados") are on the official betting page,
+`https://juegos.loteriasyapuestas.es/jugar/la-quiniela/apuesta`, days before football-data
+publishes the fixtures. To save them, open that page, paste
+[`tools/lae_upcoming.js`](tools/lae_upcoming.js) in the browser console (developer tools) and
+press Enter: the browser downloads `upcoming.json`; move it to `data/lae/upcoming.json` and run
+`invoke dashboards.build`. `current.html` then shows that ticket (see
+[Dashboards](#dashboards)). The public's shares are v3's prediction for the matches no model
+covers (see [v3](#v3--dixon-coles--market-market_blend)).
+
 Not every ticket is La Liga and Segunda: of 755 draws between 2015-16 and 2025-26, about 330
 have their 14 matches in those leagues and some 70 more have 10 to 13. The rest are midweek
 draws (Champions League, Copa del Rey, national teams) and summer draws (Nordic leagues, World
@@ -197,8 +207,17 @@ Four dashboards, each answering one question:
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers, tickets with doubles and triples and real tickets in euros. |
 
-- `dashboards/current.html`: the **current matchday**: its matches (kick-off, teams, result
-  when played) with one column per model in registry order. The **market** reference is not
+- `dashboards/current.html`: the **current matchday**. When the next official ticket is saved
+  (`data/lae/upcoming.json`, see [the next ticket](#official-draws-real-tickets-winners-and-prizes))
+  and its sales closed less than four days ago, the current matchday is **that ticket**, in its
+  official order: the sales deadline with a live countdown at the very top, its La Liga and
+  Segunda matches predicted by every model (trained on all played matches; the other matches,
+  women's league or national teams, have no prediction and count with the league shares of 1,
+  X and 2 for doubles and triples), no colours until there are results, and a notice saying
+  whether **football-data's fixtures are available**: until they are (Friday afternoon for
+  weekend matches), there are no odds and v3 predicts with Dixon-Coles only. Otherwise (no saved
+  ticket, or an old one) the current matchday comes from the football-data matches: its
+  matches (kick-off, teams, result when played) with one column per model in registry order. The **market** reference is not
   shown here: v3 follows the odds closely, so it would repeat v3's signs; it stays in
   `evaluation.html`, where it is the benchmark. Each cell shows only the predicted sign, green with ✓ when right and red
   with ✗ when wrong, so the table has room for more models; hovering it shows the probability
@@ -231,15 +250,32 @@ Four dashboards, each answering one question:
   goals show their exact score and Pleno al 15 picks in the tooltip.
 - `dashboards/historical.html`: home win, draw and away win shares and goals per match for
   every season, plus the final standings and results of the selected season (filterable by
-  team).
+  team), each match with its category and whether it was on an official ticket; and the
+  **official quiniela tickets** of the season, any jornada, with all their matches (men's La
+  Liga and Segunda, women's football and other competitions) and results.
 - `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
   registry order (benchmark first, market last as reference), by league and season, with a
   **v4** column next to v3 that shows only its hit rate and prizes (it plays v3's
   probabilities, so the probability metrics do not apply), plus the hit rate by confidence
   tier, the prizes of the tickets played with doubles and triples (no
   doubles, random, by eye, optimal and v4), the **real tickets in euros** (single column, v4, v5
-  and v5 every draw: spent, won, net, return and best prize), calibration charts and an
-  explanation of each metric.
+  and v5 every draw: spent, won, net, return and best prize), the **official ticket matches by
+  category** (how many were M, F, O or U each season, and v3's hit rate on the M ones),
+  calibration charts and an explanation of each metric.
+
+**Match categories and the official ticket.** Every match table (current, season and
+historical) shows two columns, with a legend:
+
+| Column | Values |
+|---|---|
+| Cat. | **M** (male): men's La Liga or Segunda, in football-data, the matches the models predict · **F** (female): women's football, marked (F) on the official ticket · **O** (other): another competition (national teams, cups, foreign or lower leagues) · **U** (unknown): not enough information |
+| Quiniela | **Q N**: the match was on the official ticket of jornada N |
+
+football-data matches are M; the official tickets saved from LAE add the F and O ones. LAE only
+marks women's teams (since 2023-24) and men's teams (since 2026-27), so an older unmatched match
+counts as O. `current.html` only shows v3 and the tickets built on it (v4 and v5); every model is
+in `season.html`, which also lists the official tickets of the season with the v3 sign of their
+La Liga / Segunda matches.
 
 All are self-contained HTML files (data embedded, no external libraries) that open with a
 double click, also offline. New models appear as new columns automatically.
@@ -579,6 +615,23 @@ the later matchdays of the backtest.
 **Without odds.** A match without odds (e.g. a matchday whose odds are not published yet) gets
 the Dixon-Coles probabilities unchanged, exactly v2.
 
+**Without data: the public's picks** (since v0.6.0). The official ticket also has matches no
+model covers: women's football and other competitions (national teams, cups...). For them v3
+uses the share of bettors marking each sign on the betting page ("Pronósticos más apostados",
+saved in `data/lae/upcoming.json`), normalised:
+
+```math
+p_k = \frac{s_k}{s_1 + s_X + s_2}, \qquad k \in \{1, X, 2\}
+```
+
+So v3 is: **Dixon-Coles + market** where there are odds, **Dixon-Coles** where there are none
+yet, and **the public's picks** where there is no data at all. v4 and v5 plan their doubles and
+triples on these probabilities, so all 14 matches of the ticket count with an estimate (before,
+the matches without data got the league shares of 1, X and 2). The public's shares only exist for
+the ticket being sold (the betting page shows them; the results service does not keep them), so
+past tickets keep the league shares for those matches and the backtests do not change: the rule
+applies from the first ticket saved with `tools/lae_upcoming.js` on.
+
 **In practice.** v2 only does the work when there are no odds: v3 then uses v2 as it is. When
 the odds are available, the forecast is essentially the market's, slightly corrected (see the
 weights in the observations below): Dixon-Coles adds nothing the market does not already know.
@@ -917,6 +970,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.6.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.6.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | The next official ticket in `current.html` (saved with `tools/lae_upcoming.js`): sales deadline with countdown, predictions without colours until results, notice of football-data's fixtures; v3 uses the public's picks for the matches no model covers (women's football, national teams), and v4/v5 plan on them; match category (M, F, O, U) and official-ticket flag in every table, official tickets in the historical and season dashboards, ticket matches by category in the evaluation; `current.html` shows only v3, v4 and v5. Backtests recalculated (unchanged: past public picks do not exist). |
 | [`v0.5.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.5.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, v4 ticket planner, **v5 money ticket**, market reference | Official draws from LAE (real tickets, takings, winners and prizes since 2010-11); v4 aims at 11+ hits; v5 money ticket: prize model driven by the surprise of the results, ticket with the best expected prize within 48 bets, played only when it pays; prudent by default (only 10-13 hit prizes count), and in 414 real draws 2015-16 to 2025-26 it never found one worth playing (v4: 35% of the money back; v5 counting 14 hits and the Pleno al 15: 40%). Dashboards: v5 column with its verdict and euros won; evaluation: real tickets in euros. README: when to run v3 (the odds arrive on Friday afternoon). |
 | [`v0.4.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.4.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, **v4 ticket planner** (doubles and triples on v3), market reference | Confidence and margin of every prediction; chance of each prize before the matchday; v4 ticket planner (48 bets, best mix of doubles and triples for 10+ hits): 160 prizes in 376 backtest matchdays, against 130 with random doubles and 35 without them. Dashboards: confidence column and sorting, prize chances, v4 column; evaluation: hit rate by confidence tier and ticket strategies. |
 | [`v0.3.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.3.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, market reference | v3: log-linear pool of Dixon-Coles and the market odds, trained on out-of-sample forecasts, Dixon-Coles alone without odds. Best log-loss, Brier and RPS of the backtest, also better than the market; same hit rate as the market (50.0%). |
@@ -939,6 +993,7 @@ version in `pyproject.toml`:
 │   ├── backtest/tickets.parquet             # backtest tickets with doubles and triples
 │   ├── backtest/money.parquet               # real tickets of past draws played in euros
 │   ├── lae/lae_<season>.json                # official draws saved from LAE (by hand)
+│   ├── lae/upcoming.json                    # next official ticket (tools/lae_upcoming.js)
 │   └── cache/                               # raw CSV files cached by soccerdata
 ├── src/quiniela/
 │   ├── config/paths.py      # filesystem paths used by the project
@@ -949,6 +1004,7 @@ version in `pyproject.toml`:
 │   ├── visualization/       # dashboard builder and HTML templates
 │   ├── update.py            # `invoke update`: every step in one go
 │   └── scripts.py           # `quiniela` command line entry point
+├── tools/lae_upcoming.js    # browser snippet that saves the next official ticket
 ├── docs/api/                # generated API docs (not versioned)
 ├── tasks/                   # invoke tasks (update, download, predict, backtest, dashboards, dev)
 └── tests/
@@ -1046,10 +1102,10 @@ Done:
    slightly less likely but less popular sign can be worth more (e.g. X at 35% picked by 10% of
    bettors, against 1 at 40% picked by 80%). With that history the prize model could use the
    public's own picks instead of the market.
-3. **The real ticket for the current matchday.** The dashboards use the approximate ticket (La
-   Liga then Segunda) for the matchday to come; the official one (with women's league matches
-   since 2026-27) is published by LAE a few days before, but its service cannot be read by
-   scripts.
+3. **The public's picks of the next ticket.** `current.html` already shows the official ticket
+   (saved by hand from the betting page) and its file holds the public's share of each sign.
+   They could replace the market as the public in v5, and give the matches no model predicts
+   (women's league, national teams) better probabilities than the league shares.
 
 Other ideas:
 

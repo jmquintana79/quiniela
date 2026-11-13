@@ -42,6 +42,10 @@ LEAGUE_NAMES: dict[str, str] = {
     LEAGUES["ESP-Segunda"]: "Segunda",
 }
 
+# Display names of every league code a matchday table can show: the official
+# ticket also has women's league and other matches (no model predicts them)
+DISPLAY_LEAGUES: dict[str, str] = {**LEAGUE_NAMES, "WOMEN": "Liga F", "OTHER": "Other"}
+
 # Spain moved from 2 to 3 points per win in the 1995-96 season
 THREE_POINTS_FROM = 1995
 
@@ -160,18 +164,27 @@ def _matches(df: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(drop=True)[MATCH_COLUMNS].sort_values("date").reset_index(drop=True)
 
 
-def historical_payload(historical_dir: Path = HISTORICAL_DIR) -> dict[str, Any]:
+def historical_payload(historical_dir: Path = HISTORICAL_DIR, prizes: Any = None) -> dict[str, Any]:
     """Collect the data shown in the historical dashboard.
 
     The per-season summary is precomputed for every season. Matches and
     standings are embedded too, but the page only renders the selected season.
+    With the official draws (``prizes``), every match says whether it was on a
+    quiniela ticket, and the official tickets of every season (all their
+    matches: men's, women's and other competitions) are listed.
 
     Args:
         historical_dir: Folder with ``<code>/<season>.parquet`` files.
+        prizes: Prize context with the official draws
+            (``quiniela.evaluation.money.PrizeContext``), if any.
 
     Returns:
-        JSON-serialisable dictionary with one entry per league.
+        JSON-serialisable dictionary with one entry per league, the official
+        tickets by season and the category legend.
     """
+    from quiniela.data.prizes import CATEGORY_LEGEND, official_tickets, ticket_flags
+
+    flags = ticket_flags(prizes.matched) if prizes is not None else None
     leagues = []
     for code, name in LEAGUE_NAMES.items():
         paths = sorted((historical_dir / code).glob("*.parquet"), key=_season_start_year)
@@ -183,16 +196,37 @@ def historical_payload(historical_dir: Path = HISTORICAL_DIR) -> dict[str, Any]:
             start_year = _season_start_year(path)
             matches = _matches(pd.read_parquet(path))
             points = 3 if start_year >= THREE_POINTS_FROM else 2
+            # Every football-data match is M: the page assumes it (smaller file)
+            table = matches
+            if flags is not None:
+                # Jornada of the official ticket the match was on, if any
+                season_flags = flags[(flags["season"] == path.stem) & (flags["league"] == code)]
+                table = table.merge(
+                    season_flags[["home_team", "away_team", "quiniela"]],
+                    on=["home_team", "away_team"],
+                    how="left",
+                )
             seasons.append(
                 {
                     "season": path.stem,
                     "summary": season_summary(matches),
                     "standings": _records(standings(matches, points).drop(columns="form")),
-                    "matches": _records(matches),
+                    # Only the matches that were on a ticket carry their jornada
+                    "matches": [
+                        {k: v for k, v in r.items() if k != "quiniela" or v is not None}
+                        for r in _records(table)
+                    ],
                 }
             )
         leagues.append({"code": code, "name": name, "seasons": seasons})
-    return {"leagues": leagues}
+    tickets = official_tickets(prizes.draws, prizes.matched) if prizes is not None else {}
+    # The page does not need the football-data keys of the ticket matches (smaller file)
+    for season_tickets in tickets.values():
+        for ticket in season_tickets:
+            for match in ticket["matches"]:
+                match.pop("league", None)
+                match.pop("game", None)
+    return {"leagues": leagues, "tickets": tickets, "categories": CATEGORY_LEGEND}
 
 
 # Key and display information of the v4 planned ticket (not a registered model:
@@ -235,7 +269,7 @@ def _money_matchday(
     from quiniela.prediction.money import plan_big_win
     from quiniela.prediction.ticket import TICKET_SIZE
 
-    ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
+    ticket = _fill_unpredicted(group.dropna(subset=["ticket"]).sort_values("ticket"), key)
     columns = [f"{key}_p_{o}" for o in ("H", "D", "A")]
     if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
         return None
@@ -281,6 +315,85 @@ def _money_matchday(
     }
 
 
+def _category_legend() -> dict[str, str]:
+    """Legend of the match categories (M, F, O, U)."""
+    from quiniela.data.prizes import CATEGORY_LEGEND
+
+    return dict(CATEGORY_LEGEND)
+
+
+def _categorise(matches: pd.DataFrame, prizes: Any) -> pd.DataFrame:
+    """Add ``category`` (M, F, O, U) and ``quiniela`` (official jornada) to matches.
+
+    football-data matches are men's La Liga / Segunda (``M``); the official
+    ticket's other matches are women's (``F``) or another competition (``O``).
+    A match is flagged with the jornada of the official ticket it was on: the
+    next ticket's own matches, or a saved draw matched to football-data.
+    """
+    out = matches.copy()
+    league = out["league"]
+    out["category"] = np.select(
+        [league.isin(["SP1", "SP2"]), league == "WOMEN", league == "OTHER"], ["M", "F", "O"], "U"
+    )
+    official = (
+        out["matchday"].where(out["official_position"].notna())
+        if "official_position" in out.columns
+        else pd.Series(np.nan, index=out.index)
+    )
+    if prizes is not None and not prizes.matched.empty:
+        from quiniela.data.prizes import ticket_flags
+
+        flags = ticket_flags(prizes.matched).set_index(["league", "game"])["quiniela"]
+        keys = pd.MultiIndex.from_frame(out[["league", "game"]])
+        found = flags.reindex(keys).to_numpy()
+        official = official.fillna(pd.Series(found, index=out.index))
+    out["quiniela"] = official
+    return out
+
+
+def _season_tickets(
+    current: pd.DataFrame, predictions: dict[str, pd.DataFrame], prizes: Any, key: str
+) -> list[dict[str, Any]]:
+    """Official tickets of the current season, with the v3 sign of their La Liga / Segunda matches."""
+    from quiniela.data.prizes import official_tickets
+
+    if prizes is None or current.empty or "season" not in current.columns:
+        return []
+    season = str(current["season"].iloc[-1])
+    tickets = official_tickets(prizes.draws, prizes.matched).get(season, [])
+    stored = predictions.get(key)
+    signs = (
+        dict(
+            zip(
+                zip(stored["league"], stored["game"], strict=True),
+                stored["prediction"],
+                strict=True,
+            )
+        )
+        if stored is not None
+        else {}
+    )
+    for ticket in tickets:
+        for match in ticket["matches"]:
+            match["v3"] = signs.get((match["league"], match["game"]))
+    return tickets
+
+
+def _fill_unpredicted(ticket: pd.DataFrame, key: str) -> pd.DataFrame:
+    """Give the ticket matches no model predicts the league shares of 1, X and 2.
+
+    Only the official ticket has them (``_fill_p_*`` columns: women's league,
+    national teams); doubles and triples are then planned over all 14 matches.
+    """
+    if "_fill_p_H" not in ticket.columns:
+        return ticket
+    ticket = ticket.copy()
+    for outcome in ("H", "D", "A"):
+        column = f"{key}_p_{outcome}"
+        ticket[column] = ticket[column].fillna(ticket[f"_fill_p_{outcome}"])
+    return ticket
+
+
 def _ticket_odds(coverage: np.ndarray) -> dict[str, float]:
     """Chance of each prize category of a ticket, as JSON-friendly keys."""
     from quiniela.prediction.planner import category_probabilities
@@ -303,7 +416,7 @@ def _plan_matchday(group: pd.DataFrame, key: str) -> dict[str, Any] | None:
     from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket
     from quiniela.prediction.ticket import TICKET_SIZE
 
-    ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
+    ticket = _fill_unpredicted(group.dropna(subset=["ticket"]).sort_values("ticket"), key)
     columns = [f"{key}_p_{o}" for o in ("H", "D", "A")]
     if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
         return None
@@ -406,6 +519,9 @@ def season_payload(
         conf = confidence(probs, signs.to_numpy())
         matches[f"{key}_conf"] = conf["confidence"].round(4).to_numpy()
         matches[f"{key}_margin"] = conf["margin"].round(4).to_numpy()
+        if "source" in aligned.columns:
+            # v3 on the official ticket: "model" or "public" (the public's picks)
+            matches[f"{key}_source"] = aligned["source"].to_numpy()
         if key == PLANNER_MODEL:
             for outcome in ("H", "D", "A"):
                 matches[f"{key}_p_{outcome}"] = aligned[f"p_{outcome}"].to_numpy()
@@ -424,6 +540,7 @@ def season_payload(
             matches[f"{key}_score"] = score.to_numpy()
             matches[f"{key}_pleno"] = pleno.to_numpy()
 
+    matches = _categorise(matches, prizes)
     columns_keys = [m["key"] for m in models]
     totals: dict[str, dict[str, Any]] = {
         key: {"hits": 0, "misses": 0, "missing": 0, "prizes": 0, "tickets": 0}
@@ -431,7 +548,12 @@ def season_payload(
     }
     matchdays = []
     for number, group in matches.groupby("matchday"):
-        group = group.assign(ticket=ticket_positions(group))
+        # The official ticket order when known (the next ticket), the approximation otherwise
+        official = "official_position" in group.columns
+        positions = (
+            group["official_position"].astype("Int64") if official else ticket_positions(group)
+        )
+        group = group.assign(ticket=positions)
         group = group.sort_values(["ticket", "league", "date"], na_position="last")
         played = group["FTR"].notna()
         in_ticket = group["ticket"].notna()
@@ -515,6 +637,12 @@ def season_payload(
             f"{k}_{field}" for k in columns_keys for field in ("sign", "prob", "conf", "margin")
         ]
         columns += [c for k in keys for c in (f"{k}_score", f"{k}_pleno") if c in group.columns]
+        columns += ["category", "quiniela"]
+        columns += [f"{k}_source" for k in keys if f"{k}_source" in group.columns]
+        if "_kickoff_known" in group.columns:
+            # Matches of the official ticket without a football-data fixture have no date yet
+            group["kickoff_known"] = group["_kickoff_known"]
+            columns.append("kickoff_known")
         matchdays.append(
             {
                 "number": int(number),
@@ -528,10 +656,12 @@ def season_payload(
 
     return {
         "models": models,
-        "leagues": LEAGUE_NAMES,
+        "leagues": DISPLAY_LEAGUES,
         # Model whose confidence ranks and colours the matches (v3)
         "confidence_model": PLANNER_MODEL if PLANNER_MODEL in keys else (keys[0] if keys else None),
         "confidence_tiers": TIERS,
+        "categories": _category_legend(),
+        "tickets": _season_tickets(current, predictions, prizes, PLANNER_MODEL),
         "matchdays": matchdays,
         "totals": {
             k: {
@@ -630,8 +760,15 @@ def current_payload(
     predictions: dict[str, pd.DataFrame] | None = None,
     current_dir: Path = CURRENT_DIR,
     season: dict[str, Any] | None = None,
+    upcoming: tuple[Any, dict[str, Any], dict[str, int]] | None = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the current matchday dashboard.
+
+    When the next official ticket is saved (``data/lae/upcoming.json``) and its
+    sales closed less than a few days ago, that ticket is the current matchday:
+    its La Liga / Segunda matches predicted (without colours until there are
+    results), with the sales deadline. Otherwise the current matchday comes
+    from the football-data matches, as in the season dashboard.
 
     Args:
         current: Current season with ``round`` and ``matchday`` columns.
@@ -640,14 +777,31 @@ def current_payload(
         current_dir: Folder with the current season files (standings and the
             download time of the odds).
         season: Season payload already built (``season_payload``), to reuse it.
+        upcoming: ``(ticket, payload, info)`` of the next official ticket: the
+            ``UpcomingTicket``, the ``season_payload`` of its matches and the
+            ``info`` of ``quiniela.prediction.pipeline.predict_upcoming``.
 
     Returns:
         JSON-serialisable dictionary with the models, the current matchday,
-        its status and the standings of each league.
+        its status, the standings of each league, the sales deadline and
+        whether football-data has the fixtures (``fixtures``).
     """
     season = season_payload(current, predictions) if season is None else season
     index = current_matchday_index(season["matchdays"])
     matchday = None if index is None else season["matchdays"][index]
+    deadline: str | None = None
+    jornada: int | None = None
+    fixtures: dict[str, Any] | None = None
+    if upcoming is not None:
+        ticket, payload, info = upcoming
+        season = {**season, "models": payload["models"], "leagues": payload["leagues"]}
+        matchday = payload["matchdays"][0] if payload["matchdays"] else matchday
+        deadline = ticket.closes.isoformat()
+        jornada = ticket.jornada
+        fixtures = info
+    elif matchday is not None and matchday["played"] < len(matchday["matches"]):
+        pending = [m for m in matchday["matches"] if not m.get("FTR")]
+        fixtures = {"ours": len(pending), "fixtures": len(pending), "odds": None, "results": 0}
     if matchday is None:
         status = "empty"
     elif matchday["played"] == 0:
@@ -670,9 +824,14 @@ def current_payload(
             stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
             odds_downloaded = max(odds_downloaded or stamp, stamp)
 
+    # Only v3 and the tickets built on it (v4, v5): v1 and v2 stay in the season page
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    shown = (PLANNER_MODEL, PLANNED_KEY, MONEY_KEY)
     return {
-        "models": season["models"],
+        "models": [m for m in season["models"] if m["key"] in shown],
         "leagues": season["leagues"],
+        "categories": _category_legend(),
         "confidence_model": season["confidence_model"],
         "confidence_tiers": season["confidence_tiers"],
         "matchday": matchday,
@@ -680,6 +839,10 @@ def current_payload(
         "matchdays": len(season["matchdays"]),
         "standings": standings_by_league,
         "odds_downloaded": odds_downloaded.strftime("%Y-%m-%d %H:%M") if odds_downloaded else None,
+        # Next official ticket: quiniela matchday, sales deadline and football-data coverage
+        "jornada": jornada,
+        "deadline": deadline,
+        "fixtures": fixtures,
     }
 
 
@@ -926,10 +1089,45 @@ def _money_tables(results: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
+def _ticket_categories(backtest: pd.DataFrame, prizes: Any) -> dict[str, dict[str, Any]]:
+    """Matches of the official tickets by category, and v3's hits on the La Liga / Segunda ones.
+
+    Keyed by season (``"all"`` for every one): ``M``, ``F``, ``O``, ``U``
+    (ticket matches 1-14 of each category), ``v3_matches`` and ``v3_hits``
+    (the ``M`` ones predicted in the backtest).
+    """
+    from quiniela.data.prizes import match_category
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    if prizes is None or prizes.matched.empty:
+        return {}
+    rows = prizes.matched[prizes.matched["position"] <= 14].copy()
+    rows["category"] = [
+        match_category(h, a, lg)
+        for h, a, lg in zip(rows["lae_home"], rows["lae_away"], rows["league"], strict=True)
+    ]
+    v3 = backtest[backtest["model"] == PLANNER_MODEL][["league", "game", "prediction"]]
+    rows = rows.merge(v3, on=["league", "game"], how="left")
+    seasons = set(backtest["season"]) if not backtest.empty else set(rows["season"])
+    rows = rows[rows["season"].isin(seasons)]
+    out: dict[str, dict[str, Any]] = {}
+    for season, group in [("all", rows), *rows.groupby("season")]:
+        counts = group["category"].value_counts()
+        predicted = group.dropna(subset=["prediction", "sign"])
+        out[str(season)] = {
+            **{c: int(counts.get(c, 0)) for c in ("M", "F", "O", "U")},
+            "matches": len(group),
+            "v3_matches": len(predicted),
+            "v3_hits": int((predicted["prediction"] == predicted["sign"]).sum()),
+        }
+    return out
+
+
 def evaluation_payload(
     backtest: pd.DataFrame | None = None,
     tickets: pd.DataFrame | None = None,
     money_results: pd.DataFrame | None = None,
+    prizes: Any = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the evaluation (backtest) dashboard.
 
@@ -937,6 +1135,8 @@ def evaluation_payload(
         backtest: Backtest predictions with real results. Defaults to the saved backtest.
         tickets: Backtest tickets with doubles and triples. Defaults to the saved ones.
         money_results: Real tickets played in euros. Defaults to the saved ones.
+        prizes: Prize context with the official draws, for the ticket matches
+            by category.
 
     Returns:
         JSON-serialisable dictionary with the models, metric definitions,
@@ -1007,6 +1207,8 @@ def evaluation_payload(
         "confidence": _confidence_tables(backtest),
         "tickets": _ticket_tables(tickets),
         "money": _money_tables(money_results),
+        "ticket_categories": _ticket_categories(backtest, prizes),
+        "categories": _category_legend(),
         "money_strategies": _money_labels(),
         "ticket_strategies": {key: label for key, (label, _, _) in TICKET_STRATEGIES.items()},
         "ticket_budget": {
@@ -1057,6 +1259,28 @@ def render(template: str, payload: dict[str, Any], output: Path) -> Path:
 RETIRED_DASHBOARDS = ["predictions.html"]
 
 
+# Days after the sales close during which the saved ticket stays the current matchday
+UPCOMING_DAYS = 4
+
+
+def _upcoming_view(
+    prizes: Any, now: pd.Timestamp | None = None
+) -> tuple[Any, dict[str, Any], dict[str, int]] | None:
+    """The next official ticket as a matchday, while it is current (or None)."""
+    from quiniela.data.prizes import load_upcoming
+    from quiniela.prediction.pipeline import predict_upcoming
+
+    ticket = load_upcoming()
+    if ticket is None:
+        return None
+    now = pd.Timestamp.now(tz=ticket.closes.tz) if now is None else now
+    if now > ticket.closes + pd.Timedelta(days=UPCOMING_DAYS):
+        logger.info("Saved ticket of jornada %d is past; using football-data", ticket.jornada)
+        return None
+    matches, predictions, info = predict_upcoming(ticket)
+    return ticket, season_payload(matches, predictions, prizes=prizes), info
+
+
 def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     """Build every dashboard from the current data folders.
 
@@ -1068,11 +1292,22 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     """
     for name in RETIRED_DASHBOARDS:
         (output_dir / name).unlink(missing_ok=True)
+    from quiniela.evaluation.money import prize_context
+
     # The season payload (with the v5 simulations) is built once for both pages
-    season = season_payload()
+    prizes = prize_context()
+    season = season_payload(prizes=prizes)
     return [
-        render("current.html", current_payload(season=season), output_dir / "current.html"),
+        render(
+            "current.html",
+            current_payload(season=season, upcoming=_upcoming_view(prizes)),
+            output_dir / "current.html",
+        ),
         render("season.html", season, output_dir / "season.html"),
-        render("historical.html", historical_payload(), output_dir / "historical.html"),
-        render("evaluation.html", evaluation_payload(), output_dir / "evaluation.html"),
+        render(
+            "historical.html", historical_payload(prizes=prizes), output_dir / "historical.html"
+        ),
+        render(
+            "evaluation.html", evaluation_payload(prizes=prizes), output_dir / "evaluation.html"
+        ),
     ]

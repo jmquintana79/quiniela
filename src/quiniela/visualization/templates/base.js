@@ -60,13 +60,55 @@ function standingsTable(rows) {
     </tr>`).join("")}</tbody></table>`;
 }
 
+/** Match category chip (M, F, O, U) with its meaning on hover. */
+function categoryChip(category, legend = {}) {
+  const c = category || "U";
+  return `<span class="cat cat-${esc(c)}" data-tip="${esc(legend[c] ?? c)}">${esc(c)}</span>`;
+}
+
+/** Whether a match was on an official quiniela ticket (and which jornada). */
+function quinielaCell(jornada) {
+  if (jornada == null) return '<span class="muted">–</span>';
+  const j = Math.round(jornada);
+  return `<span class="badge q" data-tip="On the official quiniela ticket of jornada ${j}">Q ${j}</span>`;
+}
+
+/** Legend of the categories and of the quiniela flag. */
+function categoryLegend(legend = {}) {
+  const items = ["M", "F", "O", "U"].filter((c) => legend[c])
+    .map((c) => `${categoryChip(c, legend)} ${esc(legend[c])}`);
+  return `<div class="legend" style="flex-wrap:wrap;gap:6px 16px">${items.map((i) => `<span>${i}</span>`).join("")}` +
+    `<span>${quinielaCell(21).replace(/21/g, "N")} on the official quiniela ticket of jornada N</span></div>`;
+}
+
+/**
+ * An official quiniela ticket: its 15 matches in order with category, result
+ * and, when given, the v3 sign (hit or miss) of the La Liga / Segunda ones.
+ */
+function officialTicketTable(ticket, legend = {}, withV3 = false) {
+  if (!ticket) return '<p class="empty">No official ticket.</p>';
+  return `<table><thead><tr><th class="num">#</th><th>Cat.</th><th class="num">Home</th><th>Away</th>
+      <th class="num">Score</th><th class="num">1X2</th>${withV3 ? '<th class="num">v3</th>' : ""}</tr></thead>
+    <tbody>${ticket.matches.map((m) => {
+      const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
+      let v3 = "";
+      if (withV3) {
+        v3 = !m.v3 ? '<td class="num muted">–</td>' : `<td class="num"><span class="pick ${m.sign ? (m.v3 === m.sign ? "hit" : "miss") : "pending"}">` +
+          `${{ H: "1", D: "X", A: "2" }[m.v3]}${m.sign ? (m.v3 === m.sign ? " ✓" : " ✗") : ""}</span></td>`;
+      }
+      return `<tr><td class="num muted">${m.position}</td><td>${categoryChip(m.category, legend)}</td>
+        <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
+        <td class="num">${m.score ?? "–"}</td><td class="num">${sign}</td>${v3}</tr>`;
+    }).join("")}</tbody></table>`;
+}
+
 /** Played matches as a results table. */
-function resultsTable(rows) {
+function resultsTable(rows, legend = {}) {
   if (!rows.length) return '<p class="empty">No matches.</p>';
   return `<table><thead><tr>
-      <th>Date</th><th class="num">Home</th><th class="num">Score</th><th>Away</th><th class="num">1X2</th>
+      <th>Date</th><th>Cat.</th><th>Quiniela</th><th class="num">Home</th><th class="num">Score</th><th>Away</th><th class="num">1X2</th>
     </tr></thead><tbody>${rows.map((m) => `<tr>
-      <td class="muted">${fmtDate(m.date)}</td>
+      <td class="muted">${fmtDate(m.date)}</td><td>${categoryChip(m.category ?? "M", legend)}</td><td>${quinielaCell(m.quiniela)}</td>
       <td class="num ${m.FTR === "H" ? "strong" : ""}">${esc(m.home_team)}</td>
       <td class="num strong">${m.FTHG} – ${m.FTAG}</td>
       <td class="${m.FTR === "A" ? "strong" : ""}">${esc(m.away_team)}</td>
@@ -145,8 +187,9 @@ function pickCell(match, key) {
   const label = [...sign].map((s) => SIGN[s]).join("");
   const kind = { 2: "Double", 3: "Triple" }[sign.length];
   const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
+  const source = match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)" : "";
   const tip = kind ? `${kind} ${label}: covers ${pct(prob, 1)} of the outcomes`
-    : `Predicted ${label} (${pct(prob, 1)})${conf}${extra}`;
+    : `Predicted ${label} (${pct(prob, 1)})${conf}${extra}${source}`;
   if (!match.FTR) return `<span class="pick pending ${kind ? "multi" : ""}" data-tip="${tip}">${label}</span>`;
   const hit = sign.includes(match.FTR);
   return `<span class="pick ${hit ? "hit" : "miss"} ${kind ? "multi" : ""}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
@@ -274,7 +317,7 @@ function quinielaBanners(md, models) {
  * model's hit rate on the played matches. ``sort`` is "ticket" (ticket
  * order) or "confidence" (most predictable first).
  */
-function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "ticket") {
+function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "ticket", legend = {}) {
   const rows = sort === "confidence" && confKey
     ? [...md.matches].sort((a, b) => (b[`${confKey}_conf`] ?? -1) - (a[`${confKey}_conf`] ?? -1))
     : md.matches;
@@ -295,23 +338,26 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
       `<br><span class="muted">${details.join(" · ")}</span></td>`;
   }).join("");
   return `<table><thead><tr>
-      <th class="num">Ticket</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>
+      <th class="num">Ticket</th><th>Cat.</th><th>Quiniela</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>
       <th>Result</th>${confHeader}${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}
     </tr></thead><tbody>${rows.map((m) => `<tr>
       <td class="num muted">${m.ticket ?? ""}</td>
-      <td class="muted">${esc(leagues[m.league] ?? m.league)} · R${m.round}</td>
-      <td class="muted">${fmtDate(m.date, true)}</td>
+      <td>${categoryChip(m.category, legend)}</td><td>${quinielaCell(m.quiniela)}</td>
+      <td class="muted">${esc(leagues[m.league] ?? m.league)}${m.round != null ? ` · R${m.round}` : ""}</td>
+      <td class="muted">${m.kickoff_known === false || !m.date ? "–" : fmtDate(m.date, true)}</td>
       <td class="num strong">${esc(m.home_team)}</td><td class="strong">${esc(m.away_team)}</td>
       <td>${result(m)}</td>
       ${confModel ? `<td class="num">${confidenceCell(m, confKey, tiers)}</td>` : ""}
       ${models.map((model) => `<td class="num">${pickCell(m, model.key)}</td>`).join("")}
     </tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="${confModel ? 7 : 6}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr></tfoot></table>`;
+    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr></tfoot></table>`;
 }
 
 /** Legend under the prediction tables. */
-const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La Liga first, then
-  Segunda, in kick-off order). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
+const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the official ticket when it is
+  saved (data/lae/upcoming.json), otherwise an approximation (La Liga first, then Segunda, in kick-off
+  order). Cat.: category of the match (M, F, O, U; hover for the meaning). Quiniela: the official
+  ticket the match was on (Q and its jornada). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
   Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
