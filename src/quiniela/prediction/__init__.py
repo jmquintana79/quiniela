@@ -12,16 +12,20 @@ Submodules:
 - ``dixon_coles``: v2, Dixon-Coles team strengths with time decay.
 - ``market``: market reference (bookmakers' implied probabilities).
 - ``market_blend``: v3, learned combination of Dixon-Coles and the market.
+- ``confidence``: confidence and margin of a prediction, from its probabilities.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
+- ``planner``: v4, doubles and triples of the quiniela ticket.
 - ``ticket``: quiniela ticket composition and prize rules.
 """
 
 from quiniela.prediction import (
+    confidence,
     dixon_coles,
     head_to_head,
     market,
     market_blend,
     pipeline,
+    planner,
     registry,
     ticket,
 )
@@ -41,11 +45,13 @@ __all__ = [
     "MarketModel",
     "ModelSpec",
     "Predictor",
+    "confidence",
     "dixon_coles",
     "head_to_head",
     "market",
     "market_blend",
     "pipeline",
+    "planner",
     "registry",
     "ticket",
 ]

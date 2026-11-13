@@ -114,10 +114,27 @@ function modelLabel(m) {
   return `${esc(m.name)} <span class="muted">${m.reference ? "(reference)" : esc(m.version)}</span>`;
 }
 
+/** Confidence tier of a value ("high", "medium", "low"), from DATA.confidence_tiers. */
+function confidenceTier(value, tiers) {
+  if (value == null) return null;
+  return Object.entries(tiers).find(([, low]) => value >= low)?.[0] ?? null;
+}
+
+/** Confidence chip of a match: probability of the predicted sign, coloured by tier. */
+function confidenceCell(match, key, tiers) {
+  const value = match[`${key}_conf`];
+  const tier = confidenceTier(value, tiers);
+  if (!tier) return '<span class="muted">–</span>';
+  const tip = `Confidence ${pct(value, 1)} (${tier}): probability of the predicted sign · ` +
+    `margin over the second sign ${pct(match[`${key}_margin`], 1)}`;
+  return `<span class="conf ${tier}" data-tip="${esc(tip)}">${pct(value)}</span>`;
+}
+
 /**
  * Prediction cell: the predicted sign only (probability, score and Pleno al 15
  * in the tooltip, to keep columns narrow); green check for a hit, red cross
  * for a miss, outline while pending, dashed outline without a prediction.
+ * A pick can cover several signs (doubles "1X" and triples "1X2" of v4).
  */
 function pickCell(match, key) {
   const sign = match[`${key}_sign`];
@@ -125,11 +142,14 @@ function pickCell(match, key) {
   const prob = match[`${key}_prob`];
   const score = match[`${key}_score`];
   const extra = score ? ` · score ${score} · Pleno al 15 ${match[`${key}_pleno`]}` : "";
-  const tip = `Predicted ${SIGN[sign]} (${pct(prob, 1)})${extra}`;
-  const label = SIGN[sign];
-  if (!match.FTR) return `<span class="pick pending" data-tip="${tip}">${label}</span>`;
-  const hit = sign === match.FTR;
-  return `<span class="pick ${hit ? "hit" : "miss"}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
+  const label = [...sign].map((s) => SIGN[s]).join("");
+  const kind = { 2: "Double", 3: "Triple" }[sign.length];
+  const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
+  const tip = kind ? `${kind} ${label}: covers ${pct(prob, 1)} of the outcomes`
+    : `Predicted ${label} (${pct(prob, 1)})${conf}${extra}`;
+  if (!match.FTR) return `<span class="pick pending ${kind ? "multi" : ""}" data-tip="${tip}">${label}</span>`;
+  const hit = sign.includes(match.FTR);
+  return `<span class="pick ${hit ? "hit" : "miss"} ${kind ? "multi" : ""}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
     `${label} ${hit ? "✓" : "✗"}</span>`;
 }
 
@@ -156,6 +176,18 @@ function prizeBadge(summary) {
     `${label}${note ? " *" : ""}</span>`;
 }
 
+/** Chance of each prize category before the matchday, as a short line. */
+function oddsLine(summary) {
+  const odds = summary.odds;
+  if (!odds) return "";
+  const plan = summary.plan;
+  const cost = plan ? `${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} ` +
+    `triple${plan.triples === 1 ? "" : "s"} (${plan.bets} bets) · ` : "";
+  const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
+  parts.push(`14 hits ${pct(odds["14"], 2)}`);
+  return `<br><span class="muted">${cost}Chance before the matchday: ${parts.join(" · ")}</span>`;
+}
+
 /** One banner per model with the outcome of its 14-match quiniela ticket. */
 function quinielaBanners(md, models) {
   return models.map((m) => {
@@ -169,15 +201,24 @@ function quinielaBanners(md, models) {
       incomplete: "Quiniela: no full ticket",
     }[t.status];
     return `<div class="banner ${t.status}"><strong>${modelLabel(m)} · ${title}${note ? " *" : ""}</strong>` +
-      `${esc(t.message)}${note ? `<br><span class="muted">* ${esc(note)}</span>` : ""}</div>`;
+      `${esc(t.message)}${oddsLine(s)}${note ? `<br><span class="muted">* ${esc(note)}</span>` : ""}</div>`;
   }).join("");
 }
 
 /**
- * Matches of a matchday with their result and one column per model, plus a
- * footer with each model's hit rate on the played matches.
+ * Matches of a matchday with their result, the confidence of the
+ * confidence model (v3) and one column per model, plus a footer with each
+ * model's hit rate on the played matches. ``sort`` is "ticket" (ticket
+ * order) or "confidence" (most predictable first).
  */
-function matchdayTable(md, models, leagues) {
+function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "ticket") {
+  const rows = sort === "confidence" && confKey
+    ? [...md.matches].sort((a, b) => (b[`${confKey}_conf`] ?? -1) - (a[`${confKey}_conf`] ?? -1))
+    : md.matches;
+  const confModel = models.find((m) => m.key === confKey);
+  const confHeader = confModel
+    ? `<th class="num" data-tip="Probability of the predicted sign of ${esc(confModel.name)} ${esc(confModel.version)}: high ≥ ${pct(tiers.high)}, medium ≥ ${pct(tiers.medium)}, low below">Confidence</th>`
+    : "";
   const result = (m) => m.FTR
     ? `<span class="strong">${m.FTHG} – ${m.FTAG}</span> <span class="muted">(${SIGN[m.FTR]})</span>`
     : '<span class="muted">Pending</span>';
@@ -192,16 +233,17 @@ function matchdayTable(md, models, leagues) {
   }).join("");
   return `<table><thead><tr>
       <th class="num">Ticket</th><th>League</th><th>Kick-off</th><th class="num">Home</th><th>Away</th>
-      <th>Result</th>${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}
-    </tr></thead><tbody>${md.matches.map((m) => `<tr>
+      <th>Result</th>${confHeader}${models.map((m) => `<th class="num" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}
+    </tr></thead><tbody>${rows.map((m) => `<tr>
       <td class="num muted">${m.ticket ?? ""}</td>
       <td class="muted">${esc(leagues[m.league] ?? m.league)} · R${m.round}</td>
       <td class="muted">${fmtDate(m.date, true)}</td>
       <td class="num strong">${esc(m.home_team)}</td><td class="strong">${esc(m.away_team)}</td>
       <td>${result(m)}</td>
+      ${confModel ? `<td class="num">${confidenceCell(m, confKey, tiers)}</td>` : ""}
       ${models.map((model) => `<td class="num">${pickCell(m, model.key)}</td>`).join("")}
     </tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="6">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr></tfoot></table>`;
+    <tfoot><tr><td colspan="${confModel ? 7 : 6}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr></tfoot></table>`;
 }
 
 /** Legend under the prediction tables. */
@@ -210,4 +252,7 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La 
   Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market column is the reference
-  (bookmakers' odds), not one of our models.`;
+  (bookmakers' odds), not one of our models. Confidence: probability of the v3 sign, green high
+  (60% or more), amber medium (45-60%), red low (below 45%). Planned ticket (v4): the v3 signs with
+  the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of a prize;
+  the chance of each prize before the matchday is under each ticket banner.`;

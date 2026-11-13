@@ -28,6 +28,22 @@
   </section>
 
   <section class="card" style="margin-bottom:16px">
+    <h2>Hit rate by confidence</h2>
+    <p class="meta" style="margin:0 0 10px">
+      Confidence: probability of the predicted sign. Matches grouped in three tiers (high, medium,
+      low): if the confidence is reliable, the hit rate of each tier is close to its average
+      confidence and grows from low to high. Each cell: hit rate, and the share of matches in the tier.
+    </p>
+    <div class="scroll" id="confidence"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Quiniela tickets with doubles and triples</h2>
+    <p class="meta" style="margin:0 0 10px" id="tickets-note"></p>
+    <div class="scroll" id="tickets"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
     <h2>Hit rate by season</h2>
     <div class="scroll" id="by-season"></div>
   </section>
@@ -136,6 +152,49 @@
       <div class="detail">x: predicted probability · y: observed frequency</div></div>`;
   }
 
+  function confidenceTable() {
+    const rows = DATA.confidence?.[`${state.league}|${state.season}`] || {};
+    const shown = models.filter((m) => rows[m.key]);
+    if (!shown.length) return '<p class="empty">No data.</p>';
+    const tiers = rows[shown[0].key].map((r) => r);
+    const label = (t) => ({ high: `High (≥ ${pct(t.low)})`, medium: `Medium (${pct(t.low)}–60%)`, low: "Low (below 45%)" }[t.tier]);
+    return `<table><thead><tr><th>Confidence</th>${shown.map(modelHeader).join("")}</tr></thead>
+      <tbody>${tiers.map((t, i) => `<tr><td><span class="conf ${t.tier}">${esc(t.tier)}</span> <span class="muted">${label(t)}</span></td>
+        ${shown.map((m) => {
+          const r = rows[m.key][i];
+          return `<td class="num" data-tip="${r.matches} matches · average confidence ${pct(r.confidence, 1)}">` +
+            `<span class="strong">${pct(r.hit_rate, 1)}</span> <span class="muted">· ${pct(r.share)}</span></td>`;
+        }).join("")}</tr>`).join("")}</tbody></table>`;
+  }
+
+  function ticketsTable() {
+    const rows = DATA.tickets?.[state.season] || [];
+    const b = DATA.ticket_budget;
+    const model = DATA.models.find((m) => m.key === b?.model);
+    $("tickets-note").innerHTML = rows.length
+      ? `Every matchday's 14-match ticket with the signs of ${esc(model?.name ?? b.model)} ${esc(model?.version ?? "")}, played in
+        different ways. Every strategy except the first spends the same budget: ${b.doubles} doubles and ${b.triples}
+        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v4 also chooses the mix within
+        ${b.max_bets} bets. Random placements are averaged over ${b.random_draws} draws. Planned chance: average probability of
+        10+ hits computed before the matchday; it should match the real prize rate. Both leagues (the ticket mixes them).`
+      : "No ticket results yet. Run <code>invoke backtest.run</code>.";
+    if (!rows.length) return "";
+    const best = Math.max(...rows.filter((r) => r.strategy !== "single").map((r) => r.prizes));
+    const num = (v) => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    return `<table><thead><tr><th>Strategy</th><th class="num">Bets</th><th class="num">Prizes ↑</th>
+        <th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th>
+        <th class="num">Mean hits</th><th class="num">Planned chance</th><th class="num">Real prize rate</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr>
+        <td data-tip="${esc(DATA.ticket_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.ticket_strategies[r.strategy] ?? r.strategy)}</td>
+        <td class="num">${num(r.bets)}</td>
+        <td class="num ${r.prizes === best && r.strategy !== "single" ? "strong" : ""}">${num(r.prizes)} <span class="muted">/ ${r.tickets}</span></td>
+        ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${num(r[k])}</td>`).join("")}
+        <td class="num">${r.mean_hits.toFixed(2)}</td>
+        <td class="num">${pct(r.planned_prize, 1)}</td>
+        <td class="num">${pct(r.prize_rate, 1)}</td>
+      </tr>`).join("")}</tbody></table>`;
+  }
+
   function definitions() {
     return `<table><tbody>${DATA.metrics.map((m) => `<tr>
       <td class="strong">${esc(m.label)}</td>
@@ -147,6 +206,8 @@
     const seasonLabel = state.season === "all" ? "all seasons" : state.season;
     $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
     $("metrics").innerHTML = metricsTable();
+    $("confidence").innerHTML = confidenceTable();
+    $("tickets").innerHTML = ticketsTable();
     $("by-season").innerHTML = bySeasonTable();
     $("by-season").querySelectorAll("tr.clickable").forEach((row) => row.addEventListener("click", () => {
       state.season = row.dataset.season === state.season ? "all" : row.dataset.season;

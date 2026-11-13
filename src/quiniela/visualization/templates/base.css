@@ -18,6 +18,7 @@
   /* Form chips (status colors, always paired with a W/D/L letter) */
   --good: #0ca30c;
   --critical: #d03b3b;
+  --warning: #b57900;
   --neutral: #898781;
 }
 @media (prefers-color-scheme: dark) {
@@ -176,6 +177,16 @@ tfoot td { font-weight: 600; border-top: 1px solid var(--grid); border-bottom: 0
 }
 .badge.prize { background: var(--good); border-color: var(--good); color: #fff; }
 .pick.none { border: 1px dashed var(--text-muted); color: var(--text-muted); }
+/* Doubles and triples of the planned ticket: same states, a wider cell */
+.pick.multi { min-width: 64px; letter-spacing: 0.04em; }
+/* Confidence chips: tier colour as text and a light tint (the value is always shown) */
+.conf {
+  display: inline-block; min-width: 44px; text-align: center; border-radius: 999px;
+  padding: 1px 8px; font-size: 12px; font-weight: 600; border: 1px solid currentColor;
+}
+.conf.high { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.conf.medium { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.conf.low { color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, transparent); }
 a { color: var(--accent); }
 section.block { margin-bottom: 32px; }
 section.block > h2.section-title {

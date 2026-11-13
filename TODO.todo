@@ -130,6 +130,33 @@ Tareas:
   ☐ Decisor con estructura fit/predict aplicado después del modelo elegido.
 
 
+4. Confianza de la predicción y dobles/triples (v4) · HECHO (v0.4.0)
+==============================================================================
+Idea:
+  Medir lo predecible que es cada partido y usarlo para repartir dobles y triples
+  en el boleto donde más suben la probabilidad de premio.
+
+Tareas:
+  ✔ Columnas confidence (p de signo elegido) y margin (p1 - p2) en todas las
+    predicciones, calculadas solo de p_H, p_D, p_A.
+  ✔ Dashboards: columna de confianza (v3) con colores alta/media/baja, orden
+    "más predecibles primero" y probabilidad de cada categoría antes de la jornada.
+  ✔ Planificador de dobles y triples (presupuesto en dobles/triples o en apuestas,
+    objetivo 10+ o 14 aciertos) y v4 = v3 + mejor reparto con 48 apuestas.
+  ✔ Backtest: sin dobles, al azar, "a ojo", óptimo (10+ y 14) y v4.
+  ✔ Documentar en el README y crear el tag v0.4.0.
+
+Resultado (376 jornadas con boleto completo, signos de v3):
+  - Sin dobles: 35 premios; con 48 apuestas al azar: 130; "a ojo" (triple y
+    dobles en los partidos menos predecibles): 158; v4: 160.
+  - La probabilidad de premio calculada antes de la jornada acierta (41,3 %
+    prevista frente a 42,6 % real): las probabilidades de los dashboards son fiables.
+  - Lo que más importa es DÓNDE van los dobles: la regla "a ojo" casi iguala al
+    óptimo. Ninguna estrategia sacó un pleno de 14 con este presupuesto.
+  - Se cuentan premios, no euros: para optimizar dinero hacen falta los premios
+    reales por categoría (punto 3).
+
+
 Otras ideas (ya en el README)
 ==============================================================================
   ☐ Pi-ratings (Constantinou & Fenton, 2013): ratings separados en casa y fuera.

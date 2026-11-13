@@ -34,6 +34,7 @@
 
   <section class="card">
     <h2 id="matches-title">Matches</h2>
+    <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
     <div class="scroll" id="matches"></div>
     <p class="meta" style="margin:10px 0 0" id="legend"></p>
   </section>
@@ -45,6 +46,13 @@
   const $ = (id) => document.getElementById(id);
   const models = DATA.models;
   let selected = DATA.matchdays.length - 1;
+  const SORTS = ["ticket", "confidence"];
+  let sort = "ticket";
+
+  function showMatches() {
+    $("matches").innerHTML = matchdayTable(DATA.matchdays[selected], models, DATA.leagues,
+      DATA.confidence_model, DATA.confidence_tiers, sort);
+  }
 
   function totalsTiles() {
     if (!models.length) return '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
@@ -54,7 +62,7 @@
         <div class="label">${modelLabel(m)}</div>
         <div class="value">${pct(t.rate, 1)}</div>
         <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
-        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets</div>
+        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets${m.key === "planned" ? " · up to 48 bets each" : ""}</div>
       </div>`;
     }).join("");
   }
@@ -82,7 +90,7 @@
     $("matchday-dates").textContent = `${fmtDate(md.start)} – ${fmtDate(md.end)}`;
     $("matches-title").textContent = `Matchday ${md.number}`;
     $("banners").innerHTML = quinielaBanners(md, models);
-    $("matches").innerHTML = matchdayTable(md, models, DATA.leagues);
+    showMatches();
     $("overview").innerHTML = overviewTable();
     $("overview").querySelectorAll("tr.clickable").forEach((row) =>
       row.addEventListener("click", () => select(Number(row.dataset.i))));
@@ -95,6 +103,7 @@
     $("matchday").innerHTML = DATA.matchdays.map((md, i) =>
       `<option value="${i}">${md.number}</option>`).join("");
     $("matchday").addEventListener("change", (e) => select(Number(e.target.value)));
+    segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
     select(selected);
   } else {
     $("meta").textContent = "No current season data or predictions. Run invoke update first.";

@@ -36,6 +36,9 @@ model is evaluated with a walk-forward backtest against the betting market.
 - Models receive the whole match table as `X` (league, date, teams, odds and, when fitting,
   goals); the target's goals and result are removed before `predict`. Never use information
   unavailable before the match (no closing odds, no look-ahead).
+- v4 (`quiniela.prediction.planner`) is a decision layer, not a registered model: it places
+  doubles and triples on the v3 ticket. The dashboards show it as the pseudo-model `planned`;
+  the backtest replays it in `ticket_strategies` (saved to `data/backtest/tickets.parquet`).
 - New submodules of packages with `__all__` (`quiniela.config`, `quiniela.prediction`,
   `quiniela.evaluation`) must be added to `__all__` so pdoc documents them.
 

@@ -10,6 +10,11 @@ The predictions of all models are stored in ``data/backtest/predictions.parquet`
 (one row per model and match, with the real result) and summarised with the
 metrics of ``quiniela.evaluation.metrics``, overall, per season and per
 league, plus the quiniela prizes the 14-match tickets would have won.
+
+The tickets are also played with doubles and triples (``ticket_strategies``):
+without them, on random matches, "by eye" on the least predictable matches,
+and placed by the planner (``quiniela.prediction.planner``, v4), to measure
+how many more prizes each way of spending the same bets wins.
 """
 
 import logging
@@ -23,8 +28,14 @@ from quiniela.config import BACKTEST_DIR, HISTORICAL_DIR
 from quiniela.data.loading import load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.evaluation.metrics import evaluate
+from quiniela.prediction import planner
 from quiniela.prediction.pipeline import ALL_MODELS, resolve_models, walk_forward
-from quiniela.prediction.ticket import prize_category, ticket_positions
+from quiniela.prediction.ticket import (
+    PRIZE_CATEGORIES,
+    TICKET_SIZE,
+    prize_category,
+    ticket_positions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +44,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_START = 2015
 
 BACKTEST_FILE = "predictions.parquet"
+
+# Tickets with doubles and triples, derived from the predictions when they are saved
+TICKETS_FILE = "tickets.parquet"
 
 # Real result columns added to every prediction
 RESULT_COLUMNS = ["FTHG", "FTAG", "FTR"]
@@ -106,6 +120,10 @@ def run_backtest(
 def save_backtest(backtest: pd.DataFrame, backtest_dir: Path = BACKTEST_DIR) -> Path:
     """Store backtest predictions, replacing the models and seasons they cover.
 
+    The tickets with doubles and triples (:func:`ticket_strategies`) are
+    recomputed from the stored predictions and saved next to them, so the
+    dashboards do not have to replay them.
+
     Args:
         backtest: Output of :func:`run_backtest`.
         backtest_dir: Folder of the backtest file.
@@ -122,6 +140,9 @@ def save_backtest(backtest: pd.DataFrame, backtest_dir: Path = BACKTEST_DIR) -> 
     path.parent.mkdir(parents=True, exist_ok=True)
     backtest.sort_values(["model", "date", "league"]).to_parquet(path, index=False)
     logger.info("Saved %d backtest predictions to %s", len(backtest), path)
+    tickets = ticket_strategies(backtest)
+    tickets.to_parquet(backtest_dir / TICKETS_FILE, index=False)
+    logger.info("Saved %d backtest tickets to %s", len(tickets), backtest_dir / TICKETS_FILE)
     return path
 
 
@@ -129,6 +150,12 @@ def load_backtest(backtest_dir: Path = BACKTEST_DIR) -> pd.DataFrame:
     """Load the stored backtest predictions (empty if the backtest was never run)."""
     path = backtest_dir / BACKTEST_FILE
     return pd.read_parquet(path) if path.exists() else pd.DataFrame()
+
+
+def load_tickets(backtest_dir: Path = BACKTEST_DIR) -> pd.DataFrame:
+    """Load the stored backtest tickets with doubles and triples (empty if missing)."""
+    path = backtest_dir / TICKETS_FILE
+    return pd.read_parquet(path) if path.exists() else pd.DataFrame(columns=TICKET_COLUMNS)
 
 
 def _pleno(goals: pd.Series) -> np.ndarray:
@@ -213,3 +240,178 @@ def summarize(backtest: pd.DataFrame, by: list[str] | None = None) -> pd.DataFra
             )
             summary = summary.merge(counts.reset_index(), on=groups, how="left")
     return summary
+
+
+# %% Tickets with doubles and triples
+
+# Ways of playing each matchday's ticket: key -> (label, kind, objective in hits).
+# Every strategy but "single" spends the same budget, so the prizes compare
+# where the bets go, not how many there are.
+TICKET_STRATEGIES: dict[str, tuple[str, str, int]] = {
+    "single": ("No doubles or triples (1 bet)", "single", planner.DEFAULT_MIN_HITS),
+    "random": ("Doubles and triples on random matches", "random", planner.DEFAULT_MIN_HITS),
+    "heuristic": (
+        "By eye: on the least predictable matches",
+        "heuristic",
+        planner.DEFAULT_MIN_HITS,
+    ),
+    "optimal_14": ("Optimal placement, aiming at 14 hits", "optimal", 14),
+    "optimal": ("Optimal placement, aiming at 10+ hits", "optimal", planner.DEFAULT_MIN_HITS),
+    "v4": ("v4: best mix within the budget, aiming at 10+ hits", "mix", planner.DEFAULT_MIN_HITS),
+}
+
+# Random placements drawn per matchday (their prizes are averaged)
+RANDOM_DRAWS = 20
+
+TICKET_COLUMNS = [
+    "model",
+    "season",
+    "matchday",
+    "strategy",
+    "draw",
+    "doubles",
+    "triples",
+    "bets",
+    "hits",
+    "category",
+    "p_prize",
+    "p_top",
+    "expected_hits",
+]
+
+
+def _ticket_matches(matches: pd.DataFrame) -> pd.DataFrame | None:
+    """The 14 ticket matches of a matchday in ticket order, or None without a full ticket."""
+    positions = ticket_positions(matches)
+    ticket = matches.assign(_position=positions).dropna(subset=["_position"])
+    ticket = ticket.sort_values("_position").dropna(subset=["p_H", "p_D", "p_A", "FTR"])
+    return ticket if len(ticket) == TICKET_SIZE else None
+
+
+def _season_tickets(
+    predictions: pd.DataFrame, doubles: int, triples: int, max_bets: int, seed: int
+) -> list[tuple[object, ...]]:
+    """Ticket rows of every strategy for the matchdays of one model and season."""
+    rows: list[tuple[object, ...]] = []
+    for (model, season, matchday), matches in predictions.groupby(["model", "season", "matchday"]):
+        ticket = _ticket_matches(matches)
+        if ticket is None:
+            continue
+        probs = ticket[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
+        results = ticket["FTR"].tolist()
+        # One generator per matchday, so results do not depend on the job split
+        rng = np.random.default_rng([seed, int(matchday), int(str(season)[:4])])
+        for key, (_, kind, min_hits) in TICKET_STRATEGIES.items():
+            if kind == "single":
+                plans = [planner.single_plan(probs, min_hits)]
+            elif kind == "random":
+                plans = [
+                    planner.random_plan(probs, rng, doubles, triples, min_hits)
+                    for _ in range(RANDOM_DRAWS)
+                ]
+            elif kind == "heuristic":
+                plans = [planner.heuristic_plan(probs, doubles, triples, min_hits)]
+            elif kind == "optimal":
+                plans = [planner.plan_ticket(probs, doubles, triples, min_hits=min_hits)]
+            else:
+                plans = [planner.plan_ticket(probs, max_bets=max_bets, min_hits=min_hits)]
+            for draw, plan in enumerate(plans):
+                hits = plan.hits(results)
+                rows.append(
+                    (
+                        model,
+                        season,
+                        matchday,
+                        key,
+                        draw,
+                        plan.doubles,
+                        plan.triples,
+                        plan.bets,
+                        hits,
+                        prize_category(hits),
+                        plan.at_least(planner.DEFAULT_MIN_HITS),
+                        plan.at_least(TICKET_SIZE),
+                        float(plan.coverage.sum()),
+                    )
+                )
+    return rows
+
+
+def ticket_strategies(
+    backtest: pd.DataFrame,
+    model: str = planner.PLANNER_MODEL,
+    doubles: int = planner.DEFAULT_DOUBLES,
+    triples: int = planner.DEFAULT_TRIPLES,
+    max_bets: int = planner.DEFAULT_MAX_BETS,
+    seed: int = 0,
+    n_jobs: int = -1,
+) -> pd.DataFrame:
+    """Play every full ticket of the backtest with each strategy of ``TICKET_STRATEGIES``.
+
+    Args:
+        backtest: Backtest predictions with real results.
+        model: Model whose probabilities choose the signs (v3 by default).
+        doubles: Doubles of the random, by-eye and optimal strategies.
+        triples: Triples of the random, by-eye and optimal strategies.
+        max_bets: Budget of the v4 strategy, which also chooses the mix.
+        seed: Seed of the random placements.
+        n_jobs: Parallel jobs (one per season).
+
+    Returns:
+        One row per strategy, matchday and draw (``RANDOM_DRAWS`` for the
+        random strategy, one for the rest) with ``TICKET_COLUMNS``:
+        ``p_prize`` and ``p_top`` are the planned probabilities of 10+ and 14
+        hits, ``hits`` and ``category`` what happened.
+    """
+    predictions = backtest[backtest["model"] == model]
+    if predictions.empty:
+        return pd.DataFrame(columns=TICKET_COLUMNS)
+    results = Parallel(n_jobs=n_jobs)(
+        delayed(_season_tickets)(group, doubles, triples, max_bets, seed)
+        for _, group in predictions.groupby("season")
+    )
+    rows = [row for season_rows in results for row in season_rows]
+    return pd.DataFrame(rows, columns=TICKET_COLUMNS)
+
+
+def summarize_tickets(tickets: pd.DataFrame, by: list[str] | None = None) -> pd.DataFrame:
+    """Prizes won by each ticket strategy.
+
+    Random placements are averaged over their draws, so their counts can be
+    fractional.
+
+    Args:
+        tickets: Output of :func:`ticket_strategies`.
+        by: Extra grouping columns besides ``strategy`` (e.g. ``"season"``).
+
+    Returns:
+        One row per strategy (in ``TICKET_STRATEGIES`` order) with ``label``,
+        ``bets`` (average cost), ``tickets`` (matchdays), ``prizes`` (10+
+        hits), one column per category (``14`` ... ``10``), ``mean_hits``,
+        ``planned_prize`` (average planned probability of 10+ hits) and
+        ``prize_rate`` (share of tickets with a prize).
+    """
+    groups = ["strategy", *(by or [])]
+    rows = []
+    for key, group in tickets.groupby(groups, sort=False):
+        values = key if isinstance(key, tuple) else (key,)
+        row: dict[str, object] = dict(zip(groups, values, strict=True))
+        draws = group["draw"].nunique()
+        row["label"] = TICKET_STRATEGIES.get(str(values[0]), (str(values[0]),))[0]
+        row["bets"] = float(group["bets"].mean())
+        row["tickets"] = int(len(group) // draws)
+        prizes = group["hits"] >= planner.DEFAULT_MIN_HITS
+        row["prizes"] = float(prizes.sum() / draws)
+        for hits in PRIZE_CATEGORIES:
+            row[str(hits)] = float((group["hits"] == hits).sum() / draws)
+        row["mean_hits"] = float(group["hits"].mean())
+        row["planned_prize"] = float(group["p_prize"].mean())
+        row["prize_rate"] = float(prizes.mean())
+        rows.append(row)
+    summary = pd.DataFrame(rows)
+    if summary.empty:
+        return summary
+    order = {key: i for i, key in enumerate(TICKET_STRATEGIES)}
+    return summary.sort_values(
+        [*groups[1:], "strategy"], key=lambda c: c.map(order) if c.name == "strategy" else c
+    ).reset_index(drop=True)

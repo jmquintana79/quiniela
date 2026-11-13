@@ -99,12 +99,24 @@ def main(argv: list[str] | None = None) -> None:
 
         paths = run(args.model, matchday=args.matchday, all_matchdays=args.all)
     elif args.command == "backtest":
-        from quiniela.evaluation.backtest import run_backtest, save_backtest, summarize
+        from quiniela.evaluation.backtest import (
+            load_tickets,
+            run_backtest,
+            save_backtest,
+            summarize,
+            summarize_tickets,
+        )
 
         results = run_backtest(args.start, args.end, args.model)
         paths = [save_backtest(results)]
         columns = ["model", "matches", "hit_rate", "log_loss", "brier", "rps", "prizes"]
         print(summarize(results)[columns].round(4).to_string(index=False))
+        # Doubles and triples with the planner's model (saved with the backtest)
+        tickets = summarize_tickets(load_tickets())
+        if not tickets.empty:
+            ticket_columns = ["strategy", "bets", "tickets", "prizes", "14", "13", "12", "11"]
+            ticket_columns += ["10", "mean_hits", "planned_prize", "prize_rate"]
+            print(tickets[ticket_columns].round(3).to_string(index=False))
     elif args.target == "historical":
         end = args.end if args.end is not None else download.current_season() - 1
         paths = download.download_historical(args.start, end)

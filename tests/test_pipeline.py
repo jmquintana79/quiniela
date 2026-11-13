@@ -32,6 +32,11 @@ def test_predicts_last_matchday_by_default() -> None:
     assert out["matchday"].unique().tolist() == [2]
     assert list(out.columns) == pipeline.PREDICTION_COLUMNS
     assert out[["p_H", "p_D", "p_A"]].sum(axis=1).round(6).eq(1).all()
+    # Confidence: probability of the predicted sign; margin over the second one
+    probs = out[["p_H", "p_D", "p_A"]].to_numpy()
+    assert (out["confidence"] == probs.max(axis=1)).all()
+    ordered = sorted(probs[0], reverse=True)
+    assert out["margin"].iloc[0] == pytest.approx(ordered[0] - ordered[1])
 
 
 def test_training_uses_only_earlier_matches() -> None:

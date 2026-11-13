@@ -24,6 +24,7 @@ import pandas as pd
 from quiniela.config import CURRENT_DIR, HISTORICAL_DIR, PREDICTIONS_DIR
 from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
+from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
 from quiniela.prediction.registry import MODELS
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ PREDICTION_COLUMNS = [
     "p_H",
     "p_D",
     "p_A",
+    *CONFIDENCE_COLUMNS,
     *SCORE_COLUMNS,
 ]
 
@@ -118,6 +120,8 @@ def walk_forward(model_key: str, target: pd.DataFrame, played: pd.DataFrame) -> 
         probs = np.asarray(model.predict_proba(X), dtype=float)
         out[["p_H", "p_D", "p_A"]] = probs
         out["prediction"] = model.predict(X)
+        # How predictable each match is, from the probabilities alone (any model)
+        out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
         if hasattr(model, "predict_score"):
             out[SCORE_COLUMNS] = model.predict_score(X)[SCORE_COLUMNS].to_numpy()
         predictions.append(out[PREDICTION_COLUMNS])

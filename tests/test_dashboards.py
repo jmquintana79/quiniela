@@ -248,3 +248,98 @@ def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.Mo
         "historical.html",
         "season.html",
     ]
+
+
+def test_season_payload_confidence_odds_and_planned_ticket() -> None:
+    from tests.helpers import make_matches
+
+    # 14 pending La Liga matches predicted by v3 with different confidences
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", None, None) for i in range(14)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    p_home = [0.75, 0.40] + [0.55] * 12
+    predictions = current[["league", "game"]].assign(
+        prediction="H", p_H=p_home, p_D=[0.15, 0.35] + [0.25] * 12, p_A=[0.10, 0.25] + [0.20] * 12
+    )
+
+    payload = dashboards.season_payload(current, {"market_blend": predictions})
+
+    assert [m["key"] for m in payload["models"]] == ["market_blend", dashboards.PLANNED_KEY]
+    assert payload["confidence_model"] == "market_blend"
+    matches = {m["home_team"]: m for m in payload["matchdays"][0]["matches"]}
+    assert matches["H0"]["market_blend_conf"] == 0.75
+    assert matches["H0"]["market_blend_margin"] == pytest.approx(0.6)
+
+    summary = payload["matchdays"][0]["summary"]
+    odds = summary["market_blend"]["odds"]
+    assert set(odds) == {"10", "11", "12", "13", "14"} and odds["10"] > odds["14"]
+    plan = summary[dashboards.PLANNED_KEY]["plan"]
+    assert plan["bets"] <= 48 and plan["odds"]["10"] > odds["10"]
+    # The least predictable match gets more than one sign on the planned ticket
+    assert len(matches["H1"]["planned_sign"]) > 1
+    assert matches["H0"]["planned_sign"] == "H"
+
+
+def test_planned_ticket_counts_doubles_as_hits() -> None:
+    from tests.helpers import make_matches
+
+    # Every match ends in a draw: only the doubles and triples of v4 hit
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", 1, 1) for i in range(14)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    predictions = current[["league", "game"]].assign(prediction="H", p_H=0.45, p_D=0.33, p_A=0.22)
+
+    payload = dashboards.season_payload(current, {"market_blend": predictions})
+
+    summary = payload["matchdays"][0]["summary"]
+    plan = summary[dashboards.PLANNED_KEY]["plan"]
+    assert summary["market_blend"]["hits"] == 0
+    assert summary[dashboards.PLANNED_KEY]["hits"] == plan["doubles"] + plan["triples"]
+
+
+def test_evaluation_payload_confidence_and_tickets() -> None:
+    rows = [
+        {
+            "model": "market_blend",
+            "league": "SP1",
+            "season": "2024-25",
+            "game": f"g{i}",
+            "matchday": 1,
+            "date": pd.Timestamp("2024-08-17"),
+            "home_team": f"H{i}",
+            "away_team": f"A{i}",
+            "prediction": "H",
+            "p_H": p,
+            "p_D": (1 - p) / 2,
+            "p_A": (1 - p) / 2,
+            "score_home": float("nan"),
+            "FTHG": 1,
+            "FTAG": 0,
+            "FTR": "H",
+        }
+        for i, p in enumerate([0.7, 0.5, 0.4])
+    ]
+    tickets = pd.DataFrame(
+        {
+            "model": "market_blend",
+            "season": "2024-25",
+            "matchday": 1,
+            "strategy": ["single", "v4"],
+            "draw": 0,
+            "doubles": [0, 4],
+            "triples": [0, 1],
+            "bets": [1, 48],
+            "hits": [9, 11],
+            "category": [None, "4th category"],
+            "p_prize": [0.1, 0.4],
+            "p_top": [0.001, 0.004],
+            "expected_hits": [8.0, 9.5],
+        }
+    )
+    payload = dashboards.evaluation_payload(pd.DataFrame(rows), tickets)
+
+    tiers = payload["confidence"]["all|all"]["market_blend"]
+    assert [t["tier"] for t in tiers] == ["high", "medium", "low"]
+    assert [t["matches"] for t in tiers] == [1, 1, 1]
+    strategies = {r["strategy"]: r for r in payload["tickets"]["all"]}
+    assert strategies["v4"]["prizes"] == 1 and strategies["single"]["prizes"] == 0
+    assert payload["tickets"]["2024-25"]
+    assert payload["ticket_budget"]["max_bets"] == 48

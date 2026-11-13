@@ -102,7 +102,8 @@ invoke predict.all --model dixon_coles  # a single model (key from the registry)
 ```
 
 Every registered model is run by default. Predictions are stored in
-`data/predictions/<model>.parquet`. For every matchday the model is trained only on matches
+`data/predictions/<model>.parquet`, with the probabilities, the predicted sign and its
+[confidence and margin](#confidence-of-a-prediction). For every matchday the model is trained only on matches
 played before it (all historical seasons plus the earlier matches of the current season), so
 past matchdays are evaluated without look-ahead.
 
@@ -129,7 +130,10 @@ Every registered model predicts every matchday of the selected past seasons, wal
 range, 2015-16 to 2025-26, has 9,262 matches, all but 21 with bookmaker odds; it runs in about
 four minutes using every CPU core (v3 takes most of it). Predictions go to
 `data/backtest/predictions.parquet` and the metrics are printed and shown in the evaluation
-dashboard. See [Evaluation](#evaluation).
+dashboard. Each matchday's 14-match ticket is also replayed with doubles and triples (no
+doubles, random, by eye, optimal and [v4](#v4--ticket-planner-planner)); those tickets go to
+`data/backtest/tickets.parquet` and their prizes are printed after the metrics. See
+[Evaluation](#evaluation).
 
 ### Dashboards
 
@@ -148,10 +152,10 @@ Four dashboards, each answering one question:
 
 | Dashboard | Question | Content |
 |---|---|---|
-| `current.html` | What happens this week? | Current matchday and standings. |
+| `current.html` | What happens this week? | Current matchday (with confidence, prize chances and the v4 ticket) and standings. |
 | `season.html` | How are the models doing this season? | Every matchday of the current season. |
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
-| `evaluation.html` | Which model is better? | Backtest metrics over past seasons. |
+| `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers and tickets with doubles and triples. |
 
 - `dashboards/current.html`: the **current matchday**: its matches (kick-off, teams, result
   when played) with one column per model in registry order and the **market** last as the
@@ -159,14 +163,19 @@ Four dashboards, each answering one question:
   with ✗ when wrong, so the table has room for more models; hovering it shows the probability
   (and, for models that predict goals, the exact score and Pleno al 15 picks). The footer gives
   each model's hit rate on the played
-  matches. Above the table, a status banner (upcoming, in progress or completed) and the
-  14-match quiniela ticket outcome of each model; below, the standings of each league with
+  matches. A **Confidence** column shows how predictable each match is according to v3 (the
+  probability of its sign, green high, amber medium, red low; the margin over the second sign
+  on hover), and the table can be sorted in ticket order or **most predictable first**. The
+  **Planned ticket v4** column shows the v3 signs with the doubles (`1X`) and triples (`1X2`)
+  chosen by the [ticket planner](#v4--ticket-planner-planner). Above the table, a status banner
+  (upcoming, in progress or completed) and the 14-match quiniela ticket outcome of each model,
+  with the **chance of each prize before the matchday** (10+ to 14 hits); below, the standings of each league with
   recent form. The current matchday is the first one with matches still to play; when every
   published match has been played (e.g. during an international break, before the source
   publishes the next fixtures) the last one is shown and marked as completed. The market
   column is the bookmakers' odds at the last download, **not a prediction of our models**.
-- `dashboards/season.html`: the **current season**: totals per model (hit rate and prize
-  tickets), a table of every matchday with each model's hits and quiniela outcome, and the
+- `dashboards/season.html`: the **current season**: totals per model and for the v4 ticket
+  (hit rate and prize tickets), a table of every matchday with each model's hits and quiniela outcome, and the
   detail of any matchday (same table as `current.html`). The ticket is approximated with the
   matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
   12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict
@@ -175,8 +184,10 @@ Four dashboards, each answering one question:
   every season, plus the final standings and results of the selected season (filterable by
   team).
 - `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
-  registry order (benchmark first, market last as reference), by league and season, plus
-  calibration charts and an explanation of each metric.
+  registry order (benchmark first, market last as reference), by league and season, plus the
+  hit rate by confidence tier, the prizes of the tickets played with doubles and triples (no
+  doubles, random, by eye, optimal and v4), calibration charts and an explanation of each
+  metric.
 
 All are self-contained HTML files (data embedded, no external libraries) that open with a
 double click, also offline. New models appear as new columns automatically.
@@ -287,6 +298,33 @@ the matches and still has the lowest hit rate, because many of those draws do no
 a well-calibrated model, choosing the most likely sign already maximises the expected number of
 hits. A model that predicted X more often would only gain hits if it identified draws better,
 for instance through better probabilities.
+
+### Confidence of a prediction
+
+Every prediction comes with two measures of how predictable the match is, computed from its
+1X2 probabilities alone, so they exist for every model
+([`quiniela/prediction/confidence.py`](src/quiniela/prediction/confidence.py)). With the
+probabilities of a match sorted as $p_{(1)} \ge p_{(2)} \ge p_{(3)}$:
+
+| Measure | Formula | Meaning |
+|---|---|---|
+| Confidence | $p_{(1)}$ | Probability of the predicted sign. For a calibrated model it is literally the chance of hitting the match with one sign. |
+| Margin | $p_{(1)} - p_{(2)}$ | How clear the favourite is over the second option (45 / 40 / 15 has a small margin). |
+
+Matches are grouped in three tiers: **high** (60% or more), **medium** (45% to 60%) and **low**
+(below 45%). A confidence is only useful if it keeps its promise: the hit rate of each tier
+should be close to its average confidence. In the backtest (hit rate, share of matches):
+
+| Tier | v1 | v2 | v3 | Market |
+|---|---|---|---|---|
+| High (≥ 60%) | 51.5% · 23% | 73.2% · 11% | 70.8% · 18% | 74.5% · 14% |
+| Medium (45-60%) | 40.8% · 44% | 50.8% · 41% | 51.6% · 38% | 53.3% · 38% |
+| Low (< 45%) | 40.7% · 32% | 41.2% · 48% | 40.1% · 44% | 40.3% · 48% |
+
+For v3 the average confidence of the high tier is 69.9% and it hits 70.8% of those matches:
+its confidence can be read at face value. v1's cannot: it says 68% and hits 51%, because its
+probabilities are too extreme. Those probabilities, and so the confidence, drive the
+doubles and triples of [v4](#v4--ticket-planner-planner).
 
 The metrics are implemented in
 [`quiniela/evaluation/metrics.py`](src/quiniela/evaluation/metrics.py) and the backtest in
@@ -521,6 +559,89 @@ With a few thousand matches, fewer parameters generalise better.
 - It loses independence: a model that uses the odds cannot claim to beat the market on its own.
   That is why v2 stays as the independent model.
 
+### v4 · Ticket planner (`planner`)
+
+[`quiniela/prediction/planner.py`](src/quiniela/prediction/planner.py)
+
+**Idea.** Not a new probability model but a **decision layer** on top of v3: the quiniela
+allows covering more than one sign of a match. A **double** (two signs) doubles the number of
+bets and a **triple** (1, X and 2) triples it, so $d$ doubles and $t$ triples cost
+$2^d \cdot 3^t$ bets. With a fixed budget, the question is which matches get them. v4 uses
+the v3 probabilities to place them where they raise the chance of a prize the most.
+
+**Coverage of a match.** With the v3 probabilities sorted as
+$p_{i(1)} \ge p_{i(2)} \ge p_{i(3)}$, the probability of hitting match $i$ is:
+
+```math
+q_i = \begin{cases}
+p_{i(1)} & \text{single sign} \\
+p_{i(1)} + p_{i(2)} & \text{double (the two most likely signs)} \\
+1 & \text{triple}
+\end{cases}
+```
+
+so a double gains $p_{i(2)}$ and a triple $1 - p_{i(1)}$.
+
+**Chance of each prize.** Treating the 14 matches as independent, the number of hits $H$
+follows a Poisson-binomial distribution, computed exactly by adding one match at a time:
+
+```math
+P_i(h) = P_{i-1}(h)\,(1 - q_i) + P_{i-1}(h - 1)\,q_i, \qquad P_0(0) = 1
+```
+
+This gives the chance of every category before the matchday: $P(H = 14)$ for the 1st,
+$P(H \ge 13)$ for the 2nd or better, ..., $P(H \ge 10)$ for any prize. The dashboards show it
+under every ticket, also for single-sign tickets ($q_i = p_{i(1)}$).
+
+**Optimal ticket.** Given a budget, every way of placing the doubles and triples on the 14
+matches is evaluated and the one that maximises the target is kept:
+
+```math
+\max_{\text{placement}} \; P(H \ge k), \qquad k = 10 \text{ (any prize) or } k = 14 \text{ (the top one)}
+```
+
+Ties go to the higher chance of 14 hits, then to the higher expected hits $\sum_i q_i$. The
+budget can be given as exact doubles and triples, or as a maximum number of bets: every mix
+that fits is tried (with 48 bets: 5 doubles; 4 doubles + 1 triple; 2 doubles + 2 triples;
+3 triples...). The search is exhaustive (about 22,000 placements for 48 bets, milliseconds).
+
+**v4** is the default configuration: the v3 signs, a **48-bet budget** with the best mix of
+doubles and triples, and the target **10+ hits** (securing a prize). Outside the ticket it is
+the v3 sign.
+
+**Backtest.** Every matchday of 2015-16 to 2025-26 with a full ticket (376), with the v3
+signs, played in six ways. Every strategy but the first spends the same budget, 4 doubles and
+1 triple (48 bets); v4 also chooses the mix within 48 bets; random placements are averaged
+over 20 draws:
+
+| Strategy | Bets | Prizes | 14 | 13 | 12 | 11 | 10 | Mean hits | Planned chance of a prize | Real prize rate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| No doubles or triples | 1 | 35 / 376 | 0 | 1 | 1 | 12 | 21 | 7.20 | 10.3% | 9.3% |
+| Random matches | 48 | 130.2 / 376 | 0.3 | 3.4 | 13.3 | 40.8 | 72.4 | 8.80 | 33.2% | 34.6% |
+| By eye (least predictable matches) | 48 | 158 / 376 | 0 | 10 | 20 | 55 | 73 | 9.18 | 41.0% | 42.0% |
+| Optimal, aiming at 14 hits | 48 | 154 / 376 | 0 | 8 | 21 | 53 | 72 | 9.13 | 41.2% | 41.0% |
+| Optimal, aiming at 10+ hits | 48 | 159 / 376 | 0 | 6 | 26 | 55 | 72 | 9.15 | 41.3% | 42.3% |
+| **v4** (best mix within 48 bets, 10+) | 47.4 | **160 / 376** | 0 | 6 | 25 | 53 | 76 | 9.15 | 41.3% | **42.6%** |
+
+**Observations.**
+
+- Doubles and triples placed with the v3 probabilities win **4.6 times more prizes** than the
+  single ticket (160 against 35) and **23% more than placing the same bets at random** (160
+  against 130).
+- The planned chance of a prize matches what happened (41.3% planned, 42.6% real; 10.3%
+  against 9.3% for the single ticket): the chances shown in the dashboards can be trusted.
+- Most of the gain comes from **where** the bets go, not from the optimisation itself: the
+  "by eye" rule (triples on the least predictable matches, doubles on the next ones) gets
+  158 prizes, almost as many as v4 (160). That difference is within luck; the planner's value
+  is doing it consistently and choosing the mix (in 357 of 376 matchdays 4 doubles + 1 triple,
+  otherwise 2 + 2 for 36 bets or 3 triples for 27).
+- Aiming at 14 hits does not pay off with this budget: no strategy got the 1st category in
+  376 matchdays (random placements, 0.25 on average), and the 14-hit target loses prizes in
+  the lower categories.
+- The prizes are counted, not their money: the lower categories, the ones doubles and triples
+  win most, pay the least. Measuring euros needs the real prizes per category, the subject of
+  [Roadmap](#roadmap) item 2.
+
 ### Next steps
 
 See [Roadmap](#roadmap) at the end of this file.
@@ -532,6 +653,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.4.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.4.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, **v4 ticket planner** (doubles and triples on v3), market reference | Confidence and margin of every prediction; chance of each prize before the matchday; v4 ticket planner (48 bets, best mix of doubles and triples for 10+ hits): 160 prizes in 376 backtest matchdays, against 130 with random doubles and 35 without them. Dashboards: confidence column and sorting, prize chances, v4 column; evaluation: hit rate by confidence tier and ticket strategies. |
 | [`v0.3.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.3.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, market reference | v3: log-linear pool of Dixon-Coles and the market odds, trained on out-of-sample forecasts, Dixon-Coles alone without odds. Best log-loss, Brier and RPS of the backtest, also better than the market; same hit rate as the market (50.0%). |
 | [`v0.2.3`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.3) | v1 head-to-head, **v2 Dixon-Coles**, market reference | Dashboards split into `current.html` (current matchday with every model, the market and hit rates) and `season.html`; prediction cells show only the sign (probability on hover); played matches never listed as upcoming. |
 | [`v0.2.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.2.2) | v1 head-to-head, **v2 Dixon-Coles**, market reference | `invoke update`: one task to download what is missing, predict the current season and rebuild the dashboards. |
@@ -549,12 +671,13 @@ version in `pyproject.toml`:
 │   ├── current/<code>/fixtures.parquet      # season in progress: upcoming matches
 │   ├── predictions/<model>.parquet          # predictions for the current season
 │   ├── backtest/predictions.parquet         # walk-forward predictions of past seasons
+│   ├── backtest/tickets.parquet             # backtest tickets with doubles and triples
 │   └── cache/                               # raw CSV files cached by soccerdata
 ├── src/quiniela/
 │   ├── config/paths.py      # filesystem paths used by the project
 │   ├── io/download.py       # historical and current season downloads
 │   ├── data/                # match loaders and matchday inference
-│   ├── prediction/          # model registry, models, pipeline, ticket rules
+│   ├── prediction/          # model registry, models, pipeline, confidence, ticket rules, planner
 │   ├── evaluation/          # metrics and the multi-season backtest
 │   ├── visualization/       # dashboard builder and HTML templates
 │   ├── update.py            # `invoke update`: every step in one go
@@ -632,8 +755,12 @@ and version bumps (`cz commit`, `cz bump`).
 Pending improvements, in order of priority. The detailed plan (in Spanish) is in
 [`TODO.todo`](TODO.todo).
 
-Done: **market odds as model input** (v3, released in `v0.3.0`, see
-[v3](#v3--dixon-coles--market-market_blend)).
+Done:
+
+- **Market odds as model input** (v3, released in `v0.3.0`, see
+  [v3](#v3--dixon-coles--market-market_blend)).
+- **Confidence of each prediction and doubles/triples planner** (v4, released in `v0.4.0`, see
+  [v4](#v4--ticket-planner-planner)).
 
 1. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
    of European clubs with decades of history and current values. They include cup and
@@ -648,7 +775,9 @@ Done: **market odds as model input** (v3, released in `v0.3.0`, see
    be worth more (e.g. X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). It
    needs data not available yet: the bettors' share per sign of every match, the real 14-match
    tickets and the prizes per category, with their history, plus an expected-prize metric in
-   the backtest. It matters mostly for the top categories (14 and 13 hits).
+   the backtest. It matters mostly for the top categories (14 and 13 hits). It would extend the
+   [v4 planner](#v4--ticket-planner-planner): same placements of doubles and triples, but
+   maximising the expected prize instead of the chance of a prize.
 
 Other ideas:
 

@@ -18,6 +18,7 @@
     <div id="banners" style="margin-bottom:8px"></div>
     <div class="card">
       <h2 id="matches-title">Matches</h2>
+      <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
       <div class="scroll" id="matches"></div>
       <p class="meta" style="margin:10px 0 0" id="legend"></p>
       <p class="meta" style="margin:6px 0 0" id="odds"></p>
@@ -39,6 +40,14 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const md = DATA.matchday;
+  const SORTS = ["ticket", "confidence"];
+  let sort = "ticket";
+
+  function showMatches() {
+    $("matches").innerHTML = DATA.models.length
+      ? matchdayTable(md, DATA.models, DATA.leagues, DATA.confidence_model, DATA.confidence_tiers, sort)
+      : '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+  }
 
   // What the current matchday is, so a finished or unpublished one is never mistaken
   function statusBanner() {
@@ -65,8 +74,8 @@
     $("matches-title").textContent = `Matches and predictions · ${md.played}/${md.matches.length} played`;
     $("status").innerHTML = statusBanner();
     $("banners").innerHTML = DATA.models.length ? quinielaBanners(md, DATA.models) : "";
-    $("matches").innerHTML = DATA.models.length ? matchdayTable(md, DATA.models, DATA.leagues)
-      : '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+    segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
+    showMatches();
     $("odds").innerHTML = DATA.odds_downloaded
       ? `Market odds as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`
       : "";
