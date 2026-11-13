@@ -210,18 +210,17 @@ PLANNED_SPEC = {
 }
 
 
-# The v5 money ticket: also a decision layer over the planner model, shown when
-# the saved LAE draws allow fitting the prize model
+# The v5 ticket in its big-win mode: also a decision layer over the planner model,
+# shown when the saved LAE draws allow fitting the prize model
 MONEY_KEY = "money"
 MONEY_SPEC = {
     "key": MONEY_KEY,
-    "name": "Money ticket",
+    "name": "Big-win ticket",
     "version": "v5",
     "reference": False,
-    "description": "v3 signs plus the doubles and triples (up to 48 bets) with the highest "
-    "expected prize in euros from 10 to 13 hits, played only when that prize is above the cost "
-    "(prudent: the rare 14-hit and Pleno al 15 prizes do not count). Outside the ticket, the v3 "
-    "sign.",
+    "description": "v3 signs plus the doubles and triples (at most 50 EUR) with the best chance "
+    "of a prize of 10,000 EUR or more: many hits and few other winners. It loses money on "
+    "average; its banner shows what can happen. Outside the ticket, the v3 sign.",
     "ticket": True,
 }
 
@@ -232,8 +231,8 @@ MONEY_SEED = 0
 def _money_matchday(
     group: pd.DataFrame, key: str, context: Any
 ) -> tuple[Any, dict[str, Any]] | None:
-    """Plan the v5 money ticket of a matchday, or None without a full ticket with probabilities."""
-    from quiniela.prediction.money import plan_money
+    """Plan the v5 big-win ticket of a matchday, or None without a full ticket with probabilities."""
+    from quiniela.prediction.money import plan_big_win
     from quiniela.prediction.ticket import TICKET_SIZE
 
     ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
@@ -244,7 +243,7 @@ def _money_matchday(
     crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)
     missing = np.isnan(crowd).any(axis=1)
     crowd[missing] = probs[missing]
-    best = plan_money(
+    best = plan_big_win(
         probs,
         crowd,
         context.model,
@@ -261,16 +260,20 @@ def _money_matchday(
             "triples": best.plan.triples,
             "bets": best.plan.bets,
             "cost": round(best.cost, 2),
+            "threshold": best.threshold,
+            "chance": round(best.chance, 6),
+            "matchdays_per_win": round(best.matchdays_per_win, 0)
+            if np.isfinite(best.matchdays_per_win)
+            else None,
+            "chance_13": round(best.chance_13, 5),
+            "chance_14": round(best.chance_14, 6),
             "expected_payout": round(best.expected_payout, 2),
-            "expected_top": round(best.expected_top, 2),
-            "expected_net": round(best.expected_net, 2),
-            "expected_common": round(best.expected_common, 2),
-            "worth": bool(best.worth),
-            # Counting the 14-hit and Pleno al 15 prizes too (not the verdict)
-            "worth_full": bool(best.expected_net > 0),
-            "prize_chance": round(best.prize_chance, 4),
+            # What can happen with the ticket: chance of each payout range
+            "outcomes": [
+                {"label": label, "low": low, "chance": round(chance, 6)}
+                for label, low, _, chance in best.outcomes
+            ],
             "jackpot": round(float(context.jackpot), 0),
-            "expected_surprise": round(best.expected_surprise, 2),
             # How predictable the ticket is: average v3 confidence of its 14 matches
             "predictability": round(float(confidence.mean()), 4),
             "odds": _ticket_odds(best.plan.coverage),
@@ -552,8 +555,7 @@ def _matchday_euros(
 ) -> dict[str, Any] | None:
     """Cost and prize of a model's ticket in a played matchday (v3, v4 and v5 only).
 
-    v3 plays one column, v4 its doubles and triples and v5 its ticket only when
-    it was worth it (otherwise nothing is spent or won).
+    v3 plays one column, v4 its doubles and triples and v5 its big-win ticket.
     """
     from quiniela.evaluation.money import matchday_payout
     from quiniela.data.prizes import BET_PRICE
@@ -571,7 +573,8 @@ def _matchday_euros(
         return None
     picks = [str(p) for p in ticket[f"{key}_sign"]]
     bets = int(np.prod([len(p) for p in picks]))
-    played = key != MONEY_KEY or (money_plan is not None and money_plan[0].worth)
+    # The big-win ticket is played every matchday (within its weekly budget)
+    played = True
     if not played:
         return {"cost": 0.0, "payout": 0.0, "played": False, "source": None, "jornada": None}
     crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)

@@ -55,6 +55,8 @@
       (prudent) plays only when the expected prize from 10 to 13 hits is above the cost; the full
       version also counts 14 hits and the Pleno al 15, rare but large prizes that a few hundred
       draws cannot confirm: read its net result together with the number of 13 and 14-hit tickets.
+      The big-win mode plays every draw (at most 50 €) for the best chance of 10,000 € or more; it is
+      judged by how many such prizes came against how many its plans expected.
     </p>
     <div class="scroll" id="money"></div>
   </section>
@@ -218,7 +220,7 @@
     const eur = (v) => `${v.toLocaleString("en-GB", { maximumFractionDigits: 0 })} €`;
     return `<table><thead><tr><th>Strategy</th><th class="num">Draws played</th><th class="num">Spent</th>
         <th class="num">Won</th><th class="num">Net</th><th class="num">Return</th><th class="num">Winning draws</th>
-        <th class="num">Best prize</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
+        <th class="num">Best prize</th><th class="num" data-tip="Draws that paid 10,000 € or more (expected by the big-win plans in brackets)">10,000+ €</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
       <tbody>${rows.map((r) => `<tr>
         <td data-tip="${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}</td>
         <td class="num">${r.played} <span class="muted">/ ${r.draws}</span></td>
@@ -226,6 +228,7 @@
         <td class="num strong" style="color:var(${r.net >= 0 ? "--good" : "--critical"})">${r.net >= 0 ? "+" : ""}${eur(r.net)}</td>
         <td class="num">${pct(r.roi == null ? null : 1 + r.roi, 0)}</td>
         <td class="num">${r.winning}</td><td class="num">${eur(r.best_payout)}</td>
+        <td class="num">${r.big_wins}${r.expected_big_wins != null ? ` <span class="muted">(${r.expected_big_wins.toFixed(2)} expected)</span>` : ""}</td>
         ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${r[k]}</td>`).join("")}
       </tr>`).join("")}</tbody></table>
       <p class="meta" style="margin:8px 0 0">Return: euros won per euro spent (the quiniela gives back 55% on average).

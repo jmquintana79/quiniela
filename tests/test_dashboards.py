@@ -418,9 +418,10 @@ def test_season_payload_money_ticket_and_euros() -> None:
     assert keys == ["market_blend", dashboards.PLANNED_KEY, dashboards.MONEY_KEY]
     summary = payload["matchdays"][0]["summary"]
     plan = summary[dashboards.MONEY_KEY]["money"]
-    # A huge jackpot is all in 14 hits and the Pleno al 15: the prudent verdict ignores it
-    assert not plan["worth"] and plan["expected_top"] > 0 and plan["bets"] <= 48
-    assert plan["expected_common"] < plan["cost"]
+    # Big-win mode: within 50 EUR, with the distribution of what can happen
+    assert plan["cost"] <= 50 and plan["chance"] > 0
+    assert sum(o["chance"] for o in plan["outcomes"]) == pytest.approx(1, abs=1e-4)
+    assert summary[dashboards.MONEY_KEY]["euros"]["played"]
     # Every favourite won: the played matchday is valued in euros (estimated, no real draw)
     euros = summary["market_blend"]["euros"]
     assert euros["played"] and euros["cost"] == 0.75 and euros["source"] == "model"

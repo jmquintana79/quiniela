@@ -53,6 +53,11 @@ its prize (rare 14-hit prizes make the estimates noisy), so the ticket is
 chosen on one set of simulations and valued on another. v5 recommends playing
 only when that value is above the cost.
 
+**Big-win mode** (``plan_big_win``). Instead of the expected prize, the
+chance of a large prize (10,000 EUR or more by default) within a weekly budget
+(50 EUR): many hits and few other winners at once. It accepts losing on
+average for that chance, and shows the whole payout distribution.
+
 **Prudent verdict.** Most of the expected prize of a ticket comes from 14 hits
 and the Pleno al 15 (a few times per thousand draws): a lottery the backtest
 cannot check. By default (``top_weight = 0``) only the 10 to 13-hit prizes
@@ -98,6 +103,14 @@ PLENO_HIT_RATE = 0.145
 # are a few-per-thousand lottery whose value the backtest cannot check, and the
 # 10 to 13-hit prizes alone never paid the cost of a ticket in 11 seasons
 PRUDENT_TOP_WEIGHT = 0.0
+
+# Big-win mode: at most 50 EUR a matchday (66 bets) and a prize of 10,000 EUR or more
+BIG_WIN_MAX_COST = 50.0
+BIG_WIN_THRESHOLD = 10_000.0
+BIG_WIN_SIMULATIONS = 8000
+
+# Payout ranges of the big-win distribution (EUR); the first two depend on the cost
+PAYOUT_EDGES = [1_000.0, 10_000.0, 100_000.0]
 
 # Smallest probability inside the logarithm of the surprise
 PROB_FLOOR = 1e-6
@@ -290,9 +303,9 @@ class MoneyPlan:
 
 
 def _candidates(
-    probs: np.ndarray, max_bets: int, per_mix: int
+    probs: np.ndarray, max_bets: int, per_mix: int, min_hits: int = 11
 ) -> list[tuple[int, int, np.ndarray]]:
-    """Placements worth simulating: the most likely to reach 11+ hits, for every mix."""
+    """Placements worth simulating: the most likely to reach ``min_hits``, for every mix."""
     _, cover = _sorted_signs(probs)
     n = len(probs)
     rows = np.arange(n)
@@ -301,7 +314,7 @@ def _candidates(
         if 2**d * 3**t < MIN_BETS:
             continue
         placements = _placements(n, d, t)
-        chance = hit_distribution(cover[rows, placements])[:, 11:].sum(axis=1)
+        chance = hit_distribution(cover[rows, placements])[:, min_hits:].sum(axis=1)
         best = np.argsort(-chance, kind="stable")[:per_mix]
         out.append((d, t, placements[best]))
     return out
@@ -402,6 +415,263 @@ def plan_money(
         expected_top=rare,
         top_weight=top_weight,
     )
+
+
+@dataclass(frozen=True)
+class BigWinPlan:
+    """The ticket with the best chance of a large prize within a budget.
+
+    Attributes:
+        plan: The ticket (signs, doubles and triples).
+        cost: Price of the ticket in EUR.
+        threshold: Prize sought (EUR).
+        chance: Chance of winning ``threshold`` or more in the matchday.
+        chance_13: Chance that some column gets 13 or more hits.
+        chance_14: Chance of 14 hits.
+        expected_payout: Average prize in EUR (for reference: it is below the cost).
+        outcomes: Chance of each payout range, as ``(label, low, high, chance)``
+            from nothing back to 100,000 EUR or more.
+    """
+
+    plan: TicketPlan
+    cost: float
+    threshold: float
+    chance: float
+    chance_13: float
+    chance_14: float
+    expected_payout: float
+    outcomes: list[tuple[str, float, float, float]]
+
+    @property
+    def matchdays_per_win(self) -> float:
+        """Average matchdays between two prizes of ``threshold`` or more."""
+        return 1 / self.chance if self.chance > 0 else float("inf")
+
+
+def _payout_outcomes(payout: np.ndarray, cost: float) -> list[tuple[str, float, float, float]]:
+    """Chance of each payout range of a ticket (from its simulated payouts)."""
+    edges = [0.0, cost, *[e for e in PAYOUT_EDGES if e > cost], float("inf")]
+    out = [("Nothing back", 0.0, 0.0, float((payout <= 0).mean()))]
+    for low, high in zip(edges[:-1], edges[1:], strict=True):
+        if low == 0.0:
+            label = "Less than the cost"
+            chance = float(((payout > 0) & (payout < high)).mean())
+        else:
+            label = f"{low:,.0f} € or more" if np.isinf(high) else f"{low:,.0f} to {high:,.0f} €"
+            chance = float(((payout >= low) & (payout < high)).mean())
+        out.append((label, low, high, chance))
+    return out
+
+
+def plan_big_win(
+    probs: np.ndarray,
+    crowd: np.ndarray,
+    model: PrizeModel,
+    bets: float,
+    jackpot: float = 0.0,
+    max_cost: float = BIG_WIN_MAX_COST,
+    threshold: float = BIG_WIN_THRESHOLD,
+    simulations: int = BIG_WIN_SIMULATIONS,
+    per_mix: int = DEFAULT_CANDIDATES,
+    pleno_rate: float = PLENO_HIT_RATE,
+    rng: np.random.Generator | None = None,
+) -> BigWinPlan:
+    r"""Ticket with the highest chance of a large prize (big-win mode of v5).
+
+    A large prize needs two things at once: many hits (13 or 14) and few other
+    winners (results the public did not expect). Both are in one number, the
+    chance that the ticket pays ``threshold`` or more:
+
+    $$
+    \max_{\text{ticket}} \; P(\text{payout} \ge \text{threshold}), \qquad 0.75 \cdot 2^d 3^t \le \text{max\_cost}
+    $$
+
+    The expected prize stays below the cost (the quiniela keeps 45%): this
+    mode accepts losing on average for a chance of a large prize.
+
+    Args:
+        probs: Model probabilities of the 14 ticket matches, shape ``(14, 3)``.
+        crowd: Market probabilities of the same matches (the public).
+        model: Fitted prize model.
+        bets: Expected bets of the draw (all players).
+        jackpot: Jackpot announced for the Pleno al 15.
+        max_cost: Budget in EUR (at most ``max_cost / 0.75`` bets).
+        threshold: Prize sought in EUR.
+        simulations: Simulated draws (large prizes are rare: many are needed).
+        per_mix: Placements evaluated per mix of doubles and triples (the most
+            likely to reach 13+ hits).
+        pleno_rate: Chance of also hitting the Pleno al 15.
+        rng: Random generator (seeded for reproducible results).
+
+    Returns:
+        The ticket, its chance of a large prize and its payout distribution.
+    """
+    rng = np.random.default_rng(0) if rng is None else rng
+    probs = np.asarray(probs, dtype=float)
+    order, _ = _sorted_signs(probs)
+    rank = np.argsort(order, axis=1)
+    n = len(probs)
+    cumulative = np.cumsum(probs / probs.sum(axis=1, keepdims=True), axis=1)
+
+    def simulate() -> tuple[np.ndarray, np.ndarray]:
+        """Ranks of simulated results and their surprise."""
+        outcomes = np.minimum((rng.random((simulations, n, 1)) > cumulative[None]).sum(axis=2), 2)
+        return rank[np.arange(n)[None, :], outcomes], surprise(crowd, outcomes)
+
+    max_bets = int(max_cost // BET_PRICE)
+    # Chosen on one set of simulations, valued on another (see plan_money)
+    rank_hit, s = simulate()
+    best: tuple[float, int, int, np.ndarray] | None = None
+    for d, t, placements in _candidates(probs, max_bets, per_mix, min_hits=13):
+        columns = column_hits(placements, rank_hit)
+        chance = big_win_chance(columns, s, model, bets, jackpot, threshold, pleno_rate).mean(
+            axis=1
+        )
+        fourteen = _fourteen_chance(
+            placements, probs, crowd, model, bets, jackpot, threshold, pleno_rate, rng
+        )
+        chance = 1 - (1 - chance) * (1 - fourteen)
+        i = int(np.argmax(chance))
+        if best is None or chance[i] > best[0]:
+            best = (float(chance[i]), d, t, placements[i])
+    assert best is not None
+    _, d, t, levels = best
+    rank_hit, s = simulate()
+    columns = column_hits(levels[None, :], rank_hit)
+    common = float(
+        big_win_chance(columns, s, model, bets, jackpot, threshold, pleno_rate)[0].mean()
+    )
+    rare = float(
+        _fourteen_chance(
+            levels[None, :], probs, crowd, model, bets, jackpot, threshold, pleno_rate, rng
+        )[0]
+    )
+    # The payout distribution draws the winners with their real spread too; the
+    # average uses the typical winners (the spread inflates averages, see plan_money)
+    prizes, special = model.prizes(s, bets, jackpot, rng)
+    payout = (columns[0] * prizes).sum(axis=1) + columns[0, :, 14] * pleno_rate * special
+    typical, typical_special = model.prizes(s, bets, jackpot)
+    mean_payout = (columns[0] * typical).sum(axis=1) + columns[
+        0, :, 14
+    ] * pleno_rate * typical_special
+    plan = _build(probs, levels, 13, d, t)
+    cost = BET_PRICE * plan.bets
+    return BigWinPlan(
+        plan=plan,
+        cost=cost,
+        threshold=threshold,
+        chance=1 - (1 - common) * (1 - rare),
+        chance_13=float((columns[0, :, 13:].sum(axis=1) > 0).mean()),
+        chance_14=float(np.prod(_sorted_signs(probs)[1][np.arange(len(probs)), levels])),
+        expected_payout=float(mean_payout.mean()),
+        outcomes=_payout_outcomes(payout, cost),
+    )
+
+
+def big_win_chance(
+    columns: np.ndarray,
+    s: np.ndarray,
+    model: PrizeModel,
+    bets: float,
+    jackpot: float,
+    threshold: float,
+    pleno_rate: float = PLENO_HIT_RATE,
+) -> np.ndarray:
+    r"""Chance that a ticket pays ``threshold`` or more in each simulated draw.
+
+    In a draw with surprise $S$, the $c_k$ winning columns with $k$ hits pay
+    $c_k \, s_k \, 0.75 B / W_k$ with $\log(W_k / B) = a_k + b_k S + \varepsilon_k$,
+    $\varepsilon_k \sim N(0, \sigma_k^2)$, so they reach the threshold when
+    $\varepsilon_k$ is small enough:
+
+    $$
+    P_k = \Phi\left(\frac{\log(c_k s_k \, 0.75 B / \text{threshold}) - \log B - a_k - b_k S}{\sigma_k}\right)
+    $$
+
+    This covers 12 and 13 hits (combined as independent); 14 hits and the
+    Pleno al 15 are too rare for plain simulations and have their own exact
+    term (``_fourteen_chance``). Using the spread of the winners matters: large
+    prizes are the draws with fewer winners than usual.
+
+    Args:
+        columns: Columns with 0..14 hits, shape ``(n_tickets, n_draws, 15)``.
+        s: Surprise of each simulated draw, shape ``(n_draws,)``.
+        model: Fitted prize model.
+        bets: Expected bets of the draw.
+        jackpot: Jackpot announced for the Pleno al 15.
+        threshold: Prize sought in EUR.
+        pleno_rate: Chance of also hitting the Pleno al 15.
+
+    Returns:
+        Shape ``(n_tickets, n_draws)``.
+    """
+    from scipy.stats import norm
+
+    takings = BET_PRICE * bets
+    miss = np.ones(columns.shape[:2])
+    for k in (12, 13):
+        ours = columns[:, :, k]
+        mu = model.intercept[k] + model.slope[k] * s
+        with np.errstate(divide="ignore"):
+            z = (
+                np.log(ours * PRIZE_SHARES[k] * takings / threshold) - np.log(bets) - mu
+            ) / model.sd[k]
+        miss *= 1 - np.where(ours > 0, norm.cdf(z), 0.0)
+    result: np.ndarray = 1 - miss
+    return result
+
+
+def _fourteen_chance(
+    placements: np.ndarray,
+    probs: np.ndarray,
+    crowd: np.ndarray,
+    model: PrizeModel,
+    bets: float,
+    jackpot: float,
+    threshold: float,
+    pleno_rate: float,
+    rng: np.random.Generator,
+    samples: int = 600,
+) -> np.ndarray:
+    r"""Chance of reaching ``threshold`` with 14 hits (and the Pleno al 15), per ticket.
+
+    14 hits happen with probability $\prod_i q_i$ (the coverage of every match),
+    a few times per thousand draws, too rarely to count in plain simulations.
+    So that probability is exact, and only the surprise given 14 hits is
+    sampled: each match's result drawn among the signs the ticket marks,
+    with the model probabilities renormalised to them.
+
+    Returns:
+        Shape ``(n_tickets,)``.
+    """
+    from scipy.stats import norm
+
+    order, cover = _sorted_signs(probs)
+    n = len(probs)
+    levels = np.atleast_2d(placements)
+    rows = np.arange(n)
+    p14 = np.prod(cover[rows, levels], axis=1)
+    # Probabilities of the signs by rank, truncated to the marked ones and renormalised
+    by_rank = np.take_along_axis(probs, order, axis=1)
+    marked = np.arange(3)[None, None, :] <= levels[:, :, None]
+    truncated = np.where(marked, by_rank[None, :, :], 0.0)
+    cumulative = np.cumsum(truncated, axis=2) / truncated.sum(axis=2, keepdims=True)
+    u = rng.random((samples, n))
+    chosen = (u[None, :, :, None] > cumulative[:, None, :, :]).sum(axis=3)
+    chosen = np.minimum(chosen, levels[:, None, :])
+    signs = order[rows[None, None, :], chosen]
+    picked = crowd[rows[None, None, :], signs]
+    s = -np.log(np.clip(picked, PROB_FLOOR, 1.0)).sum(axis=2)
+
+    takings = BET_PRICE * bets
+    mu = model.intercept[14] + model.slope[14] * s
+    z = (np.log(PRIZE_SHARES[14] * takings / threshold) - np.log(bets) - mu) / model.sd[14]
+    pool = SPECIAL_SHARE * takings + jackpot
+    share = np.log(max(model.special_share, PROB_FLOOR))
+    z_special = (np.log(pool / threshold) - np.log(bets) - mu - share) / model.sd[14]
+    reach = 1 - (1 - norm.cdf(z)) * (1 - pleno_rate * norm.cdf(z_special))
+    result: np.ndarray = p14 * reach.mean(axis=1)
+    return result
 
 
 def ticket_payout(

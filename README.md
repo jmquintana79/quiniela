@@ -172,7 +172,8 @@ doubles, random, by eye, optimal and [v4](#v4--ticket-planner-planner)); those t
 `data/backtest/tickets.parquet` and their prizes are printed after the metrics. With the
 [official draws](#official-draws-real-tickets-winners-and-prizes) saved in `data/lae/`, the
 real tickets are then played in euros ([v5](#v5--money-ticket-money), about five more minutes)
-into `data/backtest/money.parquet`. See [Evaluation](#evaluation).
+into `data/backtest/money.parquet` (the big-win mode makes this the slowest part: some fifteen
+minutes or more). See [Evaluation](#evaluation).
 
 ### Dashboards
 
@@ -208,11 +209,12 @@ Four dashboards, each answering one question:
   on hover), and the table can be sorted in ticket order or **most predictable first**. The
   **Planned ticket v4** column shows the v3 signs with the doubles (`1X`) and triples (`1X2`)
   chosen by the [ticket planner](#v4--ticket-planner-planner), and the **Money ticket v5**
-  column the [money ticket](#v5--money-ticket-money) (only with the LAE draws saved). Above the
-  table, a status banner (upcoming, in progress or completed) and the 14-match quiniela ticket
-  outcome of each model, with the **chance of each prize before the matchday** (10+ to 14
-  hits); the v5 banner adds its cost, expected prize (and how much of it comes from 14 hits and
-  the Pleno al 15), the estimated jackpot and the verdict, **worth playing or not**; once the
+  column the **big-win ticket** of [v5](#v5--money-ticket-money) (only with the LAE draws
+  saved). Above the table, a status banner (upcoming, in progress or completed) and the
+  14-match quiniela ticket outcome of each model, with the **chance of each prize before the
+  matchday** (10+ to 14 hits); the v5 banner adds a **chart of what can happen with its ticket**
+  (chance of each payout range, from nothing back to 100,000 € or more), its cost, the chance of
+  10,000 € or more and how much comes back on average, so the decision to play is yours; once the
   matchday is played, the v3, v4 and v5 banners give the **euros spent and won** (real prizes of
   the official draw when its ticket matches ours, otherwise an estimate with the prize model).
   Below, the standings of each league with
@@ -847,6 +849,7 @@ bets (average of the last five draws) and the announced jackpot.
 | **v5 (prudent): only when 10-13 hits pay** | **0** | 0 € | 0 € | **0 €** | – | – | – |
 | v5 counting 14 hits and the Pleno al 15 | 143 | 3,921 € | 1,579 € | -2,342 € | 40% | 227 € | 2 / 7 / 13 / 25 |
 | Full v5 ticket every draw | 414 | 9,908 € | 4,160 € | -5,748 € | 42% | 1,213 € | 3 / 16 / 37 / 66 |
+| v5 big win: best chance of 10,000+ € within 50 €, every draw | 414 | 19,865 € | 7,278 € | -12,587 € | 37% | 791 € | 6 / 21 / 46 / 74 |
 
 *Return: euros won per euro spent; the quiniela gives back 55% on average to all players. No
 strategy got 14 hits in 414 draws.*
@@ -870,6 +873,38 @@ strategy got 14 hits in 414 draws.*
 - **Rules in between** (a minimum jackpot, a fraction of the 14-hit prizes) looked better on
   these same draws (e.g. 8 draws with a 122% return), but choosing a rule on the data that
   grades it would overfit; they are not used.
+
+**Big-win mode** (`plan_big_win`, the v5 ticket in the dashboards). The prudent v5 answers
+"is it worth it on average?" (never). But a quiniela player usually looks for something else:
+**a large prize at once**, accepting to lose on average. That needs many hits (13 or 14) **and**
+few other winners (results the public did not expect), and both are in one number, the chance
+of a prize of at least $X$ within a weekly budget:
+
+```math
+\max_{\text{ticket}} \; P(\text{payout} \ge X), \qquad 0.75 \cdot 2^d 3^t \le 50 \text{ €}, \quad X = 10{,}000 \text{ €}
+```
+
+- **14 hits and the Pleno al 15**: their probability is exact, $\prod_i q_i$ (the coverage of
+  every match); only the surprise *given* 14 hits is simulated, drawing each result among the
+  marked signs. Plain simulations would see a 14 a handful of times and pick tickets by noise.
+- **12 and 13 hits**: simulated. In every simulated draw the chance that $c_k$ winning columns
+  reach $X$ uses the spread of the winners, $\sigma_k$, because large prizes are precisely the
+  draws with fewer winners than usual:
+
+```math
+P_k = \Phi\left(\frac{\log(c_k\, s_k\, 0.75\, B / X) - \log B - a_k - b_k S}{\sigma_k}\right)
+```
+
+The ticket is chosen on one set of simulations and valued on another. The dashboards do not
+give a verdict: they show **what can happen** with the ticket, the chance of each payout range
+(nothing back, less than the cost, up to 1,000 €, 1,000-10,000 €, 10,000-100,000 €, more), with
+the chance of $X$ or more, of 13+ and 14 hits, and how much comes back on average.
+
+Backtest (last row of the table above): with 48 € a draw it almost always plays 6 doubles
+(64 bets). Its plans gave a prize of 10,000 € or more a **0.06% chance per draw (about once
+every 1,700 draws)**, 0.25 expected in the 414 draws; none came, as expected. It gets back
+37% of the money, with six 13-hit tickets in 11 seasons (the best one 791 €, the 13-hit prizes
+of those draws being small). A large prize with 50 € a week is a matter of decades.
 
 ### Next steps
 

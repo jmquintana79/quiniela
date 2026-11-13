@@ -153,3 +153,31 @@ def test_summarize_money() -> None:
     assert summary.loc["v5", "played"] == 1 and summary.loc["v5", "draws"] == 2
     assert summary.loc["v5", "roi"] == pytest.approx(23 / 27)
     assert summary.loc["v4", "12"] == 1
+
+
+def test_plan_big_win(model: money.PrizeModel) -> None:
+    probs = np.random.default_rng(5).dirichlet([5, 3, 3], size=14)
+    args = (probs, probs, model, 3_000_000)
+    big = money.plan_big_win(*args, simulations=3000, per_mix=5, rng=np.random.default_rng(1))
+    # Within the weekly budget, and a proper distribution of outcomes
+    assert big.cost <= money.BIG_WIN_MAX_COST and big.plan.bets >= money.MIN_BETS
+    assert sum(chance for *_, chance in big.outcomes) == pytest.approx(1)
+    assert big.outcomes[0][0] == "Nothing back"
+    # 14 hits: exact product of the coverage of every match
+    assert big.chance_14 == pytest.approx(float(np.prod(big.plan.coverage)))
+    assert 0 < big.chance <= big.chance_13 + big.chance_14
+    assert big.matchdays_per_win == pytest.approx(1 / big.chance)
+    # A larger prize is rarer; a jackpot makes it likelier
+    larger = money.plan_big_win(*args, threshold=100_000, simulations=3000, per_mix=5)
+    jackpot = money.plan_big_win(*args, jackpot=5e6, simulations=3000, per_mix=5)
+    assert larger.chance < big.chance < jackpot.chance
+
+
+def test_big_win_chance_grows_with_columns(model: money.PrizeModel) -> None:
+    columns = np.zeros((2, 3, 15))
+    columns[0, :, 13] = 1
+    columns[1, :, 13] = 4  # more 13-hit columns: more money if they win
+    s = np.array([12.0, 15.0, 18.0])
+    chance = money.big_win_chance(columns, s, model, 3_000_000, 0.0, 10_000)
+    assert (chance[1] >= chance[0]).all()
+    assert chance[0, 2] > chance[0, 0]  # more surprise, fewer winners, larger prize

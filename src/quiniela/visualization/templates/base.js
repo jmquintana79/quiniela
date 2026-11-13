@@ -193,27 +193,58 @@ function eur(value) {
   return value == null ? "–" : `${value.toFixed(2)} €`;
 }
 
-/** v5: expected prize of the money ticket and whether it is worth playing. */
+/** Chance as text, with "1 in N" for small chances. */
+function chanceText(p) {
+  if (p == null) return "–";
+  if (p === 0) return "0%";
+  if (p >= 0.01) return pct(p, 1);
+  return `${(p * 100).toFixed(p >= 0.001 ? 2 : 3)}% (1 in ${Math.round(1 / p).toLocaleString("en-GB")})`;
+}
+
+/**
+ * v5 big-win ticket: what can happen with it, as a horizontal bar chart of the
+ * chance of each payout range (one series, values always shown), plus the key
+ * figures, so the decision to play is the reader's.
+ */
 function moneyLine(summary) {
   const m = summary.money;
   if (!m) return "";
-  const verdict = m.worth
-    ? '<strong style="color:var(--good)">worth playing</strong>'
-    : '<strong style="color:var(--critical)">not worth playing</strong> (v5 does not play it)';
+  const rows = m.outcomes;
+  const rowH = 24, labelW = 150, barW = 250, valueW = 150, top = 4;
+  const width = labelW + barW + valueW, height = top + rows.length * rowH;
+  const bars = rows.map((o, i) => {
+    const y = top + i * rowH;
+    const w = Math.max(o.chance * barW, o.chance > 0 ? 2 : 0);
+    const big = o.low >= m.threshold;
+    const tip = `${o.label}: ${chanceText(o.chance)} of the matchdays`;
+    return `<g data-tip="${esc(tip)}">
+      <rect x="0" y="${y}" width="${width}" height="${rowH}" fill="transparent"/>
+      <text x="${labelW - 8}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="11"
+        fill="var(--text-secondary)" font-weight="${big ? 600 : 400}">${esc(o.label)}</text>
+      <rect x="${labelW}" y="${y + 5}" width="${w.toFixed(1)}" height="${rowH - 10}" rx="4"
+        fill="var(--accent)" opacity="${big ? 1 : 0.75}"/>
+      <text x="${labelW + w + 6}" y="${y + rowH / 2 + 4}" font-size="11"
+        fill="var(--text-primary)">${chanceText(o.chance)}</text>
+    </g>`;
+  }).join("");
+  const back = m.cost ? m.expected_payout / m.cost : null;
   const jackpot = m.jackpot ? ` · estimated jackpot of the Pleno al 15 ${Math.round(m.jackpot).toLocaleString("en-GB")} €` : "";
-  const net = m.expected_common - m.cost;
-  return `<br><span class="muted">Cost ${eur(m.cost)} · expected prize from 10 to 13 hits ${eur(m.expected_common)} ` +
-    `(net ${net >= 0 ? "+" : ""}${eur(net)}) → </span>${verdict}<span class="muted">. ` +
-    `Counting also 14 hits and the Pleno al 15 (a few times per thousand draws, ${eur(m.expected_top)}), ` +
-    `the expected net would be ${m.expected_net >= 0 ? "+" : ""}${eur(m.expected_net)}. ` +
-    `Predictability (average v3 confidence) ${pct(m.predictability, 1)}${jackpot}.</span>`;
+  const every = m.matchdays_per_win ? ` (about once every ${Math.round(m.matchdays_per_win).toLocaleString("en-GB")} matchdays)` : "";
+  return `<div style="margin-top:8px">
+      <span class="muted">What can happen with this ticket (${eur(m.cost)}), chance per matchday:</span>
+      <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;display:block;margin-top:4px"
+        role="img" aria-label="Chance of each payout range of the v5 ticket">${bars}</svg>
+      <span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
+        13+ hits ${chanceText(m.chance_13)} · 14 hits ${chanceText(m.chance_14)} ·
+        on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot} ·
+        predictability (average v3 confidence) ${pct(m.predictability, 1)}.</span>
+    </div>`;
 }
 
 /** Euros spent and won by a ticket in a played matchday. */
 function eurosLine(summary) {
   const e = summary.euros;
   if (!e) return "";
-  if (!e.played) return '<br><span class="muted">v5 did not play this matchday (not worth it): 0 € spent.</span>';
   const source = e.source === "draw" ? `real prizes of the official draw, jornada ${e.jornada}`
     : "prizes estimated with the prize model";
   return `<br><span class="muted">Euros: spent ${eur(e.cost)}, won ${eur(e.payout)} ` +
@@ -287,8 +318,7 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La 
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
   (60% or more), amber medium (45-60%), red low (below 45%). Planned ticket (v4): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of a prize;
-  the chance of each prize before the matchday is under each ticket banner. Money ticket (v5): the
-  doubles and triples with the highest expected prize in euros from 10 to 13 hits, played only when it
-  is above the cost (prudent: the rare 14-hit and Pleno al 15 prizes do not count); its banner gives
-  the expected prize and the verdict. Euros of played matchdays use the real prizes of
+  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v5): the
+  doubles and triples (at most 50 €) with the best chance of a prize of 10,000 € or more; its banner
+  shows what can happen with it (chance of each payout range), so the decision is yours. Euros of played matchdays use the real prizes of
   the official draw when it is saved in data/lae (otherwise an estimate).`;

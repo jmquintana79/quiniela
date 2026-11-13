@@ -11,7 +11,9 @@ Segunda matches (``quiniela.data.prizes``), the ticket is played with:
 - ``v5_full``: the money planner counting every prize (14 hits and the Pleno
   al 15 too), only when its expected net prize is positive;
 - ``v5_always``: the full planner's ticket every draw, to measure what
-  choosing the draws adds.
+  choosing the draws adds;
+- ``v5_big``: the big-win mode, every draw: at most 50 EUR, the ticket with
+  the best chance of a prize of 10,000 EUR or more.
 
 The other ticket matches (other competitions, women's league) get the league
 shares of 1, X and 2 as probabilities and the home sign. Payouts use the real
@@ -52,6 +54,7 @@ MONEY_STRATEGIES: dict[str, str] = {
     "v5": "v5 (prudent): only 10-13 hit prizes count, plays only when they pay",
     "v5_full": "v5 counting 14 hits and the Pleno al 15 too, only when it pays",
     "v5_always": "The full v5 ticket every draw, worth it or not",
+    "v5_big": "v5 big win: best chance of 10,000+ EUR within 50 EUR, every draw",
 }
 
 MONEY_COLUMNS = [
@@ -72,6 +75,7 @@ MONEY_COLUMNS = [
     "expected_net",
     "expected_top",
     "payout_top",
+    "p_big",
     "jackpot",
 ]
 
@@ -157,17 +161,19 @@ def _season_money(
         rng = np.random.default_rng([seed, int(draw["draw_id"]) % 2**31])
 
         nan = float("nan")
-        plans: dict[str, tuple[planner.TicketPlan, float, float, bool]] = {
-            "single": (planner.single_plan(probs, 11), nan, nan, True),
-            "v4": (planner.plan_ticket(probs, max_bets=max_bets, min_hits=11), nan, nan, True),
+        plans: dict[str, tuple[planner.TicketPlan, float, float, bool, float]] = {
+            "single": (planner.single_plan(probs, 11), nan, nan, True, nan),
+            "v4": (planner.plan_ticket(probs, max_bets=max_bets, min_hits=11), nan, nan, True, nan),
         }
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
         prudent = money.plan_money(*args, max_bets=max_bets, rng=rng)
         full = money.plan_money(*args, max_bets=max_bets, top_weight=1.0, rng=rng)
-        plans["v5"] = (prudent.plan, prudent.expected_net, prudent.expected_top, prudent.worth)
-        plans["v5_full"] = (full.plan, full.expected_net, full.expected_top, full.worth)
-        plans["v5_always"] = (full.plan, full.expected_net, full.expected_top, True)
-        for key, (plan, expected, expected_top, played) in plans.items():
+        big = money.plan_big_win(*args, rng=rng)
+        plans["v5"] = (prudent.plan, prudent.expected_net, prudent.expected_top, prudent.worth, nan)
+        plans["v5_full"] = (full.plan, full.expected_net, full.expected_top, full.worth, nan)
+        plans["v5_always"] = (full.plan, full.expected_net, full.expected_top, True, nan)
+        plans["v5_big"] = (big.plan, big.expected_payout - big.cost, nan, True, big.chance)
+        for key, (plan, expected, expected_top, played, p_big) in plans.items():
             payout, hits, top = money.ticket_payout(
                 plan.levels, probs, results, winners, float(draw["takings"]),
                 float(draw["jackpot"] or 0), float(draw["winners_special"] or 0), pleno,
@@ -192,6 +198,7 @@ def _season_money(
                     expected,
                     expected_top,
                     top if played else 0.0,
+                    p_big,
                     float(draw["jackpot"] or 0),
                 )
             )
@@ -299,6 +306,13 @@ def summarize_money(results: pd.DataFrame, by: list[str] | None = None) -> pd.Da
         row["roi"] = row["net"] / row["cost"] if row["cost"] else float("nan")  # type: ignore[operator]
         row["winning"] = int((played["net"] > 0).sum())
         row["best_payout"] = float(played["payout"].max()) if len(played) else 0.0
+        # Prizes of 10,000 EUR or more: how many came, and how many the plans expected
+        row["big_wins"] = int((played["payout"] >= money.BIG_WIN_THRESHOLD).sum())
+        row["expected_big_wins"] = (
+            float(played["p_big"].sum())
+            if "p_big" in played and played["p_big"].notna().any()
+            else None
+        )
         for k in money.CATEGORY_HITS:
             row[str(k)] = int((played["best_hits"] == k).sum())
         rows.append(row)
