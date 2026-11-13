@@ -235,7 +235,9 @@ def test_current_payload_standings_and_odds_time(tmp_path: Path) -> None:
 
 def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("current", "season", "historical", "evaluation"):
-        monkeypatch.setattr(dashboards, f"{name}_payload", lambda: {"leagues": [], "models": []})
+        monkeypatch.setattr(
+            dashboards, f"{name}_payload", lambda **_: {"leagues": [], "models": []}
+        )
     old = tmp_path / "predictions.html"
     old.write_text("old")
 
@@ -382,3 +384,45 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     v4 = tickets[tickets["strategy"] == "v4"]
     assert planned["prizes"] == int((v4["hits"] >= 10).sum())
     assert "prizes" not in payload["results"]["SP1|all"][dashboards.PLANNED_KEY]
+
+
+def _prize_context(jackpot: float = 0.0):  # type: ignore[no-untyped-def]
+    from quiniela.evaluation.money import PrizeContext
+    from quiniela.prediction.money import PrizeModel
+
+    model = PrizeModel(
+        intercept={14: 0.66, 13: 5.84, 12: 6.8, 11: 6.92, 10: 6.34},
+        slope={14: -1.05, 13: -1.19, 12: -1.07, 11: -0.93, 10: -0.77},
+        sd={k: 0.5 for k in (14, 13, 12, 11, 10)},
+        special_share=0.2,
+        draws=100,
+    )
+    empty = pd.DataFrame(columns=["draw_id", "league", "game", "position"])
+    return PrizeContext(model=model, bets=3_000_000, jackpot=jackpot, draws=empty, matched=empty)
+
+
+def test_season_payload_money_ticket_and_euros() -> None:
+    from tests.helpers import make_matches
+
+    rows = [("SP1", "2026-08-15", f"H{i}", f"A{i}", 1, 0) for i in range(14)]
+    current = make_matches(rows).assign(round=1, matchday=1)
+    predictions = current[["league", "game"]].assign(prediction="H", p_H=0.5, p_D=0.3, p_A=0.2)
+
+    without = dashboards.season_payload(current, {"market_blend": predictions})
+    assert dashboards.MONEY_KEY not in [m["key"] for m in without["models"]]
+
+    payload = dashboards.season_payload(
+        current, {"market_blend": predictions}, prizes=_prize_context(jackpot=5e8)
+    )
+    keys = [m["key"] for m in payload["models"]]
+    assert keys == ["market_blend", dashboards.PLANNED_KEY, dashboards.MONEY_KEY]
+    summary = payload["matchdays"][0]["summary"]
+    plan = summary[dashboards.MONEY_KEY]["money"]
+    # A huge jackpot is all in 14 hits and the Pleno al 15: the prudent verdict ignores it
+    assert not plan["worth"] and plan["expected_top"] > 0 and plan["bets"] <= 48
+    assert plan["expected_common"] < plan["cost"]
+    # Every favourite won: the played matchday is valued in euros (estimated, no real draw)
+    euros = summary["market_blend"]["euros"]
+    assert euros["played"] and euros["cost"] == 0.75 and euros["source"] == "model"
+    assert euros["payout"] > 0
+    assert payload["totals"][dashboards.PLANNED_KEY]["euros"]["played"] == 1

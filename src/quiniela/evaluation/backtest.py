@@ -31,6 +31,7 @@ from quiniela.evaluation.metrics import evaluate
 from quiniela.prediction import planner
 from quiniela.prediction.pipeline import ALL_MODELS, resolve_models, walk_forward
 from quiniela.prediction.ticket import (
+    MIN_PRIZE_HITS,
     PRIZE_CATEGORIES,
     TICKET_SIZE,
     prize_category,
@@ -256,8 +257,9 @@ TICKET_STRATEGIES: dict[str, tuple[str, str, int]] = {
         planner.DEFAULT_MIN_HITS,
     ),
     "optimal_14": ("Optimal placement, aiming at 14 hits", "optimal", 14),
-    "optimal": ("Optimal placement, aiming at 10+ hits", "optimal", planner.DEFAULT_MIN_HITS),
-    "v4": ("v4: best mix within the budget, aiming at 10+ hits", "mix", planner.DEFAULT_MIN_HITS),
+    "optimal_10": ("Optimal placement, aiming at 10+ hits", "optimal", MIN_PRIZE_HITS),
+    "optimal": ("Optimal placement, aiming at 11+ hits", "optimal", planner.DEFAULT_MIN_HITS),
+    "v4": ("v4: best mix within the budget, aiming at 11+ hits", "mix", planner.DEFAULT_MIN_HITS),
 }
 
 # Random placements drawn per matchday (their prizes are averaged)
@@ -337,7 +339,7 @@ def _season_tickets(
                         plan.bets,
                         hits,
                         prize_category(hits),
-                        plan.at_least(planner.DEFAULT_MIN_HITS),
+                        plan.at_least(MIN_PRIZE_HITS),
                         plan.at_least(TICKET_SIZE),
                         float(plan.coverage.sum()),
                         games,
@@ -412,7 +414,7 @@ def summarize_tickets(tickets: pd.DataFrame, by: list[str] | None = None) -> pd.
         row["label"] = TICKET_STRATEGIES.get(str(values[0]), (str(values[0]),))[0]
         row["bets"] = float(group["bets"].mean())
         row["tickets"] = int(len(group) // draws)
-        prizes = group["hits"] >= planner.DEFAULT_MIN_HITS
+        prizes = group["hits"] >= MIN_PRIZE_HITS
         row["prizes"] = float(prizes.sum() / draws)
         for hits in PRIZE_CATEGORIES:
             row[str(hits)] = float((group["hits"] == hits).sum() / draws)

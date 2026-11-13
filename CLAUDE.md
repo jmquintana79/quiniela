@@ -39,6 +39,10 @@ model is evaluated with a walk-forward backtest against the betting market.
 - v4 (`quiniela.prediction.planner`) is a decision layer, not a registered model: it places
   doubles and triples on the v3 ticket. The dashboards show it as the pseudo-model `planned`;
   the backtest replays it in `ticket_strategies` (saved to `data/backtest/tickets.parquet`).
+- v5 (`quiniela.prediction.money`) is another decision layer (pseudo-model `money`): the
+  ticket with the best expected prize in euros, from the official draws in `data/lae/`
+  (`quiniela.data.prizes`); its backtest in euros is `quiniela.evaluation.money`
+  (`data/backtest/money.parquet`).
 - New submodules of packages with `__all__` (`quiniela.config`, `quiniela.prediction`,
   `quiniela.evaluation`) must be added to `__all__` so pdoc documents them.
 
@@ -54,7 +58,7 @@ model is evaluated with a walk-forward backtest against the betting market.
 ```bash
 invoke update               # download what is missing, predict, rebuild dashboards
 invoke update --backtest    # also re-run the backtest (after changing a model)
-invoke backtest.run         # every model over 2015-16 to the last season (~4 min)
+invoke backtest.run         # every model over 2015-16 to the last season, plus euros (~10 min)
 invoke dev.all              # format, lint, mypy, pytest, API docs: run before committing
 ```
 
@@ -81,4 +85,7 @@ Tests must not need network access (mock downloads, use small synthetic data fro
   soccerdata's parser to keep them.
 - Segunda is registered in soccerdata from `quiniela.io.download` (not built in).
 - The ClubElo API (soccerdata `ClubElo`) returned 502 when last tried.
+- The LAE results service answers browsers only (scripts get "Access Denied"): its JSON is
+  saved by hand in `data/lae/` (see the README). Do not try to get around the protection.
+  Its `temporada` field, not the request dates, gives the season of a draw.
 - Poetry 1.8.3 needs `pkginfo>=1.12,<2` in its own environment to read recent packages.

@@ -47,6 +47,19 @@
   </section>
 
   <section class="card" style="margin-bottom:16px">
+    <h2>Real tickets in euros</h2>
+    <p class="meta" style="margin:0 0 10px">
+      The official tickets of past draws (Loterías y Apuestas del Estado, saved in data/lae) with at
+      least 10 La Liga / Segunda matches, played with the v3 signs (the other matches get the home
+      sign) and paid with the real prizes of each draw, sharing each pool with the real winners. v5
+      (prudent) plays only when the expected prize from 10 to 13 hits is above the cost; the full
+      version also counts 14 hits and the Pleno al 15, rare but large prizes that a few hundred
+      draws cannot confirm: read its net result together with the number of 13 and 14-hit tickets.
+    </p>
+    <div class="scroll" id="money"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
     <h2>Hit rate by season</h2>
     <div class="scroll" id="by-season"></div>
   </section>
@@ -199,6 +212,26 @@
       </tr>`).join("")}</tbody></table>`;
   }
 
+  function moneyTable() {
+    const rows = DATA.money?.[state.season] || [];
+    if (!rows.length) return '<p class="empty">No euro backtest yet: save the LAE draws in data/lae and run <code>invoke backtest.run</code>.</p>';
+    const eur = (v) => `${v.toLocaleString("en-GB", { maximumFractionDigits: 0 })} €`;
+    return `<table><thead><tr><th>Strategy</th><th class="num">Draws played</th><th class="num">Spent</th>
+        <th class="num">Won</th><th class="num">Net</th><th class="num">Return</th><th class="num">Winning draws</th>
+        <th class="num">Best prize</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr>
+        <td data-tip="${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}</td>
+        <td class="num">${r.played} <span class="muted">/ ${r.draws}</span></td>
+        <td class="num">${eur(r.cost)}</td><td class="num">${eur(r.payout)}</td>
+        <td class="num strong" style="color:var(${r.net >= 0 ? "--good" : "--critical"})">${r.net >= 0 ? "+" : ""}${eur(r.net)}</td>
+        <td class="num">${pct(r.roi == null ? null : 1 + r.roi, 0)}</td>
+        <td class="num">${r.winning}</td><td class="num">${eur(r.best_payout)}</td>
+        ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${r[k]}</td>`).join("")}
+      </tr>`).join("")}</tbody></table>
+      <p class="meta" style="margin:8px 0 0">Return: euros won per euro spent (the quiniela gives back 55% on average).
+        14 ... 10: draws whose best column got that many hits.</p>`;
+  }
+
   function definitions() {
     return `<table><tbody>${DATA.metrics.map((m) => `<tr>
       <td class="strong">${esc(m.label)}</td>
@@ -212,6 +245,7 @@
     $("metrics").innerHTML = metricsTable();
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();
+    $("money").innerHTML = moneyTable();
     $("by-season").innerHTML = bySeasonTable();
     $("by-season").querySelectorAll("tr.clickable").forEach((row) => row.addEventListener("click", () => {
       state.season = row.dataset.season === state.season ? "all" : row.dataset.season;

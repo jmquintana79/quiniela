@@ -188,6 +188,38 @@ function oddsLine(summary) {
   return `<br><span class="muted">${cost}Chance before the matchday: ${parts.join(" · ")}</span>`;
 }
 
+/** Euros with two decimals. */
+function eur(value) {
+  return value == null ? "–" : `${value.toFixed(2)} €`;
+}
+
+/** v5: expected prize of the money ticket and whether it is worth playing. */
+function moneyLine(summary) {
+  const m = summary.money;
+  if (!m) return "";
+  const verdict = m.worth
+    ? '<strong style="color:var(--good)">worth playing</strong>'
+    : '<strong style="color:var(--critical)">not worth playing</strong> (v5 does not play it)';
+  const jackpot = m.jackpot ? ` · estimated jackpot of the Pleno al 15 ${Math.round(m.jackpot).toLocaleString("en-GB")} €` : "";
+  const net = m.expected_common - m.cost;
+  return `<br><span class="muted">Cost ${eur(m.cost)} · expected prize from 10 to 13 hits ${eur(m.expected_common)} ` +
+    `(net ${net >= 0 ? "+" : ""}${eur(net)}) → </span>${verdict}<span class="muted">. ` +
+    `Counting also 14 hits and the Pleno al 15 (a few times per thousand draws, ${eur(m.expected_top)}), ` +
+    `the expected net would be ${m.expected_net >= 0 ? "+" : ""}${eur(m.expected_net)}. ` +
+    `Predictability (average v3 confidence) ${pct(m.predictability, 1)}${jackpot}.</span>`;
+}
+
+/** Euros spent and won by a ticket in a played matchday. */
+function eurosLine(summary) {
+  const e = summary.euros;
+  if (!e) return "";
+  if (!e.played) return '<br><span class="muted">v5 did not play this matchday (not worth it): 0 € spent.</span>';
+  const source = e.source === "draw" ? `real prizes of the official draw, jornada ${e.jornada}`
+    : "prizes estimated with the prize model";
+  return `<br><span class="muted">Euros: spent ${eur(e.cost)}, won ${eur(e.payout)} ` +
+    `(net ${e.payout - e.cost >= 0 ? "+" : ""}${eur(e.payout - e.cost)}; ${source}).</span>`;
+}
+
 /** One banner per model with the outcome of its 14-match quiniela ticket. */
 function quinielaBanners(md, models) {
   return models.map((m) => {
@@ -201,7 +233,7 @@ function quinielaBanners(md, models) {
       incomplete: "Quiniela: no full ticket",
     }[t.status];
     return `<div class="banner ${t.status}"><strong>${modelLabel(m)} · ${title}${note ? " *" : ""}</strong>` +
-      `${esc(t.message)}${oddsLine(s)}${note ? `<br><span class="muted">* ${esc(note)}</span>` : ""}</div>`;
+      `${esc(t.message)}${oddsLine(s)}${moneyLine(s)}${eurosLine(s)}${note ? `<br><span class="muted">* ${esc(note)}</span>` : ""}</div>`;
   }).join("");
 }
 
@@ -255,4 +287,8 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches used for the quiniela check (La 
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
   (60% or more), amber medium (45-60%), red low (below 45%). Planned ticket (v4): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of a prize;
-  the chance of each prize before the matchday is under each ticket banner.`;
+  the chance of each prize before the matchday is under each ticket banner. Money ticket (v5): the
+  doubles and triples with the highest expected prize in euros from 10 to 13 hits, played only when it
+  is above the cost (prudent: the rare 14-hit and Pleno al 15 prizes do not count); its banner gives
+  the expected prize and the verdict. Euros of played matchdays use the real prizes of
+  the official draw when it is saved in data/lae (otherwise an estimate).`;

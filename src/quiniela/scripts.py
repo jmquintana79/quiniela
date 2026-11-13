@@ -111,6 +111,20 @@ def main(argv: list[str] | None = None) -> None:
         paths = [save_backtest(results)]
         columns = ["model", "matches", "hit_rate", "log_loss", "brier", "rps", "prizes"]
         print(summarize(results)[columns].round(4).to_string(index=False))
+        # Real tickets in euros (needs the LAE draws in data/lae)
+        import pandas as pd
+
+        from quiniela.evaluation.money import save_money, summarize_money
+
+        money_path = save_money()
+        if money_path is not None:
+            paths.append(money_path)
+            euros = summarize_money(pd.read_parquet(money_path))
+            print(
+                euros[["strategy", "played", "cost", "payout", "net", "roi"]]
+                .round(2)
+                .to_string(index=False)
+            )
         # Doubles and triples with the planner's model (saved with the backtest)
         tickets = summarize_tickets(load_tickets())
         if not tickets.empty:

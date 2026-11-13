@@ -179,6 +179,7 @@ data/historical/
 data/current/
 data/predictions/
 data/backtest/
+data/lae/
 datasets/
 
 # Local preview server config

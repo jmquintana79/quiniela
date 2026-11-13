@@ -157,6 +157,37 @@ Resultado (376 jornadas con boleto completo, signos de v3):
     reales por categoría (punto 3).
 
 
+5. Premios oficiales y boleto en euros (v5) · HECHO (v0.5.0, sin publicar)
+==============================================================================
+Tareas:
+  ✔ Dataset de sorteos oficiales de LAE (boletos reales, recaudación, acertantes y
+    premios por categoría) desde 2010-11, en data/lae/ (se guarda a mano desde el
+    navegador: el servicio responde "Access Denied" a los scripts).
+  ✔ v4 apunta a 11+ aciertos (el premio de 10 a menudo no se paga).
+  ✔ Modelo de premios según la sorpresa de los resultados y v5: boleto con el
+    mayor premio esperado en euros, solo cuando compensa; versión prudente por
+    defecto (el 14 y el Pleno al 15 no cuentan para decidir).
+  ✔ Backtest en euros con los boletos y premios reales.
+  ✔ Dashboards: columna v5 con veredicto y euros ganados; evaluación en euros.
+  ✔ README: cuándo ejecutar v3 (las cuotas llegan el viernes por la tarde).
+  ☐ Commit, tag v0.5.0 y push.
+
+Resultado (414 sorteos reales 2015-16 a 2025-26 con 10+ partidos de Liga):
+  - Todas las estrategias pierden dinero (la quiniela se queda el 45 %).
+  - v5 prudente (solo cuentan los premios de 10 a 13 aciertos) no juega ninguno
+    de los 414 sorteos: nunca compensó (como mucho cubría el 60 % del coste).
+  - v5 contando también el 14 y el Pleno al 15: juega 143 y recupera el 40 %
+    (46 % en otra tanda de simulaciones); v4 siempre, el 35 %.
+  - El premio esperado de 10-13 aciertos acierta (11,68 € previsto, 12,37 € real).
+  - La mayor parte del valor esperado del v5 completo viene del 14 y el Pleno al
+    15 con bote: rarísimo, no salió y el backtest no puede confirmarlo.
+
+Pendiente relacionado:
+  ☐ Porcentaje de apostantes por signo (jugar contra la mayoría partido a partido).
+  ☐ Boleto oficial de la jornada actual (LAE lo publica antes, pero no es legible
+    por scripts; desde 2026-27 incluye 4 partidos de la liga femenina).
+
+
 Otras ideas (ya en el README)
 ==============================================================================
   ☐ Pi-ratings (Constantinou & Fenton, 2013): ratings separados en casa y fuera.

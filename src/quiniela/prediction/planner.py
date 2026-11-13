@@ -32,7 +32,7 @@ $P(H \ge 10)$ for any prize.
 **Optimal ticket.** Given the doubles and triples (or a maximum number of
 bets, trying every mix that fits), every way of placing them on the 14
 matches is evaluated and the one with the highest probability of the target,
-$P(H \ge k)$, is kept ($k = 10$ to secure a prize, $k = 14$ for the top
+$P(H \ge k)$, is kept ($k = 11$ by default, 10 for any prize, $k = 14$ for the top
 one); ties are broken by the chance of 14 hits and then by the expected hits.
 With up to a few hundred thousand placements per mix this exhaustive search
 takes milliseconds.
@@ -60,8 +60,9 @@ DEFAULT_MAX_BETS = 48
 DEFAULT_DOUBLES = 4
 DEFAULT_TRIPLES = 1
 
-# Default target: at least 10 hits (5th category, i.e. any prize)
-DEFAULT_MIN_HITS = 10
+# Default target: at least 11 hits (4th category or better). The 10-hit prize is
+# often not paid at all (below 1.50 EUR), so securing it is a poor target
+DEFAULT_MIN_HITS = 11
 
 # Placements evaluated at once (memory bound) and in total (time bound)
 CHUNK_SIZE = 50_000

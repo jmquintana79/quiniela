@@ -63,6 +63,7 @@
         <div class="value">${pct(t.rate, 1)}</div>
         <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
         <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets${m.key === "planned" ? " · up to 48 bets each" : ""}</div>
+        ${t.euros ? `<div class="detail">Euros: spent ${eur(t.euros.cost)}, won ${eur(t.euros.payout)} · net ${t.euros.payout - t.euros.cost >= 0 ? "+" : ""}${eur(t.euros.payout - t.euros.cost)}${m.key === "money" ? ` · played ${t.euros.played}` : ""}</div>` : ""}
       </div>`;
     }).join("");
   }

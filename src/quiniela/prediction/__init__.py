@@ -15,6 +15,7 @@ Submodules:
 - ``confidence``: confidence and margin of a prediction, from its probabilities.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``planner``: v4, doubles and triples of the quiniela ticket.
+- ``money``: v5, the ticket with the best expected prize in euros, when it pays.
 - ``ticket``: quiniela ticket composition and prize rules.
 """
 
@@ -24,6 +25,7 @@ from quiniela.prediction import (
     head_to_head,
     market,
     market_blend,
+    money,
     pipeline,
     planner,
     registry,
@@ -50,6 +52,7 @@ __all__ = [
     "head_to_head",
     "market",
     "market_blend",
+    "money",
     "pipeline",
     "planner",
     "registry",

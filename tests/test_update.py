@@ -40,6 +40,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
         update.backtest, "run_backtest", lambda: recorded.append(("backtest", None)) or "bt"
     )
     monkeypatch.setattr(update.backtest, "save_backtest", lambda bt: Path("backtest.parquet"))
+    monkeypatch.setattr(update.money, "save_money", lambda: None)
     monkeypatch.setattr(
         update.dashboards,
         "build_dashboards",

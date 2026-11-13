@@ -204,10 +204,78 @@ PLANNED_SPEC = {
     "version": "v4",
     "reference": False,
     "description": "v3 signs plus the best doubles and triples for a 48-bet budget, chosen to "
-    "maximise the chance of 10 or more hits (a prize). Outside the ticket, the v3 sign.",
+    "maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
     # A way of playing, not a probability model: never "best model" in the evaluation
     "ticket": True,
 }
+
+
+# The v5 money ticket: also a decision layer over the planner model, shown when
+# the saved LAE draws allow fitting the prize model
+MONEY_KEY = "money"
+MONEY_SPEC = {
+    "key": MONEY_KEY,
+    "name": "Money ticket",
+    "version": "v5",
+    "reference": False,
+    "description": "v3 signs plus the doubles and triples (up to 48 bets) with the highest "
+    "expected prize in euros from 10 to 13 hits, played only when that prize is above the cost "
+    "(prudent: the rare 14-hit and Pleno al 15 prizes do not count). Outside the ticket, the v3 "
+    "sign.",
+    "ticket": True,
+}
+
+# Seed of the v5 simulations (the same plan on every rebuild)
+MONEY_SEED = 0
+
+
+def _money_matchday(
+    group: pd.DataFrame, key: str, context: Any
+) -> tuple[Any, dict[str, Any]] | None:
+    """Plan the v5 money ticket of a matchday, or None without a full ticket with probabilities."""
+    from quiniela.prediction.money import plan_money
+    from quiniela.prediction.ticket import TICKET_SIZE
+
+    ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
+    columns = [f"{key}_p_{o}" for o in ("H", "D", "A")]
+    if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
+        return None
+    probs = ticket[columns].to_numpy(dtype=float)
+    crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)
+    missing = np.isnan(crowd).any(axis=1)
+    crowd[missing] = probs[missing]
+    best = plan_money(
+        probs,
+        crowd,
+        context.model,
+        context.bets,
+        context.jackpot,
+        rng=np.random.default_rng([MONEY_SEED, int(group["matchday"].iloc[0])]),
+    )
+    confidence = probs.max(axis=1)
+    return best, {
+        "picks": dict(zip(ticket.index, best.plan.picks, strict=True)),
+        "coverage": dict(zip(ticket.index, best.plan.coverage, strict=True)),
+        "summary": {
+            "doubles": best.plan.doubles,
+            "triples": best.plan.triples,
+            "bets": best.plan.bets,
+            "cost": round(best.cost, 2),
+            "expected_payout": round(best.expected_payout, 2),
+            "expected_top": round(best.expected_top, 2),
+            "expected_net": round(best.expected_net, 2),
+            "expected_common": round(best.expected_common, 2),
+            "worth": bool(best.worth),
+            # Counting the 14-hit and Pleno al 15 prizes too (not the verdict)
+            "worth_full": bool(best.expected_net > 0),
+            "prize_chance": round(best.prize_chance, 4),
+            "jackpot": round(float(context.jackpot), 0),
+            "expected_surprise": round(best.expected_surprise, 2),
+            # How predictable the ticket is: average v3 confidence of its 14 matches
+            "predictability": round(float(confidence.mean()), 4),
+            "odds": _ticket_odds(best.plan.coverage),
+        },
+    }
 
 
 def _ticket_odds(coverage: np.ndarray) -> dict[str, float]:
@@ -258,6 +326,7 @@ def _score(hits: int, misses: int) -> dict[str, Any]:
 def season_payload(
     current: pd.DataFrame | None = None,
     predictions: dict[str, pd.DataFrame] | None = None,
+    prizes: Any = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the season dashboard.
 
@@ -269,6 +338,10 @@ def season_payload(
         current: Current season with ``round`` and ``matchday`` columns.
             Defaults to the downloaded data.
         predictions: Stored predictions per model key. Defaults to the saved files.
+        prizes: Prize context (``quiniela.evaluation.money.PrizeContext``) for
+            the v5 money ticket and the euros won. Defaults to the saved LAE
+            draws when the predictions are the saved ones too; without it, v5
+            and the euros are left out.
 
     Returns:
         JSON-serialisable dictionary with the models, matchdays and season totals.
@@ -281,7 +354,12 @@ def season_payload(
     from quiniela.prediction.ticket import evaluate_ticket, ticket_positions
 
     current = current_matchdays() if current is None else current
-    predictions = load_predictions() if predictions is None else predictions
+    if predictions is None:
+        predictions = load_predictions()
+        if prizes is None:
+            from quiniela.evaluation.money import prize_context
+
+            prizes = prize_context()
     # Models hidden in the matchday views (the market reference) are only in the evaluation
     keys = [key for key in MODELS if key in predictions and MODELS[key].show_in_matchday]
     models = _model_specs(keys)
@@ -291,10 +369,23 @@ def season_payload(
     if planned:
         position = next(i for i, m in enumerate(models) if m["key"] == PLANNER_MODEL) + 1
         models.insert(position, PLANNED_SPEC)
+    with_money = planned and prizes is not None
+    if with_money:
+        models.insert(position + 1, MONEY_SPEC)
 
     # One column per model: predicted sign, its probability and, for models
     # that predict goals, the exact score and Pleno al 15 picks
     matches = current.copy()
+    # Market probabilities stand for the public in the v5 prize estimates
+    market = predictions.get("market")
+    for outcome in ("H", "D", "A"):
+        matches[f"_crowd_{outcome}"] = (
+            market.set_index(["league", "game"])
+            .reindex(pd.MultiIndex.from_frame(matches[["league", "game"]]))[f"p_{outcome}"]
+            .to_numpy()
+            if market is not None
+            else np.nan
+        )
     for key in keys:
         p = predictions[key].set_index(["league", "game"])
         aligned = p.reindex(pd.MultiIndex.from_frame(matches[["league", "game"]]))
@@ -331,7 +422,7 @@ def season_payload(
             matches[f"{key}_pleno"] = pleno.to_numpy()
 
     columns_keys = [m["key"] for m in models]
-    totals = {
+    totals: dict[str, dict[str, Any]] = {
         key: {"hits": 0, "misses": 0, "missing": 0, "prizes": 0, "tickets": 0}
         for key in columns_keys
     }
@@ -355,6 +446,19 @@ def season_payload(
                 )
             group[f"{PLANNED_KEY}_conf"] = group[f"{PLANNED_KEY}_prob"]
             group[f"{PLANNED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
+        money_plan = _money_matchday(group, PLANNER_MODEL, prizes) if with_money else None
+        if with_money:
+            # v5: like v4, with the doubles and triples of the best expected prize
+            group[f"{MONEY_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
+            group[f"{MONEY_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
+            if money_plan is not None:
+                picks = pd.Series(money_plan[1]["picks"], dtype=object)
+                group.loc[picks.index, f"{MONEY_KEY}_sign"] = picks
+                group.loc[picks.index, f"{MONEY_KEY}_prob"] = (
+                    pd.Series(money_plan[1]["coverage"]).round(4).to_numpy()
+                )
+            group[f"{MONEY_KEY}_conf"] = group[f"{MONEY_KEY}_prob"]
+            group[f"{MONEY_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
 
         summary: dict[str, Any] = {}
         for key in columns_keys:
@@ -385,6 +489,16 @@ def season_payload(
             }
             if key == PLANNED_KEY and plan is not None:
                 summary[key]["plan"] = plan["summary"]
+            if key == MONEY_KEY and money_plan is not None:
+                summary[key]["plan"] = money_plan[1]["summary"]
+                summary[key]["money"] = money_plan[1]["summary"]
+            euros = _matchday_euros(group, key, prizes, money_plan) if with_money else None
+            if euros is not None:
+                summary[key]["euros"] = euros
+                spent = totals[key].setdefault("euros", {"cost": 0.0, "payout": 0.0, "played": 0})
+                spent["cost"] += euros["cost"]
+                spent["payout"] += euros["payout"]
+                spent["played"] += int(euros["played"])
             totals[key]["hits"] += int(hit.sum())
             totals[key]["misses"] += int(miss.sum())
             totals[key]["missing"] += int((~predicted).sum())
@@ -422,9 +536,55 @@ def season_payload(
                 "missing": t["missing"],
                 "prizes": t["prizes"],
                 "tickets": t["tickets"],
+                **(
+                    {"euros": {k2: round(v, 2) for k2, v in t["euros"].items()}}
+                    if "euros" in t
+                    else {}
+                ),
             }
             for k, t in totals.items()
         },
+    }
+
+
+def _matchday_euros(
+    group: pd.DataFrame, key: str, context: Any, money_plan: Any
+) -> dict[str, Any] | None:
+    """Cost and prize of a model's ticket in a played matchday (v3, v4 and v5 only).
+
+    v3 plays one column, v4 its doubles and triples and v5 its ticket only when
+    it was worth it (otherwise nothing is spent or won).
+    """
+    from quiniela.evaluation.money import matchday_payout
+    from quiniela.data.prizes import BET_PRICE
+    from quiniela.prediction.planner import PLANNER_MODEL
+    from quiniela.prediction.ticket import TICKET_SIZE
+
+    if key not in (PLANNER_MODEL, PLANNED_KEY, MONEY_KEY):
+        return None
+    ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
+    if (
+        len(ticket) < TICKET_SIZE
+        or ticket["FTR"].isna().any()
+        or ticket[f"{key}_sign"].isna().any()
+    ):
+        return None
+    picks = [str(p) for p in ticket[f"{key}_sign"]]
+    bets = int(np.prod([len(p) for p in picks]))
+    played = key != MONEY_KEY or (money_plan is not None and money_plan[0].worth)
+    if not played:
+        return {"cost": 0.0, "payout": 0.0, "played": False, "source": None, "jornada": None}
+    crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)
+    fallback = ticket[[f"{PLANNER_MODEL}_p_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float)
+    missing = np.isnan(crowd).any(axis=1)
+    crowd[missing] = fallback[missing]
+    result = matchday_payout(context, ticket[["league", "game"]], picks, list(ticket["FTR"]), crowd)
+    return {
+        "cost": round(BET_PRICE * bets, 2),
+        "payout": round(float(result["payout"]), 2),  # type: ignore[arg-type]
+        "played": True,
+        "source": result["source"],
+        "jornada": result["jornada"],
     }
 
 
@@ -466,6 +626,7 @@ def current_payload(
     current: pd.DataFrame | None = None,
     predictions: dict[str, pd.DataFrame] | None = None,
     current_dir: Path = CURRENT_DIR,
+    season: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the current matchday dashboard.
 
@@ -475,12 +636,13 @@ def current_payload(
         predictions: Stored predictions per model key. Defaults to the saved files.
         current_dir: Folder with the current season files (standings and the
             download time of the odds).
+        season: Season payload already built (``season_payload``), to reuse it.
 
     Returns:
         JSON-serialisable dictionary with the models, the current matchday,
         its status and the standings of each league.
     """
-    season = season_payload(current, predictions)
+    season = season_payload(current, predictions) if season is None else season
     index = current_matchday_index(season["matchdays"])
     matchday = None if index is None else season["matchdays"][index]
     if matchday is None:
@@ -742,14 +904,36 @@ def _ticket_tables(tickets: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
+def _money_labels() -> dict[str, str]:
+    """Labels of the money strategies."""
+    from quiniela.evaluation.money import MONEY_STRATEGIES
+
+    return dict(MONEY_STRATEGIES)
+
+
+def _money_tables(results: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
+    """Euros of every money strategy on the real tickets, per season and in total."""
+    from quiniela.evaluation.money import summarize_money
+
+    if results.empty:
+        return {}
+    out = {"all": [_clean(r) for r in summarize_money(results).to_dict(orient="records")]}
+    for row in summarize_money(results, ["season"]).to_dict(orient="records"):
+        out.setdefault(str(row["season"]), []).append(_clean(row))
+    return out
+
+
 def evaluation_payload(
-    backtest: pd.DataFrame | None = None, tickets: pd.DataFrame | None = None
+    backtest: pd.DataFrame | None = None,
+    tickets: pd.DataFrame | None = None,
+    money_results: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the evaluation (backtest) dashboard.
 
     Args:
         backtest: Backtest predictions with real results. Defaults to the saved backtest.
         tickets: Backtest tickets with doubles and triples. Defaults to the saved ones.
+        money_results: Real tickets played in euros. Defaults to the saved ones.
 
     Returns:
         JSON-serialisable dictionary with the models, metric definitions,
@@ -771,6 +955,10 @@ def evaluation_payload(
     if backtest.empty:
         return {"models": [], "metrics": EVALUATION_METRICS, "seasons": [], "results": {}}
     tickets = load_tickets() if tickets is None else tickets
+    if money_results is None:
+        from quiniela.evaluation.money import load_money
+
+        money_results = load_money()
 
     models = _model_specs(list(backtest["model"].unique()))
     seasons = sorted(backtest["season"].unique())
@@ -815,6 +1003,8 @@ def evaluation_payload(
         "calibration": calibration,
         "confidence": _confidence_tables(backtest),
         "tickets": _ticket_tables(tickets),
+        "money": _money_tables(money_results),
+        "money_strategies": _money_labels(),
         "ticket_strategies": {key: label for key, (label, _, _) in TICKET_STRATEGIES.items()},
         "ticket_budget": {
             "model": planner.PLANNER_MODEL,
@@ -875,9 +1065,11 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     """
     for name in RETIRED_DASHBOARDS:
         (output_dir / name).unlink(missing_ok=True)
+    # The season payload (with the v5 simulations) is built once for both pages
+    season = season_payload()
     return [
-        render("current.html", current_payload(), output_dir / "current.html"),
-        render("season.html", season_payload(), output_dir / "season.html"),
+        render("current.html", current_payload(season=season), output_dir / "current.html"),
+        render("season.html", season, output_dir / "season.html"),
         render("historical.html", historical_payload(), output_dir / "historical.html"),
         render("evaluation.html", evaluation_payload(), output_dir / "evaluation.html"),
     ]

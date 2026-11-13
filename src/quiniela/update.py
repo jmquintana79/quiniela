@@ -34,7 +34,7 @@ from datetime import date
 from pathlib import Path
 
 from quiniela.config import HISTORICAL_DIR
-from quiniela.evaluation import backtest
+from quiniela.evaluation import backtest, money
 from quiniela.io import download
 from quiniela.prediction import pipeline
 from quiniela.visualization import dashboards
@@ -166,6 +166,8 @@ def run_update(
     # 4. Optional backtest of every model over past seasons
     if run_backtest:
         report.backtest = backtest.save_backtest(backtest.run_backtest())
+        # Real tickets and prizes in euros (needs the saved LAE draws)
+        money.save_money()
 
     # 5. Dashboards from the local data
     report.dashboards = dashboards.build_dashboards()
