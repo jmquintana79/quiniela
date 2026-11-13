@@ -203,6 +203,9 @@ Boleto oficial de la jornada en current.html (después de v0.5.0):
   ✔ Pleno al 15 del boleto oficial (Dixon-Coles si es de Liga; si no, lo más
     apostado), precio de los boletos v4 y v5, y en season.html los boletos
     oficiales con v1 a v5 y el pleno.
+  ✔ Semáforos en current.html (v0.7.1): v5 por probabilidad de 10.000 € o más y de
+    13+ aciertos, v4 por 11+ aciertos, según el percentil entre los boletos reales
+    pasados; aviso en rojo de que ninguno hace rentable la quiniela.
   ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
     modelo de premios de v5.
   ☐ Guardar cada semana upcoming.json para tener histórico de porcentajes del

@@ -971,6 +971,31 @@ every 1,700 draws)**, 0.25 expected in the 414 draws; none came, as expected. It
 37% of the money, with six 13-hit tickets in 11 seasons (the best one 791 €, the 13-hit prizes
 of those draws being small). A large prize with 50 € a week is a matter of decades.
 
+**Traffic lights: is this a good matchday to play?** Under the v4 and v5 tickets,
+`current.html` shows a traffic light (green *recommended to play*, amber *undetermined*, red
+*not recommended*, each with its icon and label) for three planned chances of the ticket:
+
+| Ticket | Chance ranked | Past tickets compared |
+|---|---|---|
+| v5 (big win) | of a prize of 10,000 € or more | the big-win tickets of the 414 past official draws |
+| v5 (big win) | of 13 or more hits | the same |
+| v4 | of 11 or more hits (its target) | the v4 tickets of the same draws |
+
+The rule is a percentile: the ticket's chance $c$ is ranked among the chances $c_j$ the same
+strategy had in the $n$ past real tickets of the money backtest,
+
+```math
+\text{percentile} = \frac{100}{n} \, \#\{j : c_j < c\}, \qquad
+\text{green} \ge 75, \quad \text{red} \le 25, \quad \text{amber in between}
+```
+
+The two v5 lights often disagree, and that is the point: a matchday of clear favourites gives
+many hits (green on 13+ hits) but small prizes (red on 10,000 €), while open matches or a jackpot
+give the opposite. Both together say which kind of matchday it is: a likely but small prize, or
+a rare but large one. **No traffic light makes the quiniela profitable**: they only compare
+matchdays with each other, and every ticket loses money on average; the dashboard says so in
+red under the lights, with the rule in small print.
+
 ### Next steps
 
 See [Roadmap](#roadmap) at the end of this file.
@@ -982,6 +1007,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.7.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Traffic lights in `current.html` (green / amber / red by the percentile among past real tickets): v5 by its chance of 10,000 € or more and of 13+ hits, v4 by its chance of 11+ hits, with the rule in small print and a red warning that none makes the quiniela profitable. The money backtest stores the planned hit chances. |
 | [`v0.7.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Pleno al 15 of the official ticket in `current.html` (Dixon-Coles' goals categories for a La Liga / Segunda match, the public's most marked ones otherwise); price of each ticket under the Pleno and hits of the 14 matches in the table footer; sales deadline in large type, without the countdown; `season.html` official tickets with what v1 to v5 marked, the Pleno pick and each ticket's hits and price. |
 | [`v0.6.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.6.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | The next official ticket in `current.html` (saved with `tools/lae_upcoming.js`): sales deadline with countdown, predictions without colours until results, notice of football-data's fixtures; v3 uses the public's picks for the matches no model covers (women's football, national teams), and v4/v5 plan on them; match category (M, F, O, U) and official-ticket flag in every table, official tickets in the historical and season dashboards, ticket matches by category in the evaluation; `current.html` shows only v3, v4 and v5. Backtests recalculated (unchanged: past public picks do not exist). |
 | [`v0.5.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.5.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market**, v4 ticket planner, **v5 money ticket**, market reference | Official draws from LAE (real tickets, takings, winners and prizes since 2010-11); v4 aims at 11+ hits; v5 money ticket: prize model driven by the surprise of the results, ticket with the best expected prize within 48 bets, played only when it pays; prudent by default (only 10-13 hit prizes count), and in 414 real draws 2015-16 to 2025-26 it never found one worth playing (v4: 35% of the money back; v5 counting 14 hits and the Pleno al 15: 40%). Dashboards: v5 column with its verdict and euros won; evaluation: real tickets in euros. README: when to run v3 (the odds arrive on Friday afternoon). |

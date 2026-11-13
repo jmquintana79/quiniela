@@ -479,3 +479,17 @@ def test_upcoming_view_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert dashboards._upcoming_view(None, now=later) is None
     monkeypatch.setattr("quiniela.data.prizes.load_upcoming", lambda: None)
     assert dashboards._upcoming_view(None) is None
+
+
+@pytest.mark.parametrize(("value", "level"), [(0.9, "green"), (0.5, "amber"), (0.1, "red")])
+def test_percentile_signal(value: float, level: str) -> None:
+    history = pd.DataFrame(
+        {"strategy": "v4", "p_hits": [i / 100 for i in range(100)], "p_big": float("nan")}
+    )
+    signal = dashboards.percentile_signal(value, history, "v4", "p_hits")
+    assert signal is not None and signal["level"] == level and signal["draws"] == 100
+    assert signal["low"] == pytest.approx(0.2475) and signal["high"] == pytest.approx(0.7425)
+    # Other strategies, missing columns or too few past tickets: no light
+    assert dashboards.percentile_signal(value, history, "v5_big", "p_hits") is None
+    assert dashboards.big_win_signal(value, history) is None
+    assert dashboards.percentile_signal(None, history, "v4", "p_hits") is None

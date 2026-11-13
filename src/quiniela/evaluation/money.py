@@ -76,6 +76,7 @@ MONEY_COLUMNS = [
     "expected_top",
     "payout_top",
     "p_big",
+    "p_hits",
     "jackpot",
 ]
 
@@ -161,10 +162,13 @@ def _season_money(
         rng = np.random.default_rng([seed, int(draw["draw_id"]) % 2**31])
 
         nan = float("nan")
+        v4 = planner.plan_ticket(probs, max_bets=max_bets, min_hits=11)
         plans: dict[str, tuple[planner.TicketPlan, float, float, bool, float]] = {
             "single": (planner.single_plan(probs, 11), nan, nan, True, nan),
-            "v4": (planner.plan_ticket(probs, max_bets=max_bets, min_hits=11), nan, nan, True, nan),
+            "v4": (v4, nan, nan, True, nan),
         }
+        # Planned chance of many hits: 11+ for v4 (its target), 13+ for the big-win ticket
+        p_hits = {"v4": v4.at_least(11)}
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
         prudent = money.plan_money(*args, max_bets=max_bets, rng=rng)
         full = money.plan_money(*args, max_bets=max_bets, top_weight=1.0, rng=rng)
@@ -173,6 +177,7 @@ def _season_money(
         plans["v5_full"] = (full.plan, full.expected_net, full.expected_top, full.worth, nan)
         plans["v5_always"] = (full.plan, full.expected_net, full.expected_top, True, nan)
         plans["v5_big"] = (big.plan, big.expected_payout - big.cost, nan, True, big.chance)
+        p_hits["v5_big"] = big.chance_13
         for key, (plan, expected, expected_top, played, p_big) in plans.items():
             payout, hits, top = money.ticket_payout(
                 plan.levels, probs, results, winners, float(draw["takings"]),
@@ -199,6 +204,7 @@ def _season_money(
                     expected_top,
                     top if played else 0.0,
                     p_big,
+                    p_hits.get(key, nan),
                     float(draw["jackpot"] or 0),
                 )
             )

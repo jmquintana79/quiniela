@@ -261,6 +261,61 @@ MONEY_SPEC = {
 # Seed of the v5 simulations (the same plan on every rebuild)
 MONEY_SEED = 0
 
+# Traffic light of the v5 big-win ticket: percentile of its chance of a large prize
+# among the past real tickets planned the same way (backtest)
+SIGNAL_RED_AT = 25
+SIGNAL_GREEN_AT = 75
+SIGNAL_MIN_DRAWS = 20
+
+
+def percentile_signal(
+    value: float | None, history: pd.DataFrame, strategy: str, column: str
+) -> dict[str, Any] | None:
+    """Traffic light of a ticket: how it ranks among the past real tickets of its strategy.
+
+    ``value`` (a planned chance of this matchday's ticket) is ranked among the
+    same chance of the past official tickets planned the same way in the
+    money backtest: green at or above the 75th percentile, red at or below the
+    25th, amber (undetermined) in between. It compares matchdays with each
+    other: every one loses money on average.
+
+    Args:
+        value: The ticket's planned chance (e.g. of 10,000 EUR or more).
+        history: Money backtest rows (``quiniela.evaluation.money``).
+        strategy: Strategy of the past tickets (``v4``, ``v5_big``).
+        column: Their planned chance (``p_big``, ``p_hits``).
+
+    Returns:
+        ``level`` (``green``, ``amber``, ``red``), ``percentile``, ``draws``
+        and the values at the 25th (``low``) and 75th (``high``) percentiles;
+        ``None`` without enough past tickets.
+    """
+    if value is None or history.empty or column not in history.columns:
+        return None
+    past = history.loc[history["strategy"] == strategy, column].dropna().to_numpy(dtype=float)
+    if len(past) < SIGNAL_MIN_DRAWS:
+        return None
+    percentile = float((past < value).mean() * 100)
+    level = (
+        "green"
+        if percentile >= SIGNAL_GREEN_AT
+        else "red"
+        if percentile <= SIGNAL_RED_AT
+        else "amber"
+    )
+    return {
+        "level": level,
+        "percentile": round(percentile),
+        "draws": len(past),
+        "low": float(np.percentile(past, SIGNAL_RED_AT)),
+        "high": float(np.percentile(past, SIGNAL_GREEN_AT)),
+    }
+
+
+def big_win_signal(chance: float | None, history: pd.DataFrame) -> dict[str, Any] | None:
+    """Traffic light of the v5 big-win ticket by its chance of 10,000 EUR or more."""
+    return percentile_signal(chance, history, "v5_big", "p_big")
+
 
 def _money_matchday(
     group: pd.DataFrame, key: str, context: Any
@@ -821,6 +876,7 @@ def current_payload(
     current_dir: Path = CURRENT_DIR,
     season: dict[str, Any] | None = None,
     upcoming: tuple[Any, dict[str, Any], dict[str, Any]] | None = None,
+    money_results: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Collect the data shown in the current matchday dashboard.
 
@@ -840,6 +896,8 @@ def current_payload(
         upcoming: ``(ticket, payload, info)`` of the next official ticket: the
             ``UpcomingTicket``, the ``season_payload`` of its matches and the
             ``info`` of ``quiniela.prediction.pipeline.predict_upcoming``.
+        money_results: Money backtest, for the traffic light of the v5
+            ticket (``big_win_signal``). Defaults to the saved one.
 
     Returns:
         JSON-serialisable dictionary with the models, the current matchday,
@@ -872,6 +930,27 @@ def current_payload(
         status = "in_progress"
     else:
         status = "completed"
+
+    # Traffic lights of the v4 and v5 tickets of the current matchday: chance of a
+    # big prize (v5) and of many hits (11+ for v4, 13+ for v5) against past tickets
+    summary = (matchday or {}).get("summary", {})
+    money_plan = summary.get(MONEY_KEY, {}).get("money")
+    planned_plan = summary.get(PLANNED_KEY, {}).get("plan")
+    if money_plan is not None or planned_plan is not None:
+        if money_results is None:
+            from quiniela.evaluation.money import load_money
+
+            money_results = load_money()
+    if money_plan is not None:
+        money_plan["signal"] = big_win_signal(money_plan.get("chance"), money_results)
+        money_plan["hits_signal"] = percentile_signal(
+            money_plan.get("chance_13"), money_results, "v5_big", "p_hits"
+        )
+    if planned_plan is not None:
+        odds = summary[PLANNED_KEY].get("odds") or {}
+        planned_plan["hits_signal"] = percentile_signal(
+            odds.get("11"), money_results, "v4", "p_hits"
+        )
 
     standings_by_league: dict[str, list[dict[str, Any]]] = {}
     odds_downloaded = None

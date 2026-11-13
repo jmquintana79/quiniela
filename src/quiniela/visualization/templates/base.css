@@ -202,3 +202,17 @@ section.block > h2.section-title {
 .cat-F, .cat-O { background: var(--row-hover); }
 .cat-U { color: var(--text-muted); border-style: dashed; }
 .badge.q { font-size: 11px; padding: 0 6px; }
+
+/* Traffic light of the v5 ticket: status colour, always with an icon and a label */
+.signal {
+  display: flex; gap: 8px; align-items: baseline; margin-top: 8px; padding: 8px 12px;
+  border-radius: 8px; border: 1px solid currentColor; font-size: 14px;
+}
+.signal span { color: var(--text-primary); }
+.signal .signal-dot { font-size: 16px; }
+.signal-green { color: var(--good); background: color-mix(in srgb, var(--good) 10%, transparent); }
+.signal-green .signal-dot { color: var(--good); }
+.signal-amber { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.signal-amber .signal-dot { color: var(--warning); }
+.signal-red { color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, transparent); }
+.signal-red .signal-dot { color: var(--critical); }

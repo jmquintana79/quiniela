@@ -258,7 +258,10 @@ function oddsLine(summary) {
     `triple${plan.triples === 1 ? "" : "s"} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>`;
+  // v4's light (chance of 11+ hits); v5 shows its own lights under its chart
+  const light = plan && !summary.money && plan.hits_signal
+    ? signalLine(plan.hits_signal, "chance of 11+ hits") + signalRule([[plan.hits_signal, "11+ hits"]]) : "";
+  return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>${light}`;
 }
 
 /** Euros with two decimals. */
@@ -311,7 +314,37 @@ function moneyLine(summary) {
         13+ hits ${chanceText(m.chance_13)} · 14 hits ${chanceText(m.chance_14)} ·
         on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot} ·
         predictability (average v3 confidence) ${pct(m.predictability, 1)}.</span>
+      ${signalLine(m.signal, `chance of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more`)}
+      ${signalLine(m.hits_signal, "chance of 13+ hits")}
+      ${signalRule([[m.signal, "10,000 € or more"], [m.hits_signal, "13+ hits"]])}
     </div>`;
+}
+
+/**
+ * One traffic light: how the ticket's planned chance of something (a large
+ * prize, many hits) ranks among the past real tickets planned the same way.
+ */
+function signalLine(s, measure) {
+  if (!s) return "";
+  const [icon, label, text] = {
+    green: ["●", "Recommended to play", `high, above ${s.percentile}% of the ${s.draws} past tickets`],
+    amber: ["◐", "Undetermined", `typical, above ${s.percentile}% of the ${s.draws} past tickets`],
+    red: ["✕", "Not recommended", `low, below ${100 - s.percentile}% of the ${s.draws} past tickets`],
+  }[s.level];
+  return `<div class="signal signal-${s.level}"><span class="signal-dot">${icon}</span>` +
+    `<span><strong style="display:inline">${label}</strong> · ${esc(measure)}: ${text}.</span></div>`;
+}
+
+/** The rule of the traffic lights (small print) and the warning that none makes money (red). */
+function signalRule(signals) {
+  const shown = signals.filter(([s]) => s);
+  if (!shown.length) return "";
+  const limits = shown.map(([s, measure]) => `${measure}: red at or below ${chanceText(s.low)}, green at or above ${chanceText(s.high)}`).join("; ");
+  return `<p class="meta" style="margin:4px 0 0;font-size:11px">Rule: the ticket's planned chance is ranked among the past
+      official tickets planned the same way (backtest from 2015-16): green at or above the 75th percentile, red at or below
+      the 25th, undetermined in between (${esc(limits)}).</p>
+    <p style="margin:4px 0 0;font-size:12px;font-weight:600;color:var(--critical)">⚠ No traffic light makes the quiniela
+      profitable: they only compare matchdays with each other. Every ticket loses money on average.</p>`;
 }
 
 /** Euros spent and won by a ticket in a played matchday. */
