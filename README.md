@@ -252,8 +252,8 @@ Four dashboards, each answering one question:
   the odds used by v3 were downloaded (they keep moving until kick-off).
 - `dashboards/season.html`: the **current season**: totals per model and for the v4 and v5
   tickets (hit rate, prize tickets and, for v3, v4 and v5, euros spent and won; without the
-  market), a table of every matchday with each model's hits and quiniela outcome, and the
-  detail of any matchday (same table as `current.html`). The ticket is approximated with the
+  market), a table of every matchday with each model's hits and quiniela outcome (and, for v3,
+  v4 and v5, the prize won in euros and the ticket's cost), and the detail of any matchday (same table as `current.html`). The ticket is approximated with the
   matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
   12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict
   goals show their exact score and Pleno al 15 picks in the tooltip.

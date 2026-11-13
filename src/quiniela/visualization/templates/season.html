@@ -22,7 +22,9 @@
     <h2>Matchdays</h2>
     <div class="scroll" id="overview"></div>
     <p class="meta" style="margin:10px 0 0">Click a matchday to open it below. The current matchday is
-      also in <a href="current.html">current.html</a>.</p>
+      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v4 and v5
+      tickets with the real prizes of the official draw (* estimated with the prize model when the draw is
+      not saved), and the cost of the ticket below; the 10-hit prize is not paid when it falls under 1.50 €.</p>
   </section>
 
   <div class="filters">
@@ -79,10 +81,21 @@
     }).join("");
   }
 
+  // Euros are only computed for the tickets that are actually bought: v3, v4 and v5
+  const PRIZE_KEYS = ["market_blend", "planned", "money"];
+
+  /** Prize won in euros, with the cost of the ticket below it. */
+  function prizeCell(e) {
+    if (!e) return '<td class="num muted">–</td>';
+    const mark = e.source === "draw" ? "" : " *";
+    return `<td class="num"><span style="${e.payout > 0 ? "font-weight:600" : ""}">${eur(e.payout)}${mark}</span>` +
+      `<br><span class="muted" style="font-size:11px">cost ${eur(e.cost)}</span></td>`;
+  }
+
   function overviewTable() {
     return `<table><thead><tr>
         <th class="num">#</th><th>Dates</th><th class="num">Played</th>
-        ${models.map((m) => `<th class="num">${modelLabel(m)}</th><th>Quiniela</th>`).join("")}
+        ${models.map((m) => `<th class="num">${modelLabel(m)}</th><th>Quiniela</th>${PRIZE_KEYS.includes(m.key) ? '<th class="num">Prize</th>' : ""}`).join("")}
       </tr></thead><tbody>${DATA.matchdays.map((md, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
         <td class="num">${md.number}</td>
         <td class="muted">${fmtDate(md.start)} – ${fmtDate(md.end)}</td>
@@ -90,7 +103,7 @@
         ${models.map((m) => {
           const s = md.summary[m.key];
           const played = s.hits + s.misses;
-          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s)}</td>`;
+          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s)}</td>${PRIZE_KEYS.includes(m.key) ? prizeCell(s.euros) : ""}`;
         }).join("")}
       </tr>`).join("")}</tbody></table>`;
   }
