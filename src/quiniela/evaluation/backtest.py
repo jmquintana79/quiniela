@@ -277,7 +277,12 @@ TICKET_COLUMNS = [
     "p_prize",
     "p_top",
     "expected_hits",
+    "games",
+    "picks",
 ]
+
+# Separator of the ticket games ("<league>/<game>") and picks stored as one string
+LIST_SEPARATOR = "|"
 
 
 def _ticket_matches(matches: pd.DataFrame) -> pd.DataFrame | None:
@@ -299,6 +304,9 @@ def _season_tickets(
             continue
         probs = ticket[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
         results = ticket["FTR"].tolist()
+        # Which matches the ticket had and what each strategy marked, so per-match
+        # hit rates (e.g. v4 in the evaluation dashboard) can be computed later
+        games = LIST_SEPARATOR.join(ticket["league"] + "/" + ticket["game"])
         # One generator per matchday, so results do not depend on the job split
         rng = np.random.default_rng([seed, int(matchday), int(str(season)[:4])])
         for key, (_, kind, min_hits) in TICKET_STRATEGIES.items():
@@ -332,6 +340,8 @@ def _season_tickets(
                         plan.at_least(planner.DEFAULT_MIN_HITS),
                         plan.at_least(TICKET_SIZE),
                         float(plan.coverage.sum()),
+                        games,
+                        LIST_SEPARATOR.join(plan.picks),
                     )
                 )
     return rows
@@ -361,7 +371,9 @@ def ticket_strategies(
         One row per strategy, matchday and draw (``RANDOM_DRAWS`` for the
         random strategy, one for the rest) with ``TICKET_COLUMNS``:
         ``p_prize`` and ``p_top`` are the planned probabilities of 10+ and 14
-        hits, ``hits`` and ``category`` what happened.
+        hits, ``hits`` and ``category`` what happened, ``games`` the ticket
+        matches (``<league>/<game>``) and ``picks`` the signs marked in each
+        (``H``, ``HD``, ``HDA``...), both joined with ``LIST_SEPARATOR``.
     """
     predictions = backtest[backtest["model"] == model]
     if predictions.empty:
@@ -415,3 +427,30 @@ def summarize_tickets(tickets: pd.DataFrame, by: list[str] | None = None) -> pd.
     return summary.sort_values(
         [*groups[1:], "strategy"], key=lambda c: c.map(order) if c.name == "strategy" else c
     ).reset_index(drop=True)
+
+
+def ticket_picks(tickets: pd.DataFrame, strategy: str = "v4") -> pd.DataFrame:
+    """Signs marked in every ticket match by one strategy (first draw).
+
+    Args:
+        tickets: Output of :func:`ticket_strategies`.
+        strategy: Key of ``TICKET_STRATEGIES``.
+
+    Returns:
+        One row per ticket match with ``season``, ``matchday``, ``league``,
+        ``game`` and ``picks``; empty if the tickets have no picks stored.
+    """
+    columns = ["season", "matchday", "league", "game", "picks"]
+    if "picks" not in tickets.columns:
+        return pd.DataFrame(columns=columns)
+    chosen = tickets[(tickets["strategy"] == strategy) & (tickets["draw"] == 0)]
+    rows = []
+    for season, matchday, games, picks in zip(
+        chosen["season"], chosen["matchday"], chosen["games"], chosen["picks"], strict=True
+    ):
+        for game, pick in zip(
+            games.split(LIST_SEPARATOR), picks.split(LIST_SEPARATOR), strict=True
+        ):
+            league, key = game.split("/", 1)
+            rows.append((season, matchday, league, key, pick))
+    return pd.DataFrame(rows, columns=columns)

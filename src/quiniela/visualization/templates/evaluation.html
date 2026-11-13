@@ -23,7 +23,10 @@
     <div class="scroll" id="metrics"></div>
     <p class="meta" style="margin:10px 0 0">
       <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
-      not a candidate). ↑ higher is better · ↓ lower is better.
+      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v4</strong> is not a
+      probability model but a way of playing v3: the v3 signs with doubles and triples on the
+      ticket (up to 48 bets a matchday), so only its hit rate (a double or triple is a hit when
+      the result is among its signs) and prizes are shown, and it is never bold.
     </p>
   </section>
 
@@ -85,6 +88,7 @@
 
   function modelHeader(m) {
     const label = m.reference ? `${esc(m.name)} <span class="muted">(reference)</span>`
+      : m.ticket ? `${esc(m.name)} <span class="muted">${esc(m.version)} · ≤ 48 bets</span>`
       : `${esc(m.name)} <span class="muted">${esc(m.version)}</span>`;
     return `<th class="num" data-tip="${esc(m.description)}">${label}</th>`;
   }
@@ -95,7 +99,7 @@
     let best = null;
     models.forEach((m) => {
       const v = rows[m.key]?.[metric.key];
-      if (m.reference || v == null) return;
+      if (m.reference || m.ticket || v == null) return;
       const better = best == null || (metric.better === "higher" ? v > best.v : v < best.v);
       if (better) best = { key: m.key, v };
     });

@@ -205,6 +205,8 @@ PLANNED_SPEC = {
     "reference": False,
     "description": "v3 signs plus the best doubles and triples for a 48-bet budget, chosen to "
     "maximise the chance of 10 or more hits (a prize). Outside the ticket, the v3 sign.",
+    # A way of playing, not a probability model: never "best model" in the evaluation
+    "ticket": True,
 }
 
 
@@ -687,6 +689,47 @@ def _confidence_tables(backtest: pd.DataFrame) -> dict[str, dict[str, list[dict[
     return out
 
 
+def _planned_results(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Hit rate and prizes of the v4 planned ticket, keyed by ``"<league>|<season>"``.
+
+    v4 marks the planner model's sign in every match and, on the ticket, its
+    doubles and triples: a match is a hit when its result is among the
+    marked signs. Probability metrics do not apply (v4 has v3's probabilities).
+    Prizes are only given for both leagues together, as for the models.
+    """
+    from quiniela.evaluation.backtest import summarize_tickets, ticket_picks
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    picks = ticket_picks(tickets)
+    base = backtest[backtest["model"] == PLANNER_MODEL].dropna(subset=["prediction", "FTR"])
+    if picks.empty or base.empty:
+        return {}
+    merged = base.merge(
+        picks[["season", "league", "game", "picks"]], on=["season", "league", "game"], how="left"
+    )
+    signs = merged["picks"].fillna(merged["prediction"])
+    table = merged.assign(
+        _hit=[result in sign for sign, result in zip(signs, merged["FTR"], strict=True)]
+    )
+
+    out: dict[str, dict[str, Any]] = {}
+    for by in ([], ["season"], ["league"], ["season", "league"]):
+        groups = table.groupby(by) if by else [((), table)]
+        for key, rows in groups:
+            values = key if isinstance(key, tuple) else (key,)
+            labels = dict(zip(by, values, strict=True))
+            league_season = f"{labels.get('league', 'all')}|{labels.get('season', 'all')}"
+            out[league_season] = {"matches": len(rows), "hit_rate": float(rows["_hit"].mean())}
+
+    planned = tickets[tickets["strategy"] == "v4"]
+    for by in ([], ["season"]):
+        for row in summarize_tickets(planned, by).to_dict(orient="records"):
+            key = f"all|{row.get('season', 'all')}"
+            if key in out:
+                out[key].update(prizes=int(row["prizes"]), tickets=int(row["tickets"]))
+    return {key: _clean(value) for key, value in out.items()}
+
+
 def _ticket_tables(tickets: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
     """Prizes of every ticket strategy, for every season and in total (``"all"``)."""
     from quiniela.evaluation.backtest import summarize_tickets
@@ -738,6 +781,17 @@ def evaluation_payload(
         for row in summarize(backtest, by).to_dict(orient="records"):
             key = f"{row.get('league', 'all')}|{row.get('season', 'all')}"
             results.setdefault(key, {})[row["model"]] = _clean(row)
+
+    # v4 planned ticket: only hit rate and prizes, right after the planner model
+    planned = _planned_results(backtest, tickets)
+    for key, row in planned.items():
+        results.setdefault(key, {})[PLANNED_KEY] = row
+    if planned:
+        position = next(
+            (i + 1 for i, m in enumerate(models) if m["key"] == planner.PLANNER_MODEL),
+            len(models),
+        )
+        models.insert(position, PLANNED_SPEC)
 
     calibration: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for league in ["all", *sorted(backtest["league"].unique())]:

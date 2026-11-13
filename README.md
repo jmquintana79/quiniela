@@ -185,8 +185,10 @@ Four dashboards, each answering one question:
   every season, plus the final standings and results of the selected season (filterable by
   team).
 - `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
-  registry order (benchmark first, market last as reference), by league and season, plus the
-  hit rate by confidence tier, the prizes of the tickets played with doubles and triples (no
+  registry order (benchmark first, market last as reference), by league and season, with a
+  **v4** column next to v3 that shows only its hit rate and prizes (it plays v3's
+  probabilities, so the probability metrics do not apply), plus the hit rate by confidence
+  tier, the prizes of the tickets played with doubles and triples (no
   doubles, random, by eye, optimal and v4), calibration charts and an explanation of each
   metric.
 
@@ -347,7 +349,12 @@ bold = best candidate model):
 | v1 · Head-to-head | `head_to_head` | Benchmark | 43.3% | 1.1155 | 0.6689 | 0.2261 | 15.1% | 14 / 376 |
 | v2 · Dixon-Coles | `dixon_coles` | Independent | 48.7% | 1.0215 | 0.6130 | 0.2059 | 1.2% | 27 / 376 |
 | v3 · DC + Market | `market_blend` | **Current** | **50.0%** | **1.0028** | **0.6002** | **0.2003** | 2.8% | **35 / 376** |
+| v4 · Planned ticket | `planner` | Way of playing v3 (≤ 48 bets) | 57.9% | – | – | – | – | 160 / 376 |
 | Market | `market` | Reference | 50.0% | 1.0046 | 0.6013 | 0.2007 | 0.5% | 40 / 376 |
+
+*v4 is not a probability model: it marks the v3 signs plus doubles and triples on the ticket, so
+a match is a hit when its result is among the marked signs, and its probability metrics would be
+v3's. It costs up to 48 bets a matchday, against 1 for the others.*
 
 *Real draws: 28.3%. Always "1": 45.3%. Exact score and Pleno al 15 hit rates of v2: 14.1% and
 14.5%. The market is evaluated on the 9,241 matches with odds; v3 on all 9,262 (Dixon-Coles
@@ -355,10 +362,10 @@ alone in the other 21).*
 
 By league (hit rate / log-loss):
 
-| League | Always "1" | v1 | v2 | v3 | Market |
+| League | Always "1" | v1 | v2 | v3 | v4 (hit rate) | Market |
 |---|---|---|---|---|---|
-| La Liga | 45.7% | 47.0% / 1.0738 | 52.9% / 0.9784 | 53.5% / 0.9622 | 53.9% / 0.9637 |
-| Segunda | 45.0% | 40.2% / 1.1499 | 45.3% / 1.0570 | 47.1% / 1.0362 | 46.8% / 1.0384 |
+| La Liga | 45.7% | 47.0% / 1.0738 | 52.9% / 0.9784 | 53.5% / 0.9622 | 63.3% | 53.9% / 0.9637 |
+| Segunda | 45.0% | 40.2% / 1.1499 | 45.3% / 1.0570 | 47.1% / 1.0362 | 53.5% | 46.8% / 1.0384 |
 
 ### v1 · Head-to-head benchmark (`head_to_head`)
 
@@ -646,6 +653,10 @@ over 20 draws:
 
 **Observations.**
 
+- **Hit rate.** v4 hits 57.9% of all the matches, against 50.0% for v3 (+7.9 points), and
+  65.4% of the ticket matches (9.15 of 14 on average, against 7.20 for the single v3 ticket):
+  the evaluation dashboard shows it as its own column. Outside the ticket v4 is v3, so the
+  whole gain comes from the 14 ticket matches.
 - Doubles and triples placed with the v3 probabilities win **4.6 times more prizes** than the
   single ticket (160 against 35) and **23% more than placing the same bets at random** (160
   against 130).

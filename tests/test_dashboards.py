@@ -360,3 +360,25 @@ def test_market_is_left_out_of_the_matchday_views() -> None:
     assert [m["key"] for m in payload["models"]] == ["head_to_head"]
     assert "market" not in payload["totals"]
     assert "market_sign" not in payload["matchdays"][0]["matches"][0]
+
+
+def test_evaluation_payload_includes_the_planned_ticket() -> None:
+    from quiniela.evaluation import backtest
+    from tests.test_backtest import _planner_backtest
+
+    predictions = _planner_backtest(2).assign(score_home=float("nan"))
+    tickets = backtest.ticket_strategies(predictions, n_jobs=1)
+
+    payload = dashboards.evaluation_payload(predictions, tickets)
+
+    assert [m["key"] for m in payload["models"]] == ["market_blend", dashboards.PLANNED_KEY]
+    overall = payload["results"]["all|all"]
+    planned = overall[dashboards.PLANNED_KEY]
+    # Only hit rate and prizes: v4 has the probabilities of v3
+    assert set(planned) == {"matches", "hit_rate", "prizes", "tickets"}
+    assert planned["matches"] == overall["market_blend"]["matches"] == 28
+    # Doubles and triples can only add hits
+    assert planned["hit_rate"] >= overall["market_blend"]["hit_rate"]
+    v4 = tickets[tickets["strategy"] == "v4"]
+    assert planned["prizes"] == int((v4["hits"] >= 10).sum())
+    assert "prizes" not in payload["results"]["SP1|all"][dashboards.PLANNED_KEY]

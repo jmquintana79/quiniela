@@ -135,3 +135,15 @@ def test_save_backtest_also_saves_tickets(tmp_path: Path) -> None:
     tickets = backtest.load_tickets(tmp_path)
     assert len(tickets) == len(backtest.TICKET_STRATEGIES) - 1 + backtest.RANDOM_DRAWS
     assert backtest.load_tickets(tmp_path / "missing").empty
+
+
+def test_ticket_picks() -> None:
+    predictions = _planner_backtest(1)
+    tickets = backtest.ticket_strategies(predictions, n_jobs=1)
+    picks = backtest.ticket_picks(tickets)
+    assert len(picks) == 14
+    assert set(picks["game"]) == set(predictions["game"])
+    v4 = tickets[tickets["strategy"] == "v4"].iloc[0]
+    marked = sum(len(p) for p in picks["picks"])
+    assert marked == 14 + v4["doubles"] + 2 * v4["triples"]
+    assert backtest.ticket_picks(tickets.drop(columns=["picks"])).empty
