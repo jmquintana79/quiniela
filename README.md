@@ -601,10 +601,30 @@ matches is evaluated and the one that maximises the target is kept:
 \max_{\text{placement}} \; P(H \ge k), \qquad k = 10 \text{ (any prize) or } k = 14 \text{ (the top one)}
 ```
 
-Ties go to the higher chance of 14 hits, then to the higher expected hits $\sum_i q_i$. The
-budget can be given as exact doubles and triples, or as a maximum number of bets: every mix
-that fits is tried (with 48 bets: 5 doubles; 4 doubles + 1 triple; 2 doubles + 2 triples;
-3 triples...). The search is exhaustive (about 22,000 placements for 48 bets, milliseconds).
+Ties go to the higher chance of 14 hits, then to the higher expected hits $\sum_i q_i$, and
+finally to the cheaper ticket. The budget can be given as exact doubles and triples, or as a
+maximum number of bets: every mix that fits is tried (with 48 bets: 5 doubles; 4 doubles +
+1 triple; 2 doubles + 2 triples; 3 triples...). The search is exhaustive (about 22,000
+placements for 48 bets, milliseconds).
+
+**The budget is a cap, not a target.** The best mix does not have to spend it all: if a cheaper
+one gives a higher chance of a prize, it wins (2 doubles + 2 triples cost 36 bets, less than
+48).
+
+**Dynamic, matchday by matchday.** Only the budget and the target are fixed. How many doubles
+and triples to use, and on which matches, is decided again every matchday from that matchday's
+v3 probabilities.
+
+**Why the mix changes.** A double gains the second sign and a triple everything but the
+favourite. In an open match (40 / 35 / 25) a double raises the chance of a hit from 40% to 75%
+(+35 points) and a triple to 100% (+60). Going from 2 doubles + 2 triples to 4 doubles +
+1 triple turns one triple into a double and adds two doubles:
+
+- with **two very open matches** (favourite below about 45%), the second triple is worth a lot,
+  and the two extra doubles would go to clearer matches whose second sign adds little (a
+  65 / 22 / 13 match gains +22): **2 doubles + 2 triples** wins;
+- with **one very open match** and several middling ones (55 / 30 / 15 gains +30 with a
+  double), the extra doubles pay more: **4 doubles + 1 triple** wins, the usual case.
 
 **v4** is the default configuration: the v3 signs, a **48-bet budget** with the best mix of
 doubles and triples, and the target **10+ hits** (securing a prize). Outside the ticket it is
