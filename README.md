@@ -271,9 +271,11 @@ Five dashboards, each answering one question:
   team), each match with its category and whether it was on an official ticket; and the
   **official quiniela tickets** of the season, any jornada, with all their matches (men's La
   Liga and Segunda, women's football and other competitions) and results.
-- `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
-  registry order (benchmark first, market last as reference), by league and season, with a
-  **v3·D** and a **v3·R** column next to v3 that show only their hit rate and prizes (they play
+- `dashboards/evaluation.html`: first the **contingency tables** (observed result × predicted
+  sign) of every model and of the v3 tickets (observed result × marked signs, on the official
+  tickets), then the backtest metrics of every model (with **macro-F1** as an informative row),
+  one column per model in registry order (benchmark first, market last as reference), by league
+  and season, with a **v3·D** and a **v3·R** column after the models that show only their hit rate and prizes (they play
   v3's probabilities, so the probability metrics do not apply), plus the hit rate by confidence
   tier, the prizes of the tickets played with doubles and triples (no
   doubles, random, by eye, optimal, v3·D and v3·R), the **real tickets in euros** (single column,
@@ -384,11 +386,74 @@ Also reported:
 
 | Metric | Meaning |
 |---|---|
+| Macro-F1 | $\frac{1}{3}\sum_k \frac{2\,\text{hits}_k}{\text{predicted}_k + \text{real}_k}$: the mean over 1, X and 2 of the F1 score of the predicted sign. **Informative only** (never bold, never used to choose a model). See below. |
 | X picks | Share of matches where the predicted sign is X (draw). See below. |
 | Real draws | Share of matches that actually ended in a draw (28.3% in the backtest), to compare with X picks. |
 | Exact score | Share of matches whose most likely score was the real one (models that predict goals). |
 | Pleno al 15 | Share of matches where both teams' goal categories (0, 1, 2, M = 3+) were right. |
 | Prize tickets | Matchdays whose 14-match ticket got 10 or more hits (5th category or better), out of the matchdays with a full ticket. |
+
+### Macro-F1 and contingency tables
+
+The **contingency table** of a model counts the matches of every **observed** result (rows:
+what really happened) against the **predicted** sign (columns: what the model marked). Its
+diagonal are the hits. Over the 9,262 backtest matches (2015-16 to 2025-26, both leagues):
+
+| Observed ↓ · Predicted → | v1 (1 / X / 2) | v2 (1 / X / 2) | v3 (1 / X / 2) | v4 (1 / X / 2) | Market (1 / X / 2) |
+|---|---|---|---|---|---|
+| **1** (4,197) | 3,051 / 636 / 510 | 3,711 / 42 / 444 | 3,650 / 82 / 465 | 3,771 / 2 / 424 | 3,640 / 12 / 534 |
+| **X** (2,618) | 1,817 / 410 / 391 | 2,123 / 39 / 456 | 2,010 / 97 / 511 | 2,172 / 2 / 444 | 1,997 / 18 / 603 |
+| **2** (2,447) | 1,548 / 354 / 545 | 1,651 / 33 / 763 | 1,478 / 84 / 885 | 1,681 / 3 / 763 | 1,458 / 16 / 963 |
+
+*The market is counted on the 9,241 matches with odds.*
+
+They show why the draw is the quiniela's hard sign: every model except v1 almost never marks
+X, so most of the 2,618 real draws fall in the 1 column (a home win was always more likely),
+and the 2 column catches most of the rest.
+
+**Macro-F1** summarises a contingency table giving the three signs the same weight: for each
+sign, $F1_k = 2\,\text{hits}_k / (\text{predicted}_k + \text{real}_k)$ (a sign never
+predicted scores 0), and their mean. It is **informative**: a quiniela pays every hit the same,
+so hit rate and the probability metrics choose the model; macro-F1 only shows how evenly a
+model spreads its signs.
+
+| | v1 | v2 | v3 | v4 | Market |
+|---|---|---|---|---|---|
+| Hit rate | 43.3% | 48.7% | 50.0% | 49.0% | 50.0% |
+| Macro-F1 | 0.353 | 0.345 | **0.374** | 0.338 | 0.361 |
+
+v3 has the highest macro-F1 too: it marks more draws than the market (2.8% against 0.5%) and
+gets a share of them right. v1 marks many more X (15%) but misses most of them, and v4, which
+almost never marks X, has the lowest.
+
+The evaluation dashboard shows these tables for every model (with the league and season
+filters) and, for the **v3 tickets**, the same table on the official tickets of the
+[euro backtest](#v3e-and-v3b--money-tickets-money) with the signs each ticket marked as columns
+(1, X, 2, the doubles 1X, 12, X2 and the triple 1X2):
+
+| Ticket | Observed | 1 | X | 2 | 1X | 12 | X2 | 1X2 | Covered |
+|---|---|---|---|---|---|---|---|---|---|
+| One column (v3 signs) | 1 | **2,232** | 39 | 296 | **0** | **0** | 0 | **0** | 49.6% |
+|  | X | 1,265 | **54** | 331 | **0** | 0 | **0** | **0** |  |
+|  | 2 | 946 | 42 | **591** | 0 | **0** | **0** | **0** |  |
+| v3·D | 1 | **1,664** | 0 | 147 | **423** | **123** | 69 | **141** | 63.1% |
+|  | X | 827 | **2** | 168 | **314** | 102 | **90** | **147** |  |
+|  | 2 | 550 | 0 | **369** | 273 | **152** | **108** | **127** |  |
+| v3·R | 1 | **1,359** | 0 | 87 | **609** | **82** | 81 | **349** | 71.2% |
+|  | X | 590 | **1** | 113 | **444** | 69 | **98** | **335** |  |
+|  | 2 | 374 | 0 | **273** | 356 | **96** | **124** | **356** |  |
+| v3·B | 1 | **1,537** | 10 | 82 | **623** | **164** | 150 | **1** | 62.9% |
+|  | X | 735 | **22** | 127 | **457** | 157 | **150** | **2** |  |
+|  | 2 | 499 | 14 | **288** | 374 | **209** | **195** | **0** |  |
+
+*414 official tickets, 5,796 matches (14 per ticket, also the women's and other matches,
+planned with the league shares of 1, X and 2). Bold: the observed result is among the marked
+signs. Covered: share of the matches whose result was marked; for v3·R a covered result in a
+reduced match is not always a hit of its best column.*
+
+The tickets put their doubles mostly as 1X, on the open matches the single column would give to
+the home side, so most draws move from a miss in the 1 column to a hit in the 1X column; v3·R
+adds triples (1X2) and covers 71% of the results against 63% for v3·D, with the same 48 bets.
 
 ### X picks
 
@@ -1224,6 +1289,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.9.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.9.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), tickets v3·D, v3·R and v3·B (v3·E in the backtest), market reference | Evaluation: **contingency tables** (observed result × predicted sign) of every model, with the league and season filters, and of the v3 tickets on the official tickets (observed result × marked signs: 1, X, 2, 1X, 12, X2, 1X2), before the metrics; **macro-F1** as an informative metric (v3 0.374, the highest; never bold). The euro backtest stores each ticket's picks and results. |
 | [`v0.9.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.9.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, **v4 pi-ratings** (independent), tickets v3·D, v3·R and v3·B (v3·E in the backtest), market reference | New notation **model · ticket**: the tickets are decision layers over a model, so v4 → **v3·D** (direct), v4R → **v3·R** (reduced), v5 → **v3·B** (big win) and **v3·E** (prudent expected prize), freeing the version numbers for models. New model **v4 pi-ratings** (Constantinou & Fenton, 2013: home and away ratings learned from goal differences, promoted teams take the ratings of the ones they replace, ordered logistic mapping): best independent model (log-loss 1.0178 against 1.0215 for Dixon-Coles, 30 single-ticket prizes against 27), but it adds nothing to v3's pool on top of the market, so v3 and the tickets are unchanged. Dashboards: models first (v1 to v4), then the v3 tickets. |
 | [`v0.8.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.8.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, **v4D direct ticket and v4R reduced ticket**, v5 money ticket (big-win mode in the dashboards), market reference | v4 split into **v4D** (direct doubles and triples, the former v4) and **v4R** (the same 48 bets with the official reductions as candidates: covering codes with the official guarantees, exact hit distribution of the best column, direct doubles and triples on top). Backtest: v4R 191 prize tickets in 376 matchdays against 156 for v4D (planned 50.0%, real 50.8%), and 49% of the money back in 414 real draws against 35%. Both side by side in every dashboard (columns, banners, prices table, official tickets with R marks, traffic lights, evaluation and euros). |
 | [`v0.7.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.2) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | New `prizes.html` dashboard: every official draw since 2010-11 with its jackpot and, per category (14 + Pleno al 15 down to 10 hits), the prize per winner and the number of winners, plus a density chart per category on a common log euro axis (1 € to 15 M €). `season.html` matchdays table shows the prize won in euros by v3, v4 and v5. Roadmap and TODO list only pending work. |

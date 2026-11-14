@@ -402,6 +402,10 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     v4 = tickets[tickets["strategy"] == "v3d"]
     assert planned["prizes"] == int((v4["hits"] >= 10).sum())
     assert "prizes" not in payload["results"]["SP1|all"][dashboards.PLANNED_KEY]
+    # Contingency tables: every predicted match of v3 once, observed rows x predicted columns
+    table = payload["contingency"]["all|all"]["market_blend"]
+    assert sum(map(sum, table)) == overall["market_blend"]["matches"] == 28
+    assert overall["market_blend"]["macro_f1"] is not None
     v4r = tickets[tickets["strategy"] == "v3r"]
     assert overall[dashboards.REDUCED_KEY]["prizes"] == int((v4r["hits"] >= 10).sum())
 
@@ -536,3 +540,22 @@ def test_prizes_payload() -> None:
     assert newest["date"] == "2025-10-12" and newest["jornada"] is None
     assert newest["prizes"]["13"] == {"winners": None, "prize": None}
     assert oldest["jackpot"] == 500_000 and oldest["prizes"]["special"]["winners"] == 3
+
+
+def test_ticket_contingency_counts_the_marked_signs() -> None:
+    money_results = pd.DataFrame(
+        {
+            "season": ["2025-26", "2025-26"],
+            "strategy": ["v3d", "v3r"],
+            "picks": ["H|DH|HDA", "H|AD|H"],
+            "results": ["H|D|A", "A|A|H"],
+        }
+    )
+    out = dashboards._ticket_contingency(money_results)
+    assert out["columns"] == ["1", "X", "2", "1X", "12", "X2", "1X2"]
+    v3d = out["tables"]["all"]["v3d"]
+    # Observed 1 marked 1; observed X marked 1X (whatever order); observed 2 marked 1X2
+    assert v3d[0][0] == 1 and v3d[1][3] == 1 and v3d[2][6] == 1
+    v3r = out["tables"]["2025-26"]["v3r"]
+    assert v3r[2][0] == 1 and v3r[2][5] == 1 and v3r[0][0] == 1
+    assert dashboards._ticket_contingency(pd.DataFrame()) == {}

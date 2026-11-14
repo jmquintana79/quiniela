@@ -19,6 +19,29 @@
   </div>
 
   <section class="card" style="margin-bottom:16px">
+    <h2 id="contingency-title">Contingency tables</h2>
+    <p class="meta" style="margin:0 0 10px">
+      How many matches of each <strong>observed</strong> result (rows: what really happened) got each
+      <strong>predicted</strong> sign (columns: what the model marked). The diagonal (bold) are the hits;
+      the share under each count is of the row (how the real results of that kind were predicted).
+      Same league and season filters as the metrics.
+    </p>
+    <div class="grid two" id="contingency"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2 id="ticket-contingency-title">Contingency tables of the v3 tickets</h2>
+    <p class="meta" style="margin:0 0 10px">
+      The 14 matches of the official tickets of the euro backtest (both leagues and every other match
+      of the ticket), with what each ticket marked: rows the <strong>observed</strong> result, columns the
+      <strong>marked</strong> signs (one sign, the doubles 1X, 12, X2 and the triple 1X2). Bold cells are hits
+      (the result is among the marked signs). For v3·R a hit in a reduced match is not always a hit of
+      its best column. Season filter only.
+    </p>
+    <div class="grid two" id="ticket-contingency"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
     <h2 id="metrics-title">Metrics</h2>
     <div class="scroll" id="metrics"></div>
     <p class="meta" style="margin:10px 0 0">
@@ -269,9 +292,54 @@
     </tr>`).join("")}</tbody></table>`;
   }
 
+  const SIGNS = ["1", "X", "2"];
+
+  /** One contingency table: observed results (rows) x predicted or marked signs (columns). */
+  function contingencyCard(title, table, columns, isHit) {
+    const total = table.flat().reduce((a, b) => a + b, 0);
+    if (!total) return "";
+    const colTotals = columns.map((_, j) => table.reduce((a, row) => a + row[j], 0));
+    const body = table.map((row, i) => {
+      const rowTotal = row.reduce((a, b) => a + b, 0);
+      return `<tr><th scope="row">Observed ${SIGNS[i]}</th>${row.map((n, j) => {
+        const hit = isHit(i, j);
+        return `<td class="num ${hit ? "strong" : ""}">${n.toLocaleString("en-GB")}` +
+          `<br><span class="muted" style="font-size:11px">${rowTotal ? pct(n / rowTotal, 0) : "–"}</span></td>`;
+      }).join("")}<td class="num muted">${rowTotal.toLocaleString("en-GB")}</td></tr>`;
+    }).join("");
+    const hits = table.reduce((a, row, i) => a + row.reduce((b, n, j) => b + (isHit(i, j) ? n : 0), 0), 0);
+    return `<div><h3 style="margin:0 0 6px;font-size:14px">${title}</h3>
+      <div class="scroll"><table><thead><tr><th></th><th class="num" colspan="${columns.length}">Predicted</th><th></th></tr>
+        <tr><th></th>${columns.map((c) => `<th class="num">${c}</th>`).join("")}<th class="num">Total</th></tr></thead>
+        <tbody>${body}<tr><th scope="row" class="muted">Total</th>${colTotals.map((n) => `<td class="num muted">${n.toLocaleString("en-GB")}</td>`).join("")}
+        <td class="num muted">${total.toLocaleString("en-GB")}</td></tr></tbody></table></div>
+      <p class="meta" style="margin:4px 0 0">Hits ${hits.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} (${pct(hits / total, 1)}).</p></div>`;
+  }
+
+  function contingencyTables() {
+    const tables = DATA.contingency?.[`${state.league}|${state.season}`] || {};
+    const cards = models.filter((m) => tables[m.key]).map((m) =>
+      contingencyCard(`${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`, tables[m.key], SIGNS, (i, j) => i === j));
+    return cards.join("") || '<p class="empty">No predictions for this selection.</p>';
+  }
+
+  function ticketContingencyTables() {
+    const data = DATA.ticket_contingency || {};
+    const tables = data.tables?.[state.season] || {};
+    const signs = ["H", "D", "A"];
+    const marks = { "1": "H", "X": "D", "2": "A", "1X": "HD", "12": "HA", "X2": "DA", "1X2": "HDA" };
+    const cards = Object.keys(tables).map((key) => contingencyCard(esc(data.labels?.[key] ?? key), tables[key],
+      data.columns, (i, j) => marks[data.columns[j]].includes(signs[i])));
+    return cards.join("") || '<p class="empty">No official tickets for this season. Run <code>invoke backtest.run</code>.</p>';
+  }
+
   function render() {
     const seasonLabel = state.season === "all" ? "all seasons" : state.season;
     $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("contingency-title").textContent = `Contingency tables · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("contingency").innerHTML = contingencyTables();
+    $("ticket-contingency-title").textContent = `Contingency tables of the v3 tickets · official tickets · ${seasonLabel}`;
+    $("ticket-contingency").innerHTML = ticketContingencyTables();
     $("metrics").innerHTML = metricsTable();
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();

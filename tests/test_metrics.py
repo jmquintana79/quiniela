@@ -52,3 +52,18 @@ def test_evaluate_uses_given_signs() -> None:
     assert result["draw_picks"] == 0.5
     assert result["draw_rate"] == 0.5
     assert metrics.evaluate(np.empty((0, 3)), np.array([])) == {"matches": 0}
+
+
+def test_macro_f1_and_contingency() -> None:
+    predicted = np.array(["H", "H", "H", "A", "A", "H"])
+    real = np.array(["H", "D", "H", "A", "H", "D"])
+    # H: 2 right of 4 predicted, 3 real -> 4/7; D never predicted -> 0; A: 1 of 2, 1 real -> 2/3
+    assert metrics.macro_f1(predicted, real) == pytest.approx((4 / 7 + 0 + 2 / 3) / 3)
+    table = metrics.contingency_table(predicted, real)
+    # Rows: real H, D, A; columns: predicted H, D, A
+    assert table == [[2, 0, 1], [2, 0, 0], [0, 0, 1]]
+    assert sum(map(sum, table)) == len(real)
+    probs = np.tile([0.5, 0.3, 0.2], (len(real), 1))
+    assert metrics.evaluate(probs, real, predicted)["macro_f1"] == pytest.approx(
+        metrics.macro_f1(predicted, real)
+    )

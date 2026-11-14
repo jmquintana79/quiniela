@@ -82,7 +82,12 @@ MONEY_COLUMNS = [
     "p_hits",
     "jackpot",
     "reduction",
+    "picks",
+    "results",
 ]
+
+# Separator of the picks and results of the 14 ticket matches stored as one string
+LIST_SEPARATOR = "|"
 
 PLENO_LABELS = np.array(["0", "1", "2", "M"])
 
@@ -225,6 +230,9 @@ def _season_money(
                     p_hits.get(key, nan),
                     float(draw["jackpot"] or 0),
                     plan.reduction,
+                    # What was marked and what happened, for the contingency tables
+                    LIST_SEPARATOR.join(plan.picks),
+                    LIST_SEPARATOR.join(signs),
                 )
             )
     return rows

@@ -17,6 +17,15 @@ otherwise), over $N$ matches:
   predicting an away win:
   $\frac{1}{N}\sum_i \frac{1}{2}\sum_{k=1}^{2}
   \Big(\sum_{j \le k} p_{ij} - \sum_{j \le k} o_{ij}\Big)^2$.
+- **Macro-F1** (informative): the mean over the three signs of the F1 score
+  of the predicted sign, $F1_k = 2 P_k R_k / (P_k + R_k)$ with $P_k$ the share
+  of the predictions of $k$ that were right and $R_k$ the share of the real
+  $k$ results that were predicted; a sign never predicted scores 0. It
+  rewards predicting every sign, draws included, which is not what a
+  quiniela pays for (every hit is worth the same), so it is reported but
+  never used to choose a model.
+- **Contingency table**: how many matches of each real result (rows) got
+  each predicted sign (columns).
 - **Calibration**: predicted probabilities grouped in bins, compared with how
   often the outcome happened; a calibrated model has both close to each other.
 """
@@ -61,6 +70,41 @@ def ranked_probability_score(probs: np.ndarray, y: pd.Series | np.ndarray) -> fl
     return float(np.mean(((cumulative - observed) ** 2).sum(axis=1) / (len(OUTCOMES) - 1)))
 
 
+def macro_f1(predicted: pd.Series | np.ndarray, y: pd.Series | np.ndarray) -> float:
+    """Mean F1 score of the three signs (0 for a sign never predicted nor observed right).
+
+    Args:
+        predicted: Predicted signs (``H``, ``D``, ``A``).
+        y: Real results.
+
+    Returns:
+        The macro-averaged F1 score.
+    """
+    signs, labels = np.asarray(predicted), np.asarray(y)
+    scores = []
+    for outcome in OUTCOMES:
+        hits = float(np.sum((signs == outcome) & (labels == outcome)))
+        picked, real = float(np.sum(signs == outcome)), float(np.sum(labels == outcome))
+        scores.append(2 * hits / (picked + real) if picked + real else 0.0)
+    return float(np.mean(scores))
+
+
+def contingency_table(
+    predicted: pd.Series | np.ndarray, y: pd.Series | np.ndarray
+) -> list[list[int]]:
+    """Matches of every real result (rows) and predicted sign (columns), ``H``, ``D``, ``A`` order.
+
+    Args:
+        predicted: Predicted signs.
+        y: Real results.
+
+    Returns:
+        A 3 x 3 list of counts: ``table[real][predicted]``.
+    """
+    signs, labels = np.asarray(predicted), np.asarray(y)
+    return [[int(np.sum((labels == r) & (signs == s))) for s in OUTCOMES] for r in OUTCOMES]
+
+
 def calibration_table(
     probs: np.ndarray, y: pd.Series | np.ndarray, n_bins: int = 10
 ) -> pd.DataFrame:
@@ -103,7 +147,7 @@ def evaluate(
             them when a model uses another decision rule.
 
     Returns:
-        ``matches``, ``hit_rate``, ``log_loss``, ``brier``, ``rps``, plus
+        ``matches``, ``hit_rate``, ``log_loss``, ``brier``, ``rps``, ``macro_f1``, plus
         ``draw_picks`` (share of matches where a draw is the predicted sign)
         and ``draw_rate`` (share of real draws), to check how draws are handled.
     """
@@ -120,6 +164,7 @@ def evaluate(
         "log_loss": log_loss(probs, labels),
         "brier": brier_score(probs, labels),
         "rps": ranked_probability_score(probs, labels),
+        "macro_f1": macro_f1(signs, labels),
         "draw_picks": float(np.mean(signs == "D")),
         "draw_rate": float(np.mean(labels == "D")),
     }

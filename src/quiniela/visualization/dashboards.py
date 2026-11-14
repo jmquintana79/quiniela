@@ -1164,6 +1164,18 @@ EVALUATION_METRICS: list[dict[str, str]] = [
         "formula": "(1/N) Σᵢ ½ Σₖ₌₁² (Σⱼ≤ₖ pᵢⱼ − Σⱼ≤ₖ oᵢⱼ)²",
     },
     {
+        "key": "macro_f1",
+        "label": "Macro-F1",
+        "better": "info",
+        "format": "num",
+        "description": "Informative, never bold: the mean over 1, X and 2 of the F1 score of "
+        "the predicted sign (2 × right predictions of the sign / (its predictions + its real "
+        "results)). A sign never predicted scores 0, so it mostly shows how a model handles "
+        "draws; the quiniela pays every hit the same, so hit rate and the probability metrics "
+        "choose the model.",
+        "formula": "⅓ Σₖ 2·hitsₖ / (predictedₖ + realₖ)",
+    },
+    {
         "key": "draw_picks",
         "label": "X picks",
         "better": "info",
@@ -1387,6 +1399,71 @@ def _ticket_categories(backtest: pd.DataFrame, prizes: Any) -> dict[str, dict[st
     return out
 
 
+# Contingency tables of the tickets: the signs a ticket can mark in a match
+PICK_LABELS = {"H": "1", "D": "X", "A": "2", "HD": "1X", "HA": "12", "DA": "X2", "HDA": "1X2"}
+TICKET_CONTINGENCY = ["single", "v3d", "v3r", "v3b"]
+
+
+def _contingency(backtest: pd.DataFrame) -> dict[str, dict[str, list[list[int]]]]:
+    """Contingency table of every model (real result x predicted sign), keyed like the metrics."""
+    from quiniela.evaluation.metrics import contingency_table
+
+    played = backtest.dropna(subset=["prediction", "FTR"])
+    out: dict[str, dict[str, list[list[int]]]] = {}
+    for by in ([], ["season"], ["league"], ["season", "league"]):
+        groups = played.groupby(["model", *by])
+        for key, rows in groups:
+            values = key if isinstance(key, tuple) else (key,)
+            labels = dict(zip(["model", *by], values, strict=True))
+            name = f"{labels.get('league', 'all')}|{labels.get('season', 'all')}"
+            out.setdefault(name, {})[str(labels["model"])] = contingency_table(
+                rows["prediction"], rows["FTR"]
+            )
+    return out
+
+
+def _ticket_contingency(money_results: pd.DataFrame) -> dict[str, Any]:
+    """Real result x marked signs of the v3 tickets on the official tickets, by season.
+
+    Columns are the signs a ticket can mark in a match (1, X, 2, the doubles
+    1X, 12, X2 and the triple 1X2); keyed by season (``"all"`` for every one).
+    """
+    from quiniela.evaluation.money import LIST_SEPARATOR, MONEY_STRATEGIES
+
+    if money_results.empty or "picks" not in money_results.columns:
+        return {}
+    rows = []
+    chosen = money_results[money_results["strategy"].isin(TICKET_CONTINGENCY)]
+    for season, strategy, picks, results in zip(
+        chosen["season"], chosen["strategy"], chosen["picks"], chosen["results"], strict=True
+    ):
+        if not isinstance(picks, str) or not isinstance(results, str):
+            continue
+        for pick, result in zip(
+            picks.split(LIST_SEPARATOR), results.split(LIST_SEPARATOR), strict=True
+        ):
+            # Signs in 1, X, 2 order whatever order the planner marked them in
+            marked = "".join(o for o in "HDA" if o in pick)
+            rows.append((str(season), strategy, PICK_LABELS[marked], result))
+    if not rows:
+        return {}
+    table = pd.DataFrame(rows, columns=["season", "strategy", "pick", "result"])
+    columns = list(PICK_LABELS.values())
+    out: dict[str, Any] = {
+        "columns": columns,
+        "labels": {k: MONEY_STRATEGIES[k] for k in TICKET_CONTINGENCY if k in MONEY_STRATEGIES},
+        "tables": {},
+    }
+    for season, group in [("all", table), *table.groupby("season")]:
+        for strategy, rows_ in group.groupby("strategy"):
+            counts = pd.crosstab(rows_["result"], rows_["pick"])
+            counts = counts.reindex(index=["H", "D", "A"], columns=columns, fill_value=0)
+            out["tables"].setdefault(str(season), {})[str(strategy)] = (
+                counts.astype(int).to_numpy().tolist()
+            )
+    return out
+
+
 def evaluation_payload(
     backtest: pd.DataFrame | None = None,
     tickets: pd.DataFrame | None = None,
@@ -1448,6 +1525,10 @@ def evaluation_payload(
             models.insert(position, spec)
             position += 1
 
+    # Real result x predicted sign of every model, and of the v3 tickets (marked signs)
+    contingency = _contingency(backtest)
+    ticket_contingency = _ticket_contingency(money_results)
+
     calibration: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for league in ["all", *sorted(backtest["league"].unique())]:
         subset = backtest if league == "all" else backtest[backtest["league"] == league]
@@ -1467,6 +1548,8 @@ def evaluation_payload(
         "seasons": seasons,
         "matches": int(backtest[backtest["model"] == backtest["model"].iloc[0]].shape[0]),
         "results": results,
+        "contingency": contingency,
+        "ticket_contingency": ticket_contingency,
         "calibration": calibration,
         "confidence": _confidence_tables(backtest),
         "tickets": _ticket_tables(tickets),
