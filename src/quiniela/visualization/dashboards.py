@@ -10,7 +10,7 @@ Dashboards:
   column per model (the market reference is left out: v3 follows it
   closely), the confidence of each
   match, hit rate, quiniela ticket with the chance of each prize, and the
-  v4 ticket with doubles and triples) and the standings.
+  v3·D ticket with doubles and triples) and the standings.
 - ``season.html``: every matchday of the current season, season totals per
   model and the detail of any matchday (without the market reference).
 - ``historical.html``: completed seasons (1X2 split and goals per season,
@@ -18,7 +18,7 @@ Dashboards:
 - ``evaluation.html``: backtest metrics of every model over past seasons,
   one column per model, with the market as reference; hit rate by
   confidence tier, and the prizes of the tickets played with doubles and
-  triples (random, by eye, optimal and v4).
+  triples (random, by eye, optimal and v3·D).
 """
 
 import json
@@ -229,13 +229,13 @@ def historical_payload(historical_dir: Path = HISTORICAL_DIR, prizes: Any = None
     return {"leagues": leagues, "tickets": tickets, "categories": CATEGORY_LEGEND}
 
 
-# Key and display information of the v4 planned ticket (not a registered model:
+# Key and display information of the v3·D planned ticket (not a registered model:
 # a decision layer over the planner model's probabilities)
-PLANNED_KEY = "planned"
+PLANNED_KEY = "v3d"
 PLANNED_SPEC = {
     "key": PLANNED_KEY,
     "name": "Direct ticket",
-    "version": "v4D",
+    "version": "v3·D",
     "reference": False,
     "description": "v3 signs plus the best direct doubles and triples for a 48-bet budget, "
     "chosen to maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
@@ -243,14 +243,14 @@ PLANNED_SPEC = {
     "ticket": True,
 }
 
-# The v4 ticket that may also play one of the official reductions (v4R), next to v4D
-REDUCED_KEY = "reduced"
+# The direct ticket that may also play one of the official reductions (v3·R), next to v3·D
+REDUCED_KEY = "v3r"
 REDUCED_SPEC = {
     "key": REDUCED_KEY,
     "name": "Reduced ticket",
-    "version": "v4R",
+    "version": "v3·R",
     "reference": False,
-    "description": "Like v4D, but the 48 bets may also go to an official reduction (fewer "
+    "description": "Like v3·D, but the 48 bets may also go to an official reduction (fewer "
     "columns that cover more matches, guaranteeing 13 hits when every covered sign is right) "
     "with direct doubles and triples on other matches: the best chance of 11 or more hits. "
     "Matches marked R are in the reduction. Outside the ticket, the v3 sign.",
@@ -258,13 +258,13 @@ REDUCED_SPEC = {
 }
 
 
-# The v5 ticket in its big-win mode: also a decision layer over the planner model,
+# The v3·B ticket in its big-win mode: also a decision layer over the planner model,
 # shown when the saved LAE draws allow fitting the prize model
-MONEY_KEY = "money"
+MONEY_KEY = "v3b"
 MONEY_SPEC = {
     "key": MONEY_KEY,
     "name": "Big-win ticket",
-    "version": "v5",
+    "version": "v3·B",
     "reference": False,
     "description": "v3 signs plus the doubles and triples (at most 50 EUR) with the best chance "
     "of a prize of 10,000 EUR or more: many hits and few other winners. It loses money on "
@@ -272,10 +272,10 @@ MONEY_SPEC = {
     "ticket": True,
 }
 
-# Seed of the v5 simulations (the same plan on every rebuild)
+# Seed of the v3·B simulations (the same plan on every rebuild)
 MONEY_SEED = 0
 
-# Traffic light of the v5 big-win ticket: percentile of its chance of a large prize
+# Traffic light of the v3·B big-win ticket: percentile of its chance of a large prize
 # among the past real tickets planned the same way (backtest)
 SIGNAL_RED_AT = 25
 SIGNAL_GREEN_AT = 75
@@ -296,7 +296,7 @@ def percentile_signal(
     Args:
         value: The ticket's planned chance (e.g. of 10,000 EUR or more).
         history: Money backtest rows (``quiniela.evaluation.money``).
-        strategy: Strategy of the past tickets (``v4``, ``v5_big``).
+        strategy: Strategy of the past tickets (``v3d``, ``v3r``, ``v3b``).
         column: Their planned chance (``p_big``, ``p_hits``).
 
     Returns:
@@ -327,14 +327,14 @@ def percentile_signal(
 
 
 def big_win_signal(chance: float | None, history: pd.DataFrame) -> dict[str, Any] | None:
-    """Traffic light of the v5 big-win ticket by its chance of 10,000 EUR or more."""
-    return percentile_signal(chance, history, "v5_big", "p_big")
+    """Traffic light of the v3·B big-win ticket by its chance of 10,000 EUR or more."""
+    return percentile_signal(chance, history, "v3b", "p_big")
 
 
 def _money_matchday(
     group: pd.DataFrame, key: str, context: Any
 ) -> tuple[Any, dict[str, Any]] | None:
-    """Plan the v5 big-win ticket of a matchday, or None without a full ticket with probabilities."""
+    """Plan the v3·B big-win ticket of a matchday, or None without a full ticket with probabilities."""
     from quiniela.prediction.money import plan_big_win
     from quiniela.prediction.ticket import TICKET_SIZE
 
@@ -425,7 +425,7 @@ def _season_tickets(
 ) -> list[dict[str, Any]]:
     """Official tickets of the current season with what every model would have marked.
 
-    v1, v2 and v3 give their sign on the La Liga / Segunda matches; v4 and v5
+    v1 to v4 give their sign on the La Liga / Segunda matches; v3·D, v3·R and v3·B
     plan their doubles and triples on the 14 matches with the v3 probabilities
     (the league shares of 1, X and 2 for the matches no model predicts: the
     public's picks of past tickets were not saved); the Pleno al 15 gets
@@ -483,9 +483,9 @@ def _season_tickets(
         if len(probs) != 14:
             continue
         probs_array, crowd_array = np.array(probs), np.array(crowd)
-        v4 = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
-        v4r = plan_reduced(probs_array, max_bets=DEFAULT_MAX_BETS)
-        v5 = plan_big_win(
+        plan_d = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
+        plan_r = plan_reduced(probs_array, max_bets=DEFAULT_MAX_BETS)
+        plan_b = plan_big_win(
             probs_array,
             crowd_array,
             prizes.model,
@@ -497,26 +497,30 @@ def _season_tickets(
         )
         first14 = [m for m in ticket["matches"] if m["position"] <= 14]
         for match, planned_picks, reduced_picks, money_picks in zip(
-            first14, v4.picks, v4r.picks, v5.plan.picks, strict=True
+            first14, plan_d.picks, plan_r.picks, plan_b.plan.picks, strict=True
         ):
             match["picks"][PLANNED_KEY] = planned_picks
             match["picks"][REDUCED_KEY] = reduced_picks
             match["picks"][MONEY_KEY] = money_picks
         results = [m.get("sign") if isinstance(m.get("sign"), str) else None for m in first14]
         ticket["plans"] = {
-            PLANNED_KEY: {"doubles": v4.doubles, "triples": v4.triples, "bets": v4.bets},
+            PLANNED_KEY: {
+                "doubles": plan_d.doubles,
+                "triples": plan_d.triples,
+                "bets": plan_d.bets,
+            },
             REDUCED_KEY: {
-                "doubles": v4r.doubles,
-                "triples": v4r.triples,
-                "bets": v4r.bets,
+                "doubles": plan_r.doubles,
+                "triples": plan_r.triples,
+                "bets": plan_r.bets,
                 # Positions of the reduction's matches and the hits of the best column
-                "reduced": [first14[i]["position"] for i in v4r.reduced],
-                "hits": v4r.hits(results) if all(results) else None,
+                "reduced": [first14[i]["position"] for i in plan_r.reduced],
+                "hits": plan_r.hits(results) if all(results) else None,
             },
             MONEY_KEY: {
-                "doubles": v5.plan.doubles,
-                "triples": v5.plan.triples,
-                "bets": v5.plan.bets,
+                "doubles": plan_b.plan.doubles,
+                "triples": plan_b.plan.triples,
+                "bets": plan_b.plan.bets,
             },
         }
     return tickets
@@ -553,7 +557,7 @@ def _plan_odds(plan: Any) -> dict[str, float]:
 
 
 def _plan_summary(plan: Any) -> dict[str, Any]:
-    """Doubles, triples, bets and (v4R) reduction of a planned ticket."""
+    """Doubles, triples, bets and (v3·R) reduction of a planned ticket."""
     summary: dict[str, Any] = {
         "doubles": plan.doubles,
         "triples": plan.triples,
@@ -580,14 +584,14 @@ TICKET_SIZE_HITS = 14
 
 
 def _plan_matchday(group: pd.DataFrame, key: str, reduced: bool = False) -> dict[str, Any] | None:
-    """Plan the v4 ticket of a matchday from the probabilities of model ``key``.
+    """Plan the v3·D ticket of a matchday from the probabilities of model ``key``.
 
     Args:
         group: Matches of the matchday with ``ticket`` positions and the
             model's ``<key>_p_H``, ``<key>_p_D``, ``<key>_p_A`` columns.
         key: Model whose probabilities choose the signs.
-        reduced: Plan v4R (direct or with an official reduction) instead of
-            v4D (direct only).
+        reduced: Plan v3·R (direct or with an official reduction) instead of
+            v3·D (direct only).
 
     Returns:
         The picks and coverage per match index, the matches of the reduction,
@@ -640,8 +644,8 @@ def season_payload(
             Defaults to the downloaded data.
         predictions: Stored predictions per model key. Defaults to the saved files.
         prizes: Prize context (``quiniela.evaluation.money.PrizeContext``) for
-            the v5 money ticket and the euros won. Defaults to the saved LAE
-            draws when the predictions are the saved ones too; without it, v5
+            the v3·B big-win ticket and the euros won. Defaults to the saved LAE
+            draws when the predictions are the saved ones too; without it, v3·B
             and the euros are left out.
 
     Returns:
@@ -664,12 +668,11 @@ def season_payload(
     # Models hidden in the matchday views (the market reference) are only in the evaluation
     keys = [key for key in MODELS if key in predictions and MODELS[key].show_in_matchday]
     models = _model_specs(keys)
-    # The v4 planned ticket needs the planner model's predictions; it goes
-    # right after that model (before the references)
+    # The tickets need the planner model's predictions; they go after every model
+    # (v1, v2, v3, v4...), as v3·D, v3·R and v3·B side by side
     planned = PLANNER_MODEL in keys
     if planned:
-        position = next(i for i, m in enumerate(models) if m["key"] == PLANNER_MODEL) + 1
-        # v4D and v4R side by side
+        position = len(models)
         models.insert(position, PLANNED_SPEC)
         models.insert(position + 1, REDUCED_SPEC)
     with_money = planned and prizes is not None
@@ -679,7 +682,7 @@ def season_payload(
     # One column per model: predicted sign, its probability and, for models
     # that predict goals, the exact score and Pleno al 15 picks
     matches = current.copy()
-    # Market probabilities stand for the public in the v5 prize estimates
+    # Market probabilities stand for the public in the v3·B prize estimates
     market = predictions.get("market")
     for outcome in ("H", "D", "A"):
         matches[f"_crowd_{outcome}"] = (
@@ -747,7 +750,7 @@ def season_payload(
 
         plan = _plan_matchday(group, PLANNER_MODEL) if planned else None
         if planned:
-            # v4: the planned picks on the ticket, the planner model's sign elsewhere
+            # v3·D: the planned picks on the ticket, the planner model's sign elsewhere
             group[f"{PLANNED_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{PLANNED_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             if plan is not None:
@@ -760,7 +763,7 @@ def season_payload(
             group[f"{PLANNED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         reduced_plan = _plan_matchday(group, PLANNER_MODEL, reduced=True) if planned else None
         if planned:
-            # v4R: like v4D, with the matches of the reduction marked
+            # v3·R: like v3·D, with the matches of the reduction marked
             group[f"{REDUCED_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{REDUCED_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             group[f"{REDUCED_KEY}_source"] = None
@@ -775,7 +778,7 @@ def season_payload(
             group[f"{REDUCED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         money_plan = _money_matchday(group, PLANNER_MODEL, prizes) if with_money else None
         if with_money:
-            # v5: like v4, with the doubles and triples of the best expected prize
+            # v3·B: like v3·D, with the doubles and triples of the big-win ticket
             group[f"{MONEY_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{MONEY_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             if money_plan is not None:
@@ -790,7 +793,7 @@ def season_payload(
         summary: dict[str, Any] = {}
         for key in columns_keys:
             predicted = group[f"{key}_sign"].notna()
-            # A pick may cover several signs (doubles and triples of the v4 ticket)
+            # A pick may cover several signs (doubles and triples of the v3·D ticket)
             covered = [
                 isinstance(sign, str) and isinstance(result, str) and result in sign
                 for sign, result in zip(group[f"{key}_sign"], group["FTR"], strict=True)
@@ -900,10 +903,10 @@ def season_payload(
 def _matchday_euros(
     group: pd.DataFrame, key: str, context: Any, money_plan: Any, reduced_plan: Any = None
 ) -> dict[str, Any] | None:
-    """Cost and prize of a model's ticket in a played matchday (v3, v4 and v5 only).
+    """Cost and prize of a model's ticket in a played matchday (v3, v3·D, v3·R and v3·B only).
 
-    v3 plays one column, v4D its doubles and triples, v4R its reduced columns
-    (``reduced_plan``) and v5 its big-win ticket.
+    v3 plays one column, v3·D its doubles and triples, v3·R its reduced columns
+    (``reduced_plan``) and v3·B its big-win ticket.
     """
     from quiniela.evaluation.money import matchday_payout
     from quiniela.data.prizes import BET_PRICE
@@ -1006,7 +1009,7 @@ def current_payload(
         upcoming: ``(ticket, payload, info)`` of the next official ticket: the
             ``UpcomingTicket``, the ``season_payload`` of its matches and the
             ``info`` of ``quiniela.prediction.pipeline.predict_upcoming``.
-        money_results: Money backtest, for the traffic light of the v5
+        money_results: Money backtest, for the traffic light of the v3·B
             ticket (``big_win_signal``). Defaults to the saved one.
 
     Returns:
@@ -1041,8 +1044,8 @@ def current_payload(
     else:
         status = "completed"
 
-    # Traffic lights of the v4 and v5 tickets of the current matchday: chance of a
-    # big prize (v5) and of many hits (11+ for v4, 13+ for v5) against past tickets
+    # Traffic lights of the v3·D, v3·R and v3·B tickets of the current matchday: chance of a
+    # big prize (v3·B) and of many hits (11+ for v3·D and v3·R, 13+ for v3·B) against past tickets
     summary = (matchday or {}).get("summary", {})
     money_plan = summary.get(MONEY_KEY, {}).get("money")
     planned_plan = summary.get(PLANNED_KEY, {}).get("plan")
@@ -1054,17 +1057,17 @@ def current_payload(
     if money_plan is not None:
         money_plan["signal"] = big_win_signal(money_plan.get("chance"), money_results)
         money_plan["hits_signal"] = percentile_signal(
-            money_plan.get("chance_13"), money_results, "v5_big", "p_hits"
+            money_plan.get("chance_13"), money_results, "v3b", "p_hits"
         )
     if planned_plan is not None:
         odds = summary[PLANNED_KEY].get("odds") or {}
         planned_plan["hits_signal"] = percentile_signal(
-            odds.get("11"), money_results, "v4", "p_hits"
+            odds.get("11"), money_results, "v3d", "p_hits"
         )
     reduced_summary = summary.get(REDUCED_KEY, {}).get("plan")
     if reduced_summary is not None:
         reduced_summary["hits_signal"] = percentile_signal(
-            reduced_summary["odds"].get("11"), money_results, "v4r", "p_hits"
+            reduced_summary["odds"].get("11"), money_results, "v3r", "p_hits"
         )
 
     standings_by_league: dict[str, list[dict[str, Any]]] = {}
@@ -1080,7 +1083,7 @@ def current_payload(
             stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
             odds_downloaded = max(odds_downloaded or stamp, stamp)
 
-    # Only v3 and the tickets built on it (v4, v5): v1 and v2 stay in the season page
+    # Only v3 and the tickets built on it (v3·D, v3·R, v3·B): v1, v2 and v3·D stay in the season page
     from quiniela.prediction.planner import PLANNER_MODEL
 
     shown = (PLANNER_MODEL, PLANNED_KEY, REDUCED_KEY, MONEY_KEY)
@@ -1099,7 +1102,7 @@ def current_payload(
         "jornada": jornada,
         "deadline": deadline,
         "fixtures": fixtures,
-        # Pleno al 15 of the official ticket: the same pick on the v3, v4 and v5 tickets
+        # Pleno al 15 of the official ticket: the same pick on the v3, v3·D, v3·R and v3·B tickets
         "pleno": pleno,
     }
 
@@ -1276,14 +1279,14 @@ def _confidence_tables(backtest: pd.DataFrame) -> dict[str, dict[str, list[dict[
 
 
 def _planned_results(
-    backtest: pd.DataFrame, tickets: pd.DataFrame, strategy: str = "v4"
+    backtest: pd.DataFrame, tickets: pd.DataFrame, strategy: str = "v3d"
 ) -> dict[str, dict[str, Any]]:
-    """Hit rate and prizes of a v4 ticket (v4D or v4R), keyed by ``"<league>|<season>"``.
+    """Hit rate and prizes of a v3 ticket (v3·D or v3·R), keyed by ``"<league>|<season>"``.
 
-    v4 marks the planner model's sign in every match and, on the ticket, its
+    The ticket marks the planner model's sign in every match and, on the ticket, its
     doubles and triples: a match is a hit when its result is among the
-    marked signs (the prizes of v4R count the hits of its best column).
-    Probability metrics do not apply (v4 has v3's probabilities). Prizes are
+    marked signs (the prizes of v3·R count the hits of its best column).
+    Probability metrics do not apply (the ticket has v3's probabilities). Prizes are
     only given for both leagues together, as for the models.
     """
     from quiniela.evaluation.backtest import summarize_tickets, ticket_picks
@@ -1434,13 +1437,10 @@ def evaluation_payload(
             key = f"{row.get('league', 'all')}|{row.get('season', 'all')}"
             results.setdefault(key, {})[row["model"]] = _clean(row)
 
-    # v4 planned ticket: only hit rate and prizes, right after the planner model
-    position = next(
-        (i + 1 for i, m in enumerate(models) if m["key"] == planner.PLANNER_MODEL),
-        len(models),
-    )
-    # v4D and v4R side by side, right after v3
-    for spec, strategy in ((PLANNED_SPEC, "v4"), (REDUCED_SPEC, "v4r")):
+    # v3·D and v3·R tickets: only hit rate and prizes, after every model and
+    # before the references (the market), side by side
+    position = next((i for i, m in enumerate(models) if m.get("reference")), len(models))
+    for spec, strategy in ((PLANNED_SPEC, "v3d"), (REDUCED_SPEC, "v3r")):
         planned = _planned_results(backtest, tickets, strategy)
         for key, row in planned.items():
             results.setdefault(key, {})[str(spec["key"])] = row
@@ -1612,7 +1612,7 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
         (output_dir / name).unlink(missing_ok=True)
     from quiniela.evaluation.money import prize_context
 
-    # The season payload (with the v5 simulations) is built once for both pages
+    # The season payload (with the v3·B simulations) is built once for both pages
     prizes = prize_context()
     season = season_payload(prizes=prizes)
     return [

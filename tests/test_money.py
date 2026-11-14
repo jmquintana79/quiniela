@@ -140,7 +140,7 @@ def test_estimate_jackpot() -> None:
 def test_summarize_money() -> None:
     rows = pd.DataFrame(
         {
-            "strategy": ["v4", "v4", "v5", "v5"],
+            "strategy": ["v3d", "v3d", "v3e", "v3e"],
             "played": [True, True, True, False],
             "cost": [36.0, 36.0, 27.0, 0.0],
             "payout": [0.0, 100.0, 50.0, 0.0],
@@ -149,10 +149,10 @@ def test_summarize_money() -> None:
         }
     )
     summary = backtest_money.summarize_money(rows).set_index("strategy")
-    assert summary.loc["v4", "net"] == pytest.approx(28) and summary.loc["v4", "winning"] == 1
-    assert summary.loc["v5", "played"] == 1 and summary.loc["v5", "draws"] == 2
-    assert summary.loc["v5", "roi"] == pytest.approx(23 / 27)
-    assert summary.loc["v4", "12"] == 1
+    assert summary.loc["v3d", "net"] == pytest.approx(28) and summary.loc["v3d", "winning"] == 1
+    assert summary.loc["v3e", "played"] == 1 and summary.loc["v3e", "draws"] == 2
+    assert summary.loc["v3e", "roi"] == pytest.approx(23 / 27)
+    assert summary.loc["v3d", "12"] == 1
 
 
 def test_plan_big_win(model: money.PrizeModel) -> None:

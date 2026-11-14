@@ -36,17 +36,18 @@ model is evaluated with a walk-forward backtest against the betting market.
 - Models receive the whole match table as `X` (league, date, teams, odds and, when fitting,
   goals); the target's goals and result are removed before `predict`. Never use information
   unavailable before the match (no closing odds, no look-ahead).
-- v4 (`quiniela.prediction.planner`) is a decision layer, not a registered model: it places
-  doubles and triples on the v3 ticket. The dashboards show it as the pseudo-model `planned`;
-  the backtest replays it in `ticket_strategies` (saved to `data/backtest/tickets.parquet`).
-  It comes in two flavours shown side by side: v4D (direct tickets, pseudo-model `planned`,
-  strategy `v4`) and v4R (`quiniela.prediction.reduced`: the official reductions as covering
-  codes, pseudo-model `reduced`, strategy `v4r`); a reduced ticket's hits and prizes come from
-  its real columns (`TicketPlan.columns`), never from counting covered matches.
-- v5 (`quiniela.prediction.money`) is another decision layer (pseudo-model `money`): the
-  ticket with the best expected prize in euros, from the official draws in `data/lae/`
-  (`quiniela.data.prizes`); its backtest in euros is `quiniela.evaluation.money`
-  (`data/backtest/money.parquet`).
+- **Notation: model · ticket.** Registered models are numbered (v1 head-to-head, v2
+  Dixon-Coles, v3 DC + market, v4 pi-ratings...). Tickets are decision layers, not registered
+  models, written as the model whose probabilities they use plus a letter: **·D** direct
+  doubles and triples (`quiniela.prediction.planner`), **·R** with the official reductions
+  (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
+  (`quiniela.prediction.money`). They plan on `PLANNER_MODEL` (v3), so they are v3·D, v3·R,
+  v3·B and v3·E (called v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d`, `v3r`,
+  `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`
+  (`data/backtest/tickets.parquet`), and `v3d`, `v3r`, `v3e`, `v3e_full`, `v3e_always`, `v3b`
+  in the euro backtest `quiniela.evaluation.money` (`data/backtest/money.parquet`, from the
+  official draws in `data/lae/`, `quiniela.data.prizes`). A reduced ticket's hits and prizes
+  come from its real columns (`TicketPlan.columns`), never from counting covered matches.
 - The next official ticket (`data/lae/upcoming.json`, saved with `tools/lae_upcoming.js` in a
   browser) drives `current.html` (`quiniela.prediction.pipeline.predict_upcoming`); v3 uses its
   public picks for the matches no model covers. Matches carry a category (M, F, O, U:

@@ -13,9 +13,11 @@ Submodules:
 - ``market``: market reference (bookmakers' implied probabilities).
 - ``market_blend``: v3, learned combination of Dixon-Coles and the market.
 - ``confidence``: confidence and margin of a prediction, from its probabilities.
+- ``pi_ratings``: v4, home and away pi-ratings learned from goal differences.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
-- ``planner``: v4, doubles and triples of the quiniela ticket.
-- ``money``: v5, the ticket with the best expected prize in euros, when it pays.
+- ``planner``: the ·D ticket (direct doubles and triples of the quiniela ticket).
+- ``reduced``: the ·R ticket (official reductions of the quiniela ticket).
+- ``money``: the ·B and ·E tickets (big win and best expected prize in euros).
 - ``ticket``: quiniela ticket composition and prize rules.
 """
 
@@ -26,8 +28,10 @@ from quiniela.prediction import (
     market,
     market_blend,
     money,
+    pi_ratings,
     pipeline,
     planner,
+    reduced,
     registry,
     ticket,
 )
@@ -35,6 +39,7 @@ from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
+from quiniela.prediction.pi_ratings import PiRatingsModel
 from quiniela.prediction.registry import DEFAULT_MODEL, MODELS, ModelSpec, Predictor
 
 # Submodules are listed so the API docs (pdoc) include them
@@ -45,6 +50,7 @@ __all__ = [
     "HeadToHeadModel",
     "MarketBlendModel",
     "MarketModel",
+    "PiRatingsModel",
     "ModelSpec",
     "Predictor",
     "confidence",
@@ -53,6 +59,7 @@ __all__ = [
     "market",
     "market_blend",
     "money",
+    "pi_ratings",
     "pipeline",
     "planner",
     "reduced",

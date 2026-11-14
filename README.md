@@ -183,10 +183,10 @@ range, 2015-16 to 2025-26, has 9,262 matches, all but 21 with bookmaker odds; th
 about four minutes using every CPU core (v3 most of it). Predictions go to
 `data/backtest/predictions.parquet` and the metrics are printed and shown in the evaluation
 dashboard. Each matchday's 14-match ticket is also replayed with doubles and triples (no
-doubles, random, by eye, optimal and [v4](#v4--ticket-planner-planner)); those tickets go to
+doubles, random, by eye, optimal and [v3·D](#v3d--direct-ticket-planner)); those tickets go to
 `data/backtest/tickets.parquet` and their prizes are printed after the metrics. With the
 [official draws](#official-draws-real-tickets-winners-and-prizes) saved in `data/lae/`, the
-real tickets are then played in euros ([v5](#v5--money-ticket-money), about five more minutes)
+real tickets are then played in euros ([v3·E and v3·B](#v3e-and-v3b--money-tickets-money), about five more minutes)
 into `data/backtest/money.parquet` (the big-win mode makes this the slowest part: some fifteen
 minutes or more). See [Evaluation](#evaluation).
 
@@ -207,7 +207,7 @@ Five dashboards, each answering one question:
 
 | Dashboard | Question | Content |
 |---|---|---|
-| `current.html` | What happens this week? | Current matchday (with confidence, prize chances, the v4D and v4R tickets and the v5 big-win ticket) and standings. |
+| `current.html` | What happens this week? | Current matchday (with confidence, prize chances, the v3·D and v3·R tickets and the v3·B big-win ticket) and standings. |
 | `season.html` | How are the models doing this season? | Every matchday of the current season. |
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers, tickets with doubles and triples and real tickets in euros. |
@@ -224,10 +224,10 @@ Five dashboards, each answering one question:
   weekend matches), there are no odds and v3 predicts with Dixon-Coles only. Otherwise (no saved
   ticket, or an old one) the current matchday comes from the football-data matches. The
   official ticket also shows its **Pleno al 15**: one pick of the goals categories (0, 1, 2, M)
-  of each team, the same on the v3, v4D, v4R and v5 tickets: Dixon-Coles' most likely pair when it is
-  a La Liga / Segunda match, otherwise the categories the public marks most. The v4D, v4R and v5
+  of each team, the same on the v3, v3·D, v3·R and v3·B tickets: Dixon-Coles' most likely pair when it is
+  a La Liga / Segunda match, otherwise the categories the public marks most. The v3·D, v3·R and v3·B
   banners give the **price of their ticket** (0.75 € × 2^doubles × 3^triples bets, or the bets
-  of the reduction times its direct doubles and triples for v4R), the
+  of the reduction times its direct doubles and triples for v3·R), the
   table's footer gives every model's hits on the 14 ticket matches, and under the Pleno al 15 a
   table gives the price of each ticket (14 matches and the Pleno, which adds no bets). Before the
   draw, Loterías does not publish the date of the women's and other matches (only football-data
@@ -242,27 +242,27 @@ Five dashboards, each answering one question:
   matches. A **Confidence** column shows how predictable each match is according to v3 (the
   probability of its sign, green high, amber medium, red low; the margin over the second sign
   on hover), and the table can be sorted in ticket order or **most predictable first**. The
-  **Direct ticket v4D** column shows the v3 signs with the doubles (`1X`) and triples (`1X2`)
-  chosen by the [ticket planner](#v4--ticket-planner-planner), the **Reduced ticket v4R**
-  column the same budget with an [official reduction](#v4r--reduced-ticket-reduced) (its matches
-  marked R), side by side, and the **Big-win ticket v5**
-  column the **big-win ticket** of [v5](#v5--money-ticket-money) (only with the LAE draws
+  **Direct ticket v3·D** column shows the v3 signs with the doubles (`1X`) and triples (`1X2`)
+  chosen by the [ticket planner](#v3d--direct-ticket-planner), the **Reduced ticket v3·R**
+  column the same budget with an [official reduction](#v3r--reduced-ticket-reduced) (its matches
+  marked R), side by side, and the **Big-win ticket v3·B**
+  column the **big-win ticket** of [v3·E and v3·B](#v3e-and-v3b--money-tickets-money) (only with the LAE draws
   saved). Above the table, a status banner (upcoming, in progress or completed) and the
   14-match quiniela ticket outcome of each model, with the **chance of each prize before the
-  matchday** (10+ to 14 hits); the v5 banner adds a **chart of what can happen with its ticket**
+  matchday** (10+ to 14 hits); the v3·B banner adds a **chart of what can happen with its ticket**
   (chance of each payout range, from nothing back to 100,000 € or more), its cost, the chance of
   10,000 € or more and how much comes back on average, so the decision to play is yours; once the
-  matchday is played, the v3, v4D, v4R and v5 banners give the **euros spent and won** (real prizes of
+  matchday is played, the v3, v3·D, v3·R and v3·B banners give the **euros spent and won** (real prizes of
   the official draw when its ticket matches ours, otherwise an estimate with the prize model).
   Below, the standings of each league with
   recent form. The current matchday is the first one with matches still to play; when every
   published match has been played (e.g. during an international break, before the source
   publishes the next fixtures) the last one is shown and marked as completed. A note says when
   the odds used by v3 were downloaded (they keep moving until kick-off).
-- `dashboards/season.html`: the **current season**: totals per model and for the v4D, v4R and
-  v5 tickets (hit rate, prize tickets and, for v3, v4D, v4R and v5, euros spent and won; without
+- `dashboards/season.html`: the **current season**: totals per model and for the v3·D, v3·R and
+  v3·B tickets (hit rate, prize tickets and, for v3, v3·D, v3·R and v3·B, euros spent and won; without
   the market), a table of every matchday with each model's hits and quiniela outcome (and, for
-  v3, v4D, v4R and v5, the prize won in euros and the ticket's cost), and the detail of any matchday (same table as `current.html`). The ticket is approximated with the
+  v3, v3·D, v3·R and v3·B, the prize won in euros and the ticket's cost), and the detail of any matchday (same table as `current.html`). The ticket is approximated with the
   matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
   12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict
   goals show their exact score and Pleno al 15 picks in the tooltip.
@@ -273,11 +273,11 @@ Five dashboards, each answering one question:
   Liga and Segunda, women's football and other competitions) and results.
 - `dashboards/evaluation.html`: backtest metrics of every model, one column per model in
   registry order (benchmark first, market last as reference), by league and season, with a
-  **v4D** and a **v4R** column next to v3 that show only their hit rate and prizes (they play
+  **v3·D** and a **v3·R** column next to v3 that show only their hit rate and prizes (they play
   v3's probabilities, so the probability metrics do not apply), plus the hit rate by confidence
   tier, the prizes of the tickets played with doubles and triples (no
-  doubles, random, by eye, optimal, v4D and v4R), the **real tickets in euros** (single column,
-  v4D, v4R, v5 and v5 every draw: spent, won, net, return and best prize), the **official ticket matches by
+  doubles, random, by eye, optimal, v3·D and v3·R), the **real tickets in euros** (single column,
+  v3·D, v3·R, v3·E, v3·E every draw and v3·B: spent, won, net, return and best prize), the **official ticket matches by
   category** (how many were M, F, O or U each season, and v3's hit rate on the M ones),
   calibration charts and an explanation of each metric.
 - `dashboards/prizes.html`: every official draw saved in `data/lae/`, newest first, one row
@@ -297,10 +297,10 @@ historical) shows two columns, with a legend:
 
 football-data matches are M; the official tickets saved from LAE add the F and O ones. LAE only
 marks women's teams (since 2023-24) and men's teams (since 2026-27), so an older unmatched match
-counts as O. `current.html` only shows v3 and the tickets built on it (v4D, v4R and v5); every
+counts as O. `current.html` only shows v3 and the tickets built on it (v3·D, v3·R and v3·B); every
 model is in `season.html`, which also lists the official tickets of the season with what every
-model marked: v1, v2 and v3 their sign on the La Liga / Segunda matches, v4D, v4R and v5 their
-doubles and triples on the 14 matches (R marks the matches of v4R's reduction) (on the v3 probabilities, the league shares of 1, X and 2 where no
+model marked: v1, v2 and v3 their sign on the La Liga / Segunda matches, v3·D, v3·R and v3·B their
+doubles and triples on the 14 matches (R marks the matches of v3·R's reduction) (on the v3 probabilities, the league shares of 1, X and 2 where no
 model predicts: the public's picks of past tickets were not saved), the Pleno al 15 pick
 (Dixon-Coles) and each ticket's hits and price.
 
@@ -439,7 +439,7 @@ should be close to its average confidence. In the backtest (hit rate, share of m
 For v3 the average confidence of the high tier is 69.9% and it hits 70.8% of those matches:
 its confidence can be read at face value. v1's cannot: it says 68% and hits 51%, because its
 probabilities are too extreme. Those probabilities, and so the confidence, drive the
-doubles and triples of [v4](#v4--ticket-planner-planner).
+doubles and triples of [v3·D](#v3d--direct-ticket-planner).
 
 The metrics are implemented in
 [`quiniela/evaluation/metrics.py`](src/quiniela/evaluation/metrics.py) and the backtest in
@@ -453,6 +453,20 @@ Every model version lives in its own module, follows the scikit-learn estimator 
 and dashboard build, and each one is a new column in the dashboards, so versions can be
 compared side by side.
 
+**Notation: model · ticket.** Models are numbered (v1, v2, v3, v4...). The ways of playing a
+model's probabilities on the quiniela ticket are not models but decision layers, written as the
+model plus a letter, so new models and new tickets can be added independently:
+
+| Ticket | Letter | Module | With v3 (current) | Before v0.9.0 |
+|---|---|---|---|---|
+| Direct doubles and triples, best chance of 11+ hits within 48 bets | **·D** | `planner` | **v3·D** | v4, v4D |
+| The same budget, also with the official reductions | **·R** | `reduced` | **v3·R** | v4R |
+| Big win: best chance of 10,000 € or more within 50 € | **·B** | `money` | **v3·B** | v5 (big-win mode) |
+| Best expected prize in euros, played only when it pays (backtest only) | **·E** | `money` | **v3·E** | v5 (prudent) |
+
+The tickets plan on v3's probabilities (`PLANNER_MODEL`); a better model would give v4·D, v4·R
+and so on. Release notes before v0.9.0 keep the old names.
+
 **Backtest results** (walk-forward, seasons 2015-16 to 2025-26, 9,262 matches, both leagues;
 bold = best candidate model):
 
@@ -461,13 +475,14 @@ bold = best candidate model):
 | v1 · Head-to-head | `head_to_head` | Benchmark | 43.3% | 1.1155 | 0.6689 | 0.2261 | 15.1% | 14 / 376 |
 | v2 · Dixon-Coles | `dixon_coles` | Independent | 48.7% | 1.0215 | 0.6130 | 0.2059 | 1.2% | 27 / 376 |
 | v3 · DC + Market | `market_blend` | **Current** | **50.0%** | **1.0028** | **0.6002** | **0.2003** | 2.8% | **35 / 376** |
-| v4D · Direct ticket | `planner` | Way of playing v3 (≤ 48 bets) | 57.9% | – | – | – | – | 156 / 376 |
-| v4R · Reduced ticket | `reduced` | Way of playing v3 (≤ 48 bets) | 62.5% | – | – | – | – | **191 / 376** |
+| v4 · Pi-ratings | `pi_ratings` | Independent | 49.0% | 1.0178 | 0.6104 | 0.2048 | 0.1% | 30 / 376 |
+| v3·D · Direct ticket | `planner` | Way of playing v3 (≤ 48 bets) | 57.9% | – | – | – | – | 156 / 376 |
+| v3·R · Reduced ticket | `reduced` | Way of playing v3 (≤ 48 bets) | 62.5% | – | – | – | – | **191 / 376** |
 | Market | `market` | Reference | 50.0% | 1.0046 | 0.6013 | 0.2007 | 0.5% | 40 / 376 |
 
-*v4D and v4R are not probability models: they mark the v3 signs plus doubles and triples on the
+*v3·D and v3·R are not probability models: they mark the v3 signs plus doubles and triples on the
 ticket, so a match is a hit when its result is among the marked signs, and their probability
-metrics would be v3's. They cost up to 48 bets a matchday, against 1 for the others. v4R's
+metrics would be v3's. They cost up to 48 bets a matchday, against 1 for the others. v3·R's
 prize tickets count the hits of its best column (a reduction does not play every combination).*
 
 *Real draws: 28.3%. Always "1": 45.3%. Exact score and Pleno al 15 hit rates of v2: 14.1% and
@@ -476,10 +491,10 @@ alone in the other 21).*
 
 By league (hit rate / log-loss):
 
-| League | Always "1" | v1 | v2 | v3 | v4D (hit rate) | v4R (hit rate) | Market |
-|---|---|---|---|---|---|---|---|
-| La Liga | 45.7% | 47.0% / 1.0738 | 52.9% / 0.9784 | 53.5% / 0.9622 | 63.3% | 70.3% | 53.9% / 0.9637 |
-| Segunda | 45.0% | 40.2% / 1.1499 | 45.3% / 1.0570 | 47.1% / 1.0362 | 53.5% | 56.0% | 46.8% / 1.0384 |
+| League | Always "1" | v1 | v2 | v3 | v4 | v3·D (hit rate) | v3·R (hit rate) | Market |
+|---|---|---|---|---|---|---|---|---|
+| La Liga | 45.7% | 47.0% / 1.0738 | 52.9% / 0.9784 | 53.5% / 0.9622 | 52.8% / 0.9779 | 63.3% | 70.3% | 53.9% / 0.9637 |
+| Segunda | 45.0% | 40.2% / 1.1499 | 45.3% / 1.0570 | 47.1% / 1.0362 | 45.9% / 1.0507 | 53.5% | 56.0% | 46.8% / 1.0384 |
 
 ### v1 · Head-to-head benchmark (`head_to_head`)
 
@@ -654,7 +669,7 @@ p_k = \frac{s_k}{s_1 + s_X + s_2}, \qquad k \in \{1, X, 2\}
 ```
 
 So v3 is: **Dixon-Coles + market** where there are odds, **Dixon-Coles** where there are none
-yet, and **the public's picks** where there is no data at all. v4 and v5 plan their doubles and
+yet, and **the public's picks** where there is no data at all. v3·D, v3·R and v3·B plan their doubles and
 triples on these probabilities, so all 14 matches of the ticket count with an estimate (before,
 the matches without data got the league shares of 1, X and 2). The public's shares only exist for
 the ticket being sold (the betting page shows them; the results service does not keep them), so
@@ -719,14 +734,105 @@ With a few thousand matches, fewer parameters generalise better.
 - It loses independence: a model that uses the odds cannot claim to beat the market on its own.
   That is why v2 stays as the independent model.
 
-### v4 · Ticket planner (`planner`)
+### v4 · Pi-ratings (`pi_ratings`)
+
+[`quiniela/prediction/pi_ratings.py`](src/quiniela/prediction/pi_ratings.py)
+
+**Idea.** A rating system made for football (Constantinou & Fenton, 2013): every team has
+**two ratings, one at home and one away**, learned **match by match from the goal difference**
+(a 3-0 says more than a 1-0, with diminishing returns). Like Dixon-Coles it uses only results,
+but it adapts after every match instead of weighting a window of past matches, and each team
+has its own home advantage. It is an independent model, like v2.
+
+**Ratings and predicted goal difference.** A rating $r$ means an expected goal difference
+against an average team of
+
+```math
+\psi(r) = \operatorname{sign}(r)\left(b^{|r|/c} - 1\right), \qquad b = 10,\; c = 3
+```
+
+so the predicted goal difference of home team $h$ against away team $a$ is
+$\hat g = \psi(R^H_h) - \psi(R^A_a)$.
+
+**Learning.** After the match, with real goal difference $g$, the error $e = g - \hat g$ is
+weighted with diminishing returns and moves both teams, the rating of the ground they played at
+by the learning rate $\lambda$ and their other rating by a share $\gamma$ of that change:
+
+```math
+\phi(e) = \operatorname{sign}(e)\, c \log_b(1 + |e|)
+```
+
+```math
+\Delta R^H_h = \lambda\,\phi(e), \quad \Delta R^A_h = \gamma\,\Delta R^H_h, \qquad
+\Delta R^A_a = -\lambda\,\phi(e), \quad \Delta R^H_a = \gamma\,\Delta R^A_a
+```
+
+Every match since 1993-94 is replayed in date order, so each one is predicted with the
+ratings before it.
+
+**Promoted and relegated teams.** La Liga and Segunda teams never meet in the league, so their
+ratings are relative to their own league. A team entering a league from below (or for the first
+time) takes the mean ratings of the three lowest-rated teams of that league's previous season
+(the ones it replaces); one entering from above, of the three highest-rated ones.
+
+**From goal difference to 1X2.** An ordered logistic regression per league, fitted on the last
+five seasons of training matches (their pre-match $\hat g$):
+
+```math
+P(A) = \sigma(\theta_1 - \beta \hat g), \qquad P(A \cup D) = \sigma(\theta_2 - \beta \hat g),
+\qquad P(H) = 1 - P(A \cup D)
+```
+
+**Parameters.** $\lambda = 0.035$ (the paper's) and $\gamma = 0.9$ (0.7 in the paper), chosen on
+seasons **before** the backtest (log-loss of 2010-11 to 2014-15, mapping fitted on 2005-06 to
+2009-10): a larger learning rate overreacts and a smaller one lags. $\gamma = 1$ scores about
+the same (-0.0007) but turns the two ratings of a team into one, so the home/away split itself
+adds little.
+
+**Backtest** (same walk-forward, 2015-16 to 2025-26, 9,262 matches; see the table at the top of
+this section):
+
+| | v2 Dixon-Coles | **v4 Pi-ratings** | v3 DC + Market | Market |
+|---|---|---|---|---|
+| Hit rate | 48.7% | **49.0%** | 50.0% | 50.0% |
+| Log-loss | 1.0215 | **1.0178** | 1.0028 | 1.0046 |
+| Brier | 0.6130 | **0.6104** | 0.6002 | 0.6013 |
+| RPS | 0.2059 | **0.2048** | 0.2003 | 0.2007 |
+| Prize tickets (single column) | 27 / 376 | **30 / 376** | 35 / 376 | 40 / 376 |
+
+**Does it add anything to v3?** The same log-linear pool as v3, with the pi-ratings as one more
+term, $P(k) \propto p_{DC}^{a}\, p_{\pi}^{d}\, p_{M}^{b}\, e^{c_k}$, fitted on the backtest's
+out-of-sample forecasts of one half of the seasons and scored on the other:
+
+| Pool (trained → scored) | 2015-20 → 2020-26 | 2020-26 → 2015-20 |
+|---|---|---|
+| DC + market (v3) | **1.0038** | **1.0025** |
+| DC + pi-ratings + market | 1.0045 | 1.0031 |
+| Pi-ratings + market | 1.0045 | 1.0026 |
+
+**Observations.**
+
+- **The best independent model.** v4 beats Dixon-Coles on every probability metric over the
+  11 seasons (log-loss -0.0037, Brier -0.0026, RPS -0.0011) and wins three more single-ticket
+  prizes, in both leagues. Learning from every match, with diminishing returns for big wins,
+  works slightly better than Dixon-Coles' time-weighted strengths.
+- **It does not beat the market.** It stays 0.013 behind it in log-loss, about the same gap as
+  Dixon-Coles: the bookmakers know everything results tell, and more.
+- **Nothing on top of the market.** In the pool its weight is close to zero or negative and the
+  out-of-sample log-loss gets slightly worse, exactly as with Dixon-Coles in v3. So v3 does not
+  change and the tickets (v3·D, v3·R, v3·B) keep planning on v3. v4 matters when there are no
+  odds: it would be the better fallback than Dixon-Coles, a change left for a later version.
+- **It almost never picks a draw** (0.1% of the matches, like Dixon-Coles' 1.2%): no
+  difference of ratings is small enough to make the draw the most likely result.
+
+### v3·D · Direct ticket (`planner`)
 
 [`quiniela/prediction/planner.py`](src/quiniela/prediction/planner.py)
 
 **Idea.** Not a new probability model but a **decision layer** on top of v3: the quiniela
 allows covering more than one sign of a match. A **double** (two signs) doubles the number of
 bets and a **triple** (1, X and 2) triples it, so $d$ doubles and $t$ triples cost
-$2^d \cdot 3^t$ bets. With a fixed budget, the question is which matches get them. v4 uses
+$2^d \cdot 3^t$ bets. With a fixed budget, the question is which matches get them. v3·D uses
 the v3 probabilities to place them where they raise the chance of a prize the most.
 
 **Coverage of a match.** With the v3 probabilities sorted as
@@ -785,16 +891,16 @@ favourite. In an open match (40 / 35 / 25) a double raises the chance of a hit f
 - with **one very open match** and several middling ones (55 / 30 / 15 gains +30 with a
   double), the extra doubles pay more: **4 doubles + 1 triple** wins, the usual case.
 
-**v4D** (direct, called v4 until v0.7.2) is the default configuration of the planner: the v3 signs, a **48-bet budget** with the best mix of
+**v3·D** (direct, called v3·D until v0.7.2) is the default configuration of the planner: the v3 signs, a **48-bet budget** with the best mix of
 doubles and triples, and the target **11+ hits**. Outside the ticket it is the v3 sign. Until
 v0.4.0 the target was 10+ hits (any prize), but the [official draws](#official-draws-real-tickets-winners-and-prizes)
 show that the 10-hit prize is often not paid (below 1.50 €), so securing it is a poor goal.
 
 **Backtest.** Every matchday of 2015-16 to 2025-26 with a full ticket (376, the approximate
 ticket: La Liga then Segunda), with the v3 signs, played in seven ways. Every strategy but the
-first spends the same budget, 4 doubles and 1 triple (48 bets); v4 also chooses the mix within
+first spends the same budget, 4 doubles and 1 triple (48 bets); v3·D also chooses the mix within
 48 bets; random placements are averaged over 20 draws. Prizes are counted here; the
-[euros](#v5--money-ticket-money) come with v5, on the real tickets:
+[euros](#v3e-and-v3b--money-tickets-money) come with v3·E and v3·B, on the real tickets:
 
 | Strategy | Bets | Prizes (10+) | 14 | 13 | 12 | 11 | 10 | Mean hits | Planned chance of a prize | Real prize rate |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -802,19 +908,19 @@ first spends the same budget, 4 doubles and 1 triple (48 bets); v4 also chooses 
 | Random matches | 48 | 130.2 / 376 | 0.3 | 3.4 | 13.3 | 40.8 | 72.4 | 8.80 | 33.2% | 34.6% |
 | By eye (least predictable matches) | 48 | 158 / 376 | 0 | 10 | 20 | 55 | 73 | 9.18 | 41.0% | 42.0% |
 | Optimal, aiming at 14 hits | 48 | 154 / 376 | 0 | 8 | 21 | 53 | 72 | 9.13 | 41.2% | 41.0% |
-| Optimal, aiming at 10+ hits (v4 until v0.4.0) | 48 | 159 / 376 | 0 | 6 | 26 | 55 | 72 | 9.15 | 41.3% | 42.3% |
+| Optimal, aiming at 10+ hits (v3·D until v0.4.0) | 48 | 159 / 376 | 0 | 6 | 26 | 55 | 72 | 9.15 | 41.3% | 42.3% |
 | Optimal, aiming at 11+ hits | 48 | 156 / 376 | 0 | 8 | 24 | 55 | 69 | 9.16 | 41.3% | 41.5% |
-| **v4D** (best direct mix within 48 bets, 11+) | 47.9 | 156 / 376 | 0 | 8 | 24 | 54 | 70 | 9.16 | 41.3% | 41.5% |
-| **v4R** (best direct or reduced ticket within 48 bets, 11+, see [v4R](#v4r--reduced-ticket-reduced)) | 48 | **191 / 376** | 0 | 6 | 36 | 65 | 84 | 9.56 | 50.0% | 50.8% |
+| **v3·D** (best direct mix within 48 bets, 11+) | 47.9 | 156 / 376 | 0 | 8 | 24 | 54 | 70 | 9.16 | 41.3% | 41.5% |
+| **v3·R** (best direct or reduced ticket within 48 bets, 11+, see [v3·R](#v3r--reduced-ticket-reduced)) | 48 | **191 / 376** | 0 | 6 | 36 | 65 | 84 | 9.56 | 50.0% | 50.8% |
 
 Aiming at 11+ trades a few 10-hit tickets (70 against 76) for a few more of 11 or more (86
 against 84): the prizes that are always paid.
 
 **Observations.**
 
-- **Hit rate.** v4 hits about 58% of all the matches, against 50.0% for v3 (+8 points), and
+- **Hit rate.** v3·D hits about 58% of all the matches, against 50.0% for v3 (+8 points), and
   65.4% of the ticket matches (9.16 of 14 on average, against 7.20 for the single v3 ticket):
-  the evaluation dashboard shows it as its own column. Outside the ticket v4 is v3, so the
+  the evaluation dashboard shows it as its own column. Outside the ticket v3·D is v3, so the
   whole gain comes from the 14 ticket matches.
 - Doubles and triples placed with the v3 probabilities win **4.5 times more prizes** than the
   single ticket (156 against 35) and **20% more than placing the same bets at random** (156
@@ -823,27 +929,27 @@ against 84): the prizes that are always paid.
   against 9.3% for the single ticket): the chances shown in the dashboards can be trusted.
 - Most of the gain comes from **where** the bets go, not from the optimisation itself: the
   "by eye" rule (triples on the least predictable matches, doubles on the next ones) gets
-  158 prizes, as many as v4 (156). That difference is within luck; the planner's value is doing
+  158 prizes, as many as v3·D (156). That difference is within luck; the planner's value is doing
   it consistently and choosing the mix (with 11+ as target, 4 doubles + 1 triple in 374 of 376
   matchdays).
 - Aiming at 14 hits does not pay off with this budget: no strategy got the 1st category in
   376 matchdays (random placements, 0.25 on average), and the 14-hit target loses prizes in
   the lower categories.
 - The prizes are counted, not their money: the lower categories, the ones doubles and triples
-  win most, pay the least. In euros (real tickets and prizes, see [v5](#v5--money-ticket-money))
-  v4 loses about two thirds of what it spends.
+  win most, pay the least. In euros (real tickets and prizes, see [v3·E and v3·B](#v3e-and-v3b--money-tickets-money))
+  v3·D loses about two thirds of what it spends.
 
-### v4R · Reduced ticket (`reduced`)
+### v3·R · Reduced ticket (`reduced`)
 
 [`quiniela/prediction/reduced.py`](src/quiniela/prediction/reduced.py)
 
-**Idea.** v4D plays **direct** tickets: every combination of its doubles and triples
+**Idea.** v3·D plays **direct** tickets: every combination of its doubles and triples
 ($2^d \cdot 3^t$ bets). The official ticket also offers six **reductions**: the same doubles
 and triples covered with only some of the combinations, chosen so that every possible result is
 close to at least one column played. With the same 48 bets a reduction covers **more matches**,
 at the price of losing the guaranteed 14: if every covered sign is right, the best column has at
-most one miss (13 hits guaranteed; 12 for the 5th and 6th reductions). v4R is v4 with the
-reductions as extra candidates; v4D and v4R are shown side by side.
+most one miss (13 hits guaranteed; 12 for the 5th and 6th reductions). v3·R is v3·D with the
+reductions as extra candidates; v3·D and v3·R are shown side by side.
 
 | Reduction | Doubles | Triples | Direct bets | Bets | Guaranteed | Chance of 14 if every covered sign is right |
 |---|---|---|---|---|---|---|
@@ -865,7 +971,7 @@ found by local search for the 3rd, 4th and 6th; the tests check every guarantee.
 the column of the most likely signs. Equivalent codes give the same guarantee; the chance of 14
 can differ slightly from the official columns.
 
-**Hit distribution.** The direct matches follow the Poisson-binomial of v4D. In the $R$
+**Hit distribution.** The direct matches follow the Poisson-binomial of v3·D. In the $R$
 matches of the reduction, each sign is named by its rank $0, 1, 2$ (most to least likely; in a
 double rank 2 is the sign left out), every result $o \in \lbrace 0, 1, 2 \rbrace^R$ is
 enumerated (at most $3^7$ in the reductions that fit 48 bets) and the hits of the **best
@@ -889,14 +995,14 @@ This is exact (no simulation) and the tests check it against a brute-force enume
 way of putting it on the 10 least predictable matches (which are triples and which doubles) and
 every placement of the direct doubles and triples that still fit on the other matches are
 evaluated, about 50,000 tickets in 0.4 seconds; the ticket with the highest $P(H \ge 11)$ wins,
-with the same tie-breaks as v4D. The best direct ticket (v4D) is a candidate too, so v4R's
-planned chance is never lower than v4D's. The prizes in euros count every column the reduction
+with the same tie-breaks as v3·D. The best direct ticket (v3·D) is a candidate too, so v3·R's
+planned chance is never lower than v3·D's. The prizes in euros count every column the reduction
 really plays.
 
-**Backtest.** Same 376 matchdays and the same 48 bets as v4D (table above), and the same 414 real
+**Backtest.** Same 376 matchdays and the same 48 bets as v3·D (table above), and the same 414 real
 draws in euros:
 
-| | v4D (direct) | v4R (direct or reduced) |
+| | v3·D (direct) | v3·R (direct or reduced) |
 |---|---|---|
 | Ticket chosen | 4 doubles + 1 triple (374 of 376) | 3rd reduction + 1 direct double (289), 2nd reduction + 1 direct triple (87) |
 | Matches covered | 5 | 7 or 8 |
@@ -910,26 +1016,26 @@ draws in euros:
 
 **Observations.**
 
-- **The reduction wins every matchday.** v4R always played a reduction: covering two or three
+- **The reduction wins every matchday.** v3·R always played a reduction: covering two or three
   more matches is worth more than the 14 guaranteed when everything covered is right, which
   with 48 bets is rare anyway. It wins 35 more prize tickets (+22%), mostly 11 and 12 hits, the
   categories that are always paid.
-- **The planned chance can be trusted.** 50.0% planned against 50.8% real, as for v4D.
-- **More money back, still a loss.** On the real draws v4R gets back 49% of what it spends
-  against 35% for v4D, and it got the only 14 of the backtest (a draw of favourites, so small).
+- **The planned chance can be trusted.** 50.0% planned against 50.8% real, as for v3·D.
+- **More money back, still a loss.** On the real draws v3·R gets back 49% of what it spends
+  against 35% for v3·D, and it got the only 14 of the backtest (a draw of favourites, so small).
   It still loses half of the money: the quiniela keeps 45% of the takings.
-- **Why not in v5.** The big-win ticket looks for prizes of 10,000 € or more, which come almost
+- **Why not in v3·B.** The big-win ticket looks for prizes of 10,000 € or more, which come almost
   only from 14 hits (a 13 pays less than about 9,200 € in three draws out of four, see
   `prizes.html`), and with the same bets a direct ticket concentrates more chance on the 14
-  (and pays the chained 13s and 12s that come with it). v5 stays direct.
+  (and pays the chained 13s and 12s that come with it). v3·B stays direct.
 
-### v5 · Money ticket (`money`)
+### v3·E and v3·B · Money tickets (`money`)
 
 [`quiniela/prediction/money.py`](src/quiniela/prediction/money.py) ·
 backtest in [`quiniela/evaluation/money.py`](src/quiniela/evaluation/money.py)
 
-**Idea.** v4 maximises the chance of a prize, but a prize is shared among its winners and the
-quiniela gives back only 55% of the takings: on average every bet loses money. v5 looks at
+**Idea.** v3·D maximises the chance of a prize, but a prize is shared among its winners and the
+quiniela gives back only 55% of the takings: on average every bet loses money. v3·E (*expected prize*) looks at
 **euros**: it builds the ticket with the highest expected prize and recommends playing it **only
 when that prize is above its cost**, which could happen with a jackpot or when results the
 public does not expect are likely. In its prudent form (the default) it has never recommended
@@ -998,7 +1104,7 @@ overestimating it:
   of 11 to 13 hits by 20-50% over the real one, so the valuation uses the fitted share.
 
 **Prudent verdict.** Most of a ticket's expected prize comes from 14 hits and the Pleno al 15,
-a few times per thousand draws: a lottery that a few hundred draws cannot check. So v5 is
+a few times per thousand draws: a lottery that a few hundred draws cannot check. So v3·E is
 **prudent**: only the prizes of 10 to 13 hits count, both to choose the ticket and to decide to
 play it ($w = 0$ below); the full version ($w = 1$) counts everything:
 
@@ -1006,8 +1112,8 @@ play it ($w = 0$ below); the full version ($w = 1$) counts everything:
 \text{play} \iff E[\text{prize}_{10-13}] + w \cdot E[\text{prize}_{14 + \text{Pleno}}] > 0.75 \cdot 2^d 3^t
 ```
 
-The dashboards show the prudent verdict and, for reference, the expected net prize counting
-everything.
+v3·E is not shown in the dashboards (it never plays); its backtest is in `evaluation.html`. The
+dashboards show **v3·B**, the big-win ticket below.
 
 **Backtest in euros.** The **real tickets** of 2015-16 to 2025-26 with 10+ La Liga / Segunda
 matches (414 draws; the other matches get the home sign), paid with the **real prizes** of each
@@ -1018,20 +1124,20 @@ bets (average of the last five draws) and the announced jackpot.
 | Strategy | Draws played | Spent | Won | Net | Return | Best prize | Draws with 13 / 12 / 11 / 10 hits |
 |---|---|---|---|---|---|---|---|
 | One column, v3 signs (0.75 €) | 414 | 311 € | 101 € | -209 € | 33% | 30 € | 0 / 3 / 9 / 23 |
-| v4D: 48 bets (direct), 11+, every draw | 414 | 14,895 € | 5,270 € | -9,625 € | 35% | 1,213 € | 5 / 20 / 44 / 91 |
-| v4R: 48 bets (direct or reduced), 11+, every draw | 414 | 14,904 € | 7,268 € | -7,636 € | 49% | 985 € | 3 / 30 / 56 / 91 |
-| **v5 (prudent): only when 10-13 hits pay** | **0** | 0 € | 0 € | **0 €** | – | – | – |
-| v5 counting 14 hits and the Pleno al 15 | 143 | 3,921 € | 1,579 € | -2,342 € | 40% | 227 € | 2 / 7 / 13 / 25 |
-| Full v5 ticket every draw | 414 | 9,908 € | 4,160 € | -5,748 € | 42% | 1,213 € | 3 / 16 / 37 / 66 |
-| v5 big win: best chance of 10,000+ € within 50 €, every draw | 414 | 19,865 € | 7,278 € | -12,587 € | 37% | 791 € | 6 / 21 / 46 / 74 |
+| v3·D: 48 bets (direct), 11+, every draw | 414 | 14,895 € | 5,270 € | -9,625 € | 35% | 1,213 € | 5 / 20 / 44 / 91 |
+| v3·R: 48 bets (direct or reduced), 11+, every draw | 414 | 14,904 € | 7,268 € | -7,636 € | 49% | 985 € | 3 / 30 / 56 / 91 |
+| **v3·E (prudent): only when 10-13 hits pay** | **0** | 0 € | 0 € | **0 €** | – | – | – |
+| v3·E counting 14 hits and the Pleno al 15 | 143 | 3,921 € | 1,579 € | -2,342 € | 40% | 227 € | 2 / 7 / 13 / 25 |
+| Full v3·E ticket every draw | 414 | 9,908 € | 4,160 € | -5,748 € | 42% | 1,213 € | 3 / 16 / 37 / 66 |
+| v3·B big win: best chance of 10,000+ € within 50 €, every draw | 414 | 19,865 € | 7,278 € | -12,587 € | 37% | 791 € | 6 / 21 / 46 / 74 |
 
 *Return: euros won per euro spent; the quiniela gives back 55% on average to all players. Only
-v4R got 14 hits, once in 414 draws (2018-19, jornada 34, a draw of favourites: 862 € with all
+v3·R got 14 hits, once in 414 draws (2018-19, jornada 34, a draw of favourites: 862 € with all
 its columns).*
 
 **Observations.**
 
-- **Nothing makes money**, and the prudent v5 says so: in 11 seasons no ticket's expected
+- **Nothing makes money**, and the prudent v3·E says so: in 11 seasons no ticket's expected
   prize from 10 to 13 hits reached its cost (at most 60% of it, 42% in a typical draw), so it
   would not have played a single draw. The least bad ticket is almost always one double (two
   bets, the minimum). The quiniela keeps 45% of the takings and our probabilities are close to
@@ -1049,7 +1155,7 @@ its columns).*
   these same draws (e.g. 8 draws with a 122% return), but choosing a rule on the data that
   grades it would overfit; they are not used.
 
-**Big-win mode** (`plan_big_win`, the v5 ticket in the dashboards). The prudent v5 answers
+**Big-win mode** (`plan_big_win`, v3·B, the ticket in the dashboards). The prudent v3·E answers
 "is it worth it on average?" (never). But a quiniela player usually looks for something else:
 **a large prize at once**, accepting to lose on average. That needs many hits (13 or 14) **and**
 few other winners (results the public did not expect), and both are in one number, the chance
@@ -1081,16 +1187,16 @@ every 1,700 draws)**, 0.25 expected in the 414 draws; none came, as expected. It
 37% of the money, with six 13-hit tickets in 11 seasons (the best one 791 €, the 13-hit prizes
 of those draws being small). A large prize with 50 € a week is a matter of decades.
 
-**Traffic lights: is this a good matchday to play?** Under the v4D, v4R and v5 tickets,
+**Traffic lights: is this a good matchday to play?** Under the v3·D, v3·R and v3·B tickets,
 `current.html` shows a traffic light (green *recommended to play*, amber *undetermined*, red
 *not recommended*, each with its icon and label) for four planned chances of the tickets:
 
 | Ticket | Chance ranked | Past tickets compared |
 |---|---|---|
-| v5 (big win) | of a prize of 10,000 € or more | the big-win tickets of the 414 past official draws |
-| v5 (big win) | of 13 or more hits | the same |
-| v4D | of 11 or more hits (its target) | the v4D tickets of the same draws |
-| v4R | of 11 or more hits (its target) | the v4R tickets of the same draws |
+| v3·B (big win) | of a prize of 10,000 € or more | the big-win tickets of the 414 past official draws |
+| v3·B (big win) | of 13 or more hits | the same |
+| v3·D | of 11 or more hits (its target) | the v3·D tickets of the same draws |
+| v3·R | of 11 or more hits (its target) | the v3·R tickets of the same draws |
 
 The rule is a percentile: the ticket's chance $c$ is ranked among the chances $c_j$ the same
 strategy had in the $n$ past real tickets of the money backtest,
@@ -1100,7 +1206,7 @@ strategy had in the $n$ past real tickets of the money backtest,
 \text{green} \ge 75, \quad \text{red} \le 25, \quad \text{amber in between}
 ```
 
-The two v5 lights often disagree, and that is the point: a matchday of clear favourites gives
+The two v3·B lights often disagree, and that is the point: a matchday of clear favourites gives
 many hits (green on 13+ hits) but small prizes (red on 10,000 €), while open matches or a jackpot
 give the opposite. Both together say which kind of matchday it is: a likely but small prize, or
 a rare but large one. **No traffic light makes the quiniela profitable**: they only compare
@@ -1118,6 +1224,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.9.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.9.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, **v4 pi-ratings** (independent), tickets v3·D, v3·R and v3·B (v3·E in the backtest), market reference | New notation **model · ticket**: the tickets are decision layers over a model, so v4 → **v3·D** (direct), v4R → **v3·R** (reduced), v5 → **v3·B** (big win) and **v3·E** (prudent expected prize), freeing the version numbers for models. New model **v4 pi-ratings** (Constantinou & Fenton, 2013: home and away ratings learned from goal differences, promoted teams take the ratings of the ones they replace, ordered logistic mapping): best independent model (log-loss 1.0178 against 1.0215 for Dixon-Coles, 30 single-ticket prizes against 27), but it adds nothing to v3's pool on top of the market, so v3 and the tickets are unchanged. Dashboards: models first (v1 to v4), then the v3 tickets. |
 | [`v0.8.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.8.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, **v4D direct ticket and v4R reduced ticket**, v5 money ticket (big-win mode in the dashboards), market reference | v4 split into **v4D** (direct doubles and triples, the former v4) and **v4R** (the same 48 bets with the official reductions as candidates: covering codes with the official guarantees, exact hit distribution of the best column, direct doubles and triples on top). Backtest: v4R 191 prize tickets in 376 matchdays against 156 for v4D (planned 50.0%, real 50.8%), and 49% of the money back in 414 real draws against 35%. Both side by side in every dashboard (columns, banners, prices table, official tickets with R marks, traffic lights, evaluation and euros). |
 | [`v0.7.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.2) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | New `prizes.html` dashboard: every official draw since 2010-11 with its jackpot and, per category (14 + Pleno al 15 down to 10 hits), the prize per winner and the number of winners, plus a density chart per category on a common log euro axis (1 € to 15 M €). `season.html` matchdays table shows the prize won in euros by v3, v4 and v5. Roadmap and TODO list only pending work. |
 | [`v0.7.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Traffic lights in `current.html` (green / amber / red by the percentile among past real tickets): v5 by its chance of 10,000 € or more and of 13+ hits, v4 by its chance of 11+ hits, with the rule in small print and a red warning that none makes the quiniela profitable. The money backtest stores the planned hit chances. |
@@ -1237,17 +1344,17 @@ Pending improvements, in order of priority. The detailed plan (in Spanish) is in
    tried), its Segunda coverage, a local copy of the ratings, and matching team names between
    sources. v3 shows that Dixon-Coles adds nothing once the odds are known, so Elo has to be
    judged the same way: by what it adds on top of the market.
-2. **Playing against the crowd with the public's picks (low priority).** v5 already maximises
+2. **Playing against the crowd with the public's picks (low priority).** v3·E and v3·B already maximise
    the expected prize, with the market probabilities standing in for what the public marks.
    The official ticket file (`data/lae/upcoming.json`) holds the real share of bettors per
    sign: in close matches a slightly less likely but less popular sign can be worth more (e.g.
    X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). No official history of
    those shares exists, so it has to be built by saving the file every week; with it, the
-   prize model of v5 could use the public's own picks instead of the market, judged by the
+   prize model of v3·E and v3·B could use the public's own picks instead of the market, judged by the
    euro backtest.
 
 Other ideas:
 
-- **Pi-ratings** (Constantinou & Fenton, 2013): separate home and away ratings learned from
-  goal differences.
-- **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals.
+- **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals; the
+  [pi-ratings](#v4--pi-ratings-pi_ratings) could learn from the shots-on-target difference
+  instead of the goal difference.

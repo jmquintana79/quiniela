@@ -5,15 +5,17 @@ Segunda matches (``quiniela.data.prizes``), the ticket is played with:
 
 - ``single``: one column with the v3 signs (0.75 EUR, a reference: the
   minimum ticket is two columns);
-- ``v4``: doubles and triples for the highest chance of 11+ hits within 48 bets;
-- ``v5``: the prudent money planner (only 10 to 13-hit prizes count), only
-  when its expected net prize is positive;
-- ``v5_full``: the money planner counting every prize (14 hits and the Pleno
-  al 15 too), only when its expected net prize is positive;
-- ``v5_always``: the full planner's ticket every draw, to measure what
+- ``v3d`` (v3·D): direct doubles and triples for the highest chance of 11+
+  hits within 48 bets;
+- ``v3r`` (v3·R): the same, with the official reductions as candidates;
+- ``v3e`` (v3·E): the prudent expected-prize planner (only 10 to 13-hit
+  prizes count), only when its expected net prize is positive;
+- ``v3e_full``: the expected-prize planner counting every prize (14 hits and
+  the Pleno al 15 too), only when its expected net prize is positive;
+- ``v3e_always``: the full planner's ticket every draw, to measure what
   choosing the draws adds;
-- ``v5_big``: the big-win mode, every draw: at most 50 EUR, the ticket with
-  the best chance of a prize of 10,000 EUR or more.
+- ``v3b`` (v3·B): the big-win mode, every draw: at most 50 EUR, the ticket
+  with the best chance of a prize of 10,000 EUR or more.
 
 The other ticket matches (other competitions, women's league) get the league
 shares of 1, X and 2 as probabilities and the home sign. Payouts use the real
@@ -50,12 +52,12 @@ VOLUME_WINDOW = 5
 
 MONEY_STRATEGIES: dict[str, str] = {
     "single": "One column with the v3 signs (0.75 EUR)",
-    "v4": "v4D: best chance of 11+ hits within 48 bets (direct), every draw",
-    "v4r": "v4R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
-    "v5": "v5 (prudent): only 10-13 hit prizes count, plays only when they pay",
-    "v5_full": "v5 counting 14 hits and the Pleno al 15 too, only when it pays",
-    "v5_always": "The full v5 ticket every draw, worth it or not",
-    "v5_big": "v5 big win: best chance of 10,000+ EUR within 50 EUR, every draw",
+    "v3d": "v3·D: best chance of 11+ hits within 48 bets (direct), every draw",
+    "v3r": "v3·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
+    "v3e": "v3·E (prudent): only 10-13 hit prizes count, plays only when they pay",
+    "v3e_full": "v3·E counting 14 hits and the Pleno al 15 too, only when it pays",
+    "v3e_always": "The full v3·E ticket every draw, worth it or not",
+    "v3b": "v3·B big win: best chance of 10,000+ EUR within 50 EUR, every draw",
 }
 
 MONEY_COLUMNS = [
@@ -164,25 +166,31 @@ def _season_money(
         rng = np.random.default_rng([seed, int(draw["draw_id"]) % 2**31])
 
         nan = float("nan")
-        v4 = planner.plan_ticket(probs, max_bets=max_bets, min_hits=11)
-        v4r = reduced.plan_reduced(probs, max_bets=max_bets, min_hits=11)
+        plan_d = planner.plan_ticket(probs, max_bets=max_bets, min_hits=11)
+        plan_r = reduced.plan_reduced(probs, max_bets=max_bets, min_hits=11)
         plans: dict[str, tuple[planner.TicketPlan, float, float, bool, float]] = {
             "single": (planner.single_plan(probs, 11), nan, nan, True, nan),
-            "v4": (v4, nan, nan, True, nan),
-            "v4r": (v4r, nan, nan, True, nan),
+            "v3d": (plan_d, nan, nan, True, nan),
+            "v3r": (plan_r, nan, nan, True, nan),
         }
-        # Planned chance of many hits: 11+ for v4D and v4R (their target), 13+ for the big-win
-        p_hits = {"v4": v4.at_least(11), "v4r": v4r.at_least(11)}
+        # Planned chance of many hits: 11+ for v3·D and v3·R (their target), 13+ for v3·B
+        p_hits = {"v3d": plan_d.at_least(11), "v3r": plan_r.at_least(11)}
         signs = [OUTCOMES[r] for r in results]
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
         prudent = money.plan_money(*args, max_bets=max_bets, rng=rng)
         full = money.plan_money(*args, max_bets=max_bets, top_weight=1.0, rng=rng)
         big = money.plan_big_win(*args, rng=rng)
-        plans["v5"] = (prudent.plan, prudent.expected_net, prudent.expected_top, prudent.worth, nan)
-        plans["v5_full"] = (full.plan, full.expected_net, full.expected_top, full.worth, nan)
-        plans["v5_always"] = (full.plan, full.expected_net, full.expected_top, True, nan)
-        plans["v5_big"] = (big.plan, big.expected_payout - big.cost, nan, True, big.chance)
-        p_hits["v5_big"] = big.chance_13
+        plans["v3e"] = (
+            prudent.plan,
+            prudent.expected_net,
+            prudent.expected_top,
+            prudent.worth,
+            nan,
+        )
+        plans["v3e_full"] = (full.plan, full.expected_net, full.expected_top, full.worth, nan)
+        plans["v3e_always"] = (full.plan, full.expected_net, full.expected_top, True, nan)
+        plans["v3b"] = (big.plan, big.expected_payout - big.cost, nan, True, big.chance)
+        p_hits["v3b"] = big.chance_13
         for key, (plan, expected, expected_top, played, p_big) in plans.items():
             draw_args = (
                 winners, float(draw["takings"]), float(draw["jackpot"] or 0),
@@ -242,7 +250,7 @@ def money_backtest(
         matches: football-data matches (odds and results) of every season.
         seasons: Seasons to play. Defaults to the seasons of ``backtest``.
         model_key: Model whose probabilities choose the signs (v3).
-        max_bets: Budget of v4 and v5.
+        max_bets: Budget of v3·D, v3·R and v3·E.
         seed: Seed of the simulations.
         n_jobs: Parallel jobs (one per season).
 
@@ -390,7 +398,7 @@ def load_money(backtest_dir: Path = BACKTEST_DIR) -> pd.DataFrame:
 
 @dataclass(frozen=True)
 class PrizeContext:
-    """What the dashboards need to plan v5 and value tickets in euros.
+    """What the dashboards need to plan v3·B and value tickets in euros.
 
     Attributes:
         model: Prize model fitted on every saved draw.

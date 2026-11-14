@@ -117,7 +117,7 @@ def test_ticket_strategies() -> None:
     # The optimal plan has the best planned chance of a prize with the same budget
     planned = tickets.groupby(["strategy", "matchday"])["p_prize"].mean().unstack()
     assert (planned.loc["optimal"] >= planned.loc["heuristic"] - 1e-12).all()
-    assert (planned.loc["v4"] >= planned.loc["optimal"] - 1e-12).all()
+    assert (planned.loc["v3d"] >= planned.loc["optimal"] - 1e-12).all()
 
     summary = backtest.summarize_tickets(tickets).set_index("strategy")
     assert list(summary.index) == list(backtest.TICKET_STRATEGIES)
@@ -143,7 +143,7 @@ def test_ticket_picks() -> None:
     picks = backtest.ticket_picks(tickets)
     assert len(picks) == 14
     assert set(picks["game"]) == set(predictions["game"])
-    v4 = tickets[tickets["strategy"] == "v4"].iloc[0]
+    v4 = tickets[tickets["strategy"] == "v3d"].iloc[0]
     marked = sum(len(p) for p in picks["picks"])
     assert marked == 14 + v4["doubles"] + 2 * v4["triples"]
     assert backtest.ticket_picks(tickets.drop(columns=["picks"])).empty

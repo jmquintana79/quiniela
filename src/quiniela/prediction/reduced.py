@@ -1,4 +1,4 @@
-r"""Reduced tickets (v4R): the official reductions of the quiniela in the ticket planner.
+r"""Reduced tickets (v3·R): the official reductions of the quiniela in the ticket planner.
 
 A **direct** ticket plays every combination of its doubles and triples
 ($2^d \, 3^t$ bets). A **reduced** ticket covers the same signs with only some
@@ -46,9 +46,9 @@ blocks are independent, so the hits of the ticket are their convolution.
 the least predictable matches (the ``CANDIDATES`` with the lowest
 confidence) and every placement of the extra direct doubles and triples that
 still fit is evaluated, and the ticket with the highest $P(H \ge k)$ wins
-(ties: the chance of 14, the expected hits, then the cheaper ticket). v4R
-compares it with the best direct ticket (v4D) and keeps the better one, so
-its planned chance is never below v4D's.
+(ties: the chance of 14, the expected hits, then the cheaper ticket). v3·R
+compares it with the best direct ticket (v3·D) and keeps the better one, so
+its planned chance is never below v3·D's.
 """
 
 from dataclasses import dataclass
@@ -301,7 +301,7 @@ def plan_reduced(
     min_hits: int = DEFAULT_MIN_HITS,
     candidates: int = CANDIDATES,
 ) -> TicketPlan:
-    """Best ticket within a budget, direct or with an official reduction (v4R).
+    """Best ticket within a budget, direct or with an official reduction (v3·R).
 
     Args:
         probs: 1X2 probabilities of the ticket matches, shape ``(n, 3)``.
@@ -310,7 +310,7 @@ def plan_reduced(
         candidates: Least predictable matches the reduction may go to.
 
     Returns:
-        The best reduced ticket, or the best direct one (v4D) when no
+        The best reduced ticket, or the best direct one (v3·D) when no
         reduction beats it.
     """
     probs = np.asarray(probs, dtype=float)

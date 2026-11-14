@@ -405,7 +405,7 @@ def _pleno_pick(
 
     A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
     (from its score matrix); any other match, the categories the public marks
-    most ("Pronósticos más apostados"). The same pick goes on the v3, v4 and v5
+    most ("Pronósticos más apostados"). The same pick goes on the v3, v3·D, v3·R and v3·B
     tickets (the Pleno al 15 is a single match: no doubles).
 
     Returns:

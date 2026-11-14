@@ -1,8 +1,8 @@
-r"""Money planner (v5): the ticket with the highest expected prize in EUR, when it pays.
+r"""Money planner (the ·E and ·B tickets): the best expected prize in EUR, or a big win.
 
-v4 (``quiniela.prediction.planner``) maximises the chance of a prize. But a
+The ·D ticket (``quiniela.prediction.planner``) maximises the chance of a prize. But a
 prize is shared among its winners, and the quiniela gives back only 55% of the
-takings, so on average every bet loses money. v5 looks at euros instead: it
+takings, so on average every bet loses money. The ·E ticket (expected prize) looks at euros instead: it
 plays only when the expected prize is larger than the cost of the ticket, which
 happens with a jackpot or when results the public does not expect are likely.
 
@@ -50,7 +50,7 @@ bets, the minimum ticket), the placements with the highest chance of 11+
 hits are evaluated by simulation, and the best expected net prize is kept.
 Picking the best of many tickets on the same simulations would overestimate
 its prize (rare 14-hit prizes make the estimates noisy), so the ticket is
-chosen on one set of simulations and valued on another. v5 recommends playing
+chosen on one set of simulations and valued on another. The ·E ticket recommends playing
 only when that value is above the cost.
 
 **Big-win mode** (``plan_big_win``). Instead of the expected prize, the
@@ -62,7 +62,7 @@ average for that chance, and shows the whole payout distribution.
 and the Pleno al 15 (a few times per thousand draws): a lottery the backtest
 cannot check. By default (``top_weight = 0``) only the 10 to 13-hit prizes
 count when choosing the ticket and deciding to play it; ``top_weight = 1``
-counts everything (v5 until it was made prudent).
+counts everything (the ·E ticket until it was made prudent).
 """
 
 from dataclasses import dataclass
@@ -476,7 +476,7 @@ def plan_big_win(
     pleno_rate: float = PLENO_HIT_RATE,
     rng: np.random.Generator | None = None,
 ) -> BigWinPlan:
-    r"""Ticket with the highest chance of a large prize (big-win mode of v5).
+    r"""Ticket with the highest chance of a large prize (the ·B ticket, big win).
 
     A large prize needs two things at once: many hits (13 or 14) and few other
     winners (results the public did not expect). Both are in one number, the

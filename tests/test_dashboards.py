@@ -287,8 +287,8 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
     plan = summary[dashboards.PLANNED_KEY]["plan"]
     assert plan["bets"] <= 48 and plan["odds"]["10"] > odds["10"]
     # The least predictable match gets more than one sign on the planned ticket
-    assert len(matches["H1"]["planned_sign"]) > 1
-    assert matches["H0"]["planned_sign"] == "H"
+    assert len(matches["H1"]["v3d_sign"]) > 1
+    assert matches["H0"]["v3d_sign"] == "H"
     # v4R: never a lower planned chance of 11+ hits than v4D
     reduced = summary[dashboards.REDUCED_KEY]["plan"]
     assert reduced["bets"] <= 48 and reduced["odds"]["11"] >= plan["odds"]["11"] - 1e-9
@@ -338,7 +338,7 @@ def test_evaluation_payload_confidence_and_tickets() -> None:
             "model": "market_blend",
             "season": "2024-25",
             "matchday": 1,
-            "strategy": ["single", "v4"],
+            "strategy": ["single", "v3d"],
             "draw": 0,
             "doubles": [0, 4],
             "triples": [0, 1],
@@ -356,7 +356,7 @@ def test_evaluation_payload_confidence_and_tickets() -> None:
     assert [t["tier"] for t in tiers] == ["high", "medium", "low"]
     assert [t["matches"] for t in tiers] == [1, 1, 1]
     strategies = {r["strategy"]: r for r in payload["tickets"]["all"]}
-    assert strategies["v4"]["prizes"] == 1 and strategies["single"]["prizes"] == 0
+    assert strategies["v3d"]["prizes"] == 1 and strategies["single"]["prizes"] == 0
     assert payload["tickets"]["2024-25"]
     assert payload["ticket_budget"]["max_bets"] == 48
 
@@ -399,10 +399,10 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     assert planned["matches"] == overall["market_blend"]["matches"] == 28
     # Doubles and triples can only add hits
     assert planned["hit_rate"] >= overall["market_blend"]["hit_rate"]
-    v4 = tickets[tickets["strategy"] == "v4"]
+    v4 = tickets[tickets["strategy"] == "v3d"]
     assert planned["prizes"] == int((v4["hits"] >= 10).sum())
     assert "prizes" not in payload["results"]["SP1|all"][dashboards.PLANNED_KEY]
-    v4r = tickets[tickets["strategy"] == "v4r"]
+    v4r = tickets[tickets["strategy"] == "v3r"]
     assert overall[dashboards.REDUCED_KEY]["prizes"] == int((v4r["hits"] >= 10).sum())
 
 
@@ -505,15 +505,15 @@ def test_upcoming_view_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 @pytest.mark.parametrize(("value", "level"), [(0.9, "green"), (0.5, "amber"), (0.1, "red")])
 def test_percentile_signal(value: float, level: str) -> None:
     history = pd.DataFrame(
-        {"strategy": "v4", "p_hits": [i / 100 for i in range(100)], "p_big": float("nan")}
+        {"strategy": "v3d", "p_hits": [i / 100 for i in range(100)], "p_big": float("nan")}
     )
-    signal = dashboards.percentile_signal(value, history, "v4", "p_hits")
+    signal = dashboards.percentile_signal(value, history, "v3d", "p_hits")
     assert signal is not None and signal["level"] == level and signal["draws"] == 100
     assert signal["low"] == pytest.approx(0.2475) and signal["high"] == pytest.approx(0.7425)
     # Other strategies, missing columns or too few past tickets: no light
-    assert dashboards.percentile_signal(value, history, "v5_big", "p_hits") is None
+    assert dashboards.percentile_signal(value, history, "v3b", "p_hits") is None
     assert dashboards.big_win_signal(value, history) is None
-    assert dashboards.percentile_signal(None, history, "v4", "p_hits") is None
+    assert dashboards.percentile_signal(None, history, "v3d", "p_hits") is None
 
 
 def test_prizes_payload() -> None:

@@ -21,6 +21,7 @@ from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
+from quiniela.prediction.pi_ratings import PiRatingsModel
 
 
 class Predictor(Protocol):
@@ -86,6 +87,14 @@ MODELS: dict[str, ModelSpec] = {
         description="Log-linear pool of the Dixon-Coles and market probabilities, "
         "trained on out-of-sample forecasts; Dixon-Coles alone without odds.",
         version="v3",
+    ),
+    "pi_ratings": ModelSpec(
+        name="Pi-ratings",
+        factory=PiRatingsModel,
+        description="Separate home and away ratings of every team, learned match by match "
+        "from goal differences (Constantinou & Fenton, 2013), mapped to 1X2 by an ordered "
+        "logistic regression.",
+        version="v4",
     ),
     "market": ModelSpec(
         name="Market",

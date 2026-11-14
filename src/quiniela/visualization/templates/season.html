@@ -22,7 +22,7 @@
     <h2>Matchdays</h2>
     <div class="scroll" id="overview"></div>
     <p class="meta" style="margin:10px 0 0">Click a matchday to open it below. The current matchday is
-      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v4D, v4R and v5
+      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v3·D, v3·R and v3·B
       tickets with the real prizes of the official draw (* estimated with the prize model when the draw is
       not saved), and the cost of the ticket below; the 10-hit prize is not paid when it falls under 1.50 €.</p>
   </section>
@@ -39,7 +39,7 @@
     <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
     <p class="meta" style="margin:0 0 10px">Every official ticket of the season saved from Loterías y Apuestas del Estado,
       with all its matches and what every model marked: v1, v2 and v3 their sign on the La Liga / Segunda
-      matches, v4D, v4R and v5 their doubles and triples on the 14 matches (v4R may play an official
+      matches, v3·D, v3·R and v3·B their doubles and triples on the 14 matches (v3·R may play an official
       reduction: R marks its matches) (with the v3 probabilities; the league
       shares of 1, X and 2 where no model predicts), and the Pleno al 15 pick (Dixon-Coles' goals categories)
       when it is a La Liga / Segunda match. ✓ hit · ✗ miss. The footer gives the hits and the price of each ticket.</p>
@@ -76,14 +76,14 @@
         <div class="label">${modelLabel(m)}</div>
         <div class="value">${pct(t.rate, 1)}</div>
         <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
-        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets${["planned", "reduced"].includes(m.key) ? " · up to 48 bets each" : ""}</div>
-        ${t.euros ? `<div class="detail">Euros: spent ${eur(t.euros.cost)}, won ${eur(t.euros.payout)} · net ${t.euros.payout - t.euros.cost >= 0 ? "+" : ""}${eur(t.euros.payout - t.euros.cost)}${m.key === "money" ? ` · played ${t.euros.played}` : ""}</div>` : ""}
+        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets${["v3d", "v3r"].includes(m.key) ? " · up to 48 bets each" : ""}</div>
+        ${t.euros ? `<div class="detail">Euros: spent ${eur(t.euros.cost)}, won ${eur(t.euros.payout)} · net ${t.euros.payout - t.euros.cost >= 0 ? "+" : ""}${eur(t.euros.payout - t.euros.cost)}${m.key === "v3b" ? ` · played ${t.euros.played}` : ""}</div>` : ""}
       </div>`;
     }).join("");
   }
 
-  // Euros are only computed for the tickets that are actually bought: v3, v4D, v4R and v5
-  const PRIZE_KEYS = ["market_blend", "planned", "reduced", "money"];
+  // Euros are only computed for the tickets that are actually bought: v3, v3·D, v3·R and v3·B
+  const PRIZE_KEYS = ["market_blend", "v3d", "v3r", "v3b"];
 
   /** Prize won in euros, with the cost of the ticket below it. */
   function prizeCell(e) {
