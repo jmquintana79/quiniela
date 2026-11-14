@@ -23,10 +23,11 @@
     <div class="scroll" id="metrics"></div>
     <p class="meta" style="margin:10px 0 0">
       <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
-      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v4</strong> is not a
-      probability model but a way of playing v3: the v3 signs with doubles and triples on the
-      ticket (up to 48 bets a matchday), so only its hit rate (a double or triple is a hit when
-      the result is among its signs) and prizes are shown, and it is never bold.
+      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v4D</strong> and <strong>v4R</strong> are not
+      probability models but ways of playing v3: the v3 signs with doubles and triples on the
+      ticket (up to 48 bets a matchday; v4R may also play an official reduction), so only their hit
+      rate (a double or triple is a hit when the result is among its signs) and prizes are shown
+      (v4R's prizes count the hits of its best column), and they are never bold.
     </p>
   </section>
 
@@ -204,8 +205,9 @@
     $("tickets-note").innerHTML = rows.length
       ? `Every matchday's 14-match ticket with the signs of ${esc(model?.name ?? b.model)} ${esc(model?.version ?? "")}, played in
         different ways. Every strategy except the first spends the same budget: ${b.doubles} doubles and ${b.triples}
-        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v4 also chooses the mix within
-        ${b.max_bets} bets. Random placements are averaged over ${b.random_draws} draws. Planned chance: average probability of
+        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v4D also chooses the mix within
+        ${b.max_bets} bets, and v4R may also play an official reduction (fewer columns covering more matches) in that
+        budget. Random placements are averaged over ${b.random_draws} draws. Planned chance: average probability of
         10+ hits computed before the matchday; it should match the real prize rate. Both leagues (the ticket mixes them).`
       : "No ticket results yet. Run <code>invoke backtest.run</code>.";
     if (!rows.length) return "";

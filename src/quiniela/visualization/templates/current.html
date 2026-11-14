@@ -108,7 +108,7 @@
         `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
     return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
       <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
-        <th class="num">Pick on the v3, v4 and v5 tickets</th></tr></thead><tbody><tr>
+        <th class="num">Pick on the v3, v4D, v4R and v5 tickets</th></tr></thead><tbody><tr>
         <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
@@ -124,14 +124,21 @@
     const rows = DATA.models.map((m) => {
       const plan = md.summary[m.key]?.plan;
       const bets = plan?.bets ?? 1;
-      const marks = plan ? `${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} triple${plan.triples === 1 ? "" : "s"}` : "one sign per match";
+      const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+      const r = plan?.reduction;
+      // v4R may play an official reduction (fewer columns), times its direct doubles and triples
+      const direct = r ? [r.direct_doubles ? plural(r.direct_doubles, "direct double") : "",
+        r.direct_triples ? plural(r.direct_triples, "direct triple") : ""].filter(Boolean).join(" + ") : "";
+      const marks = r ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets)${direct ? ` + ${direct}` : ""}`
+        : plan ? `${plural(plan.doubles, "double")} + ${plural(plan.triples, "triple")}` : "one sign per match";
       return `<tr><td>${modelLabel(m)}</td><td>${marks}</td><td class="num">${bets}</td><td class="num strong">${eur(bets * 0.75)}</td></tr>`;
     }).join("");
     return `<h3 style="margin:14px 0 6px;font-size:14px">Price of each ticket</h3>
       <table><thead><tr><th>Ticket</th><th>Marks</th><th class="num">Bets</th><th class="num">Price</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <p class="meta" style="margin:6px 0 0">14 matches and the Pleno al 15. Each bet costs 0.75 €; doubles and triples
-        multiply the bets (2 and 3 each). The Pleno al 15 is one pick per ticket and adds no bets.</p>`;
+        multiply the bets (2 and 3 each); a reduction plays only some of the combinations of its doubles and triples.
+        The Pleno al 15 is one pick per ticket and adds no bets.</p>`;
   }
 
   function showStandings(i) {
@@ -140,7 +147,7 @@
   }
 
   $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only v3 and the tickets built on it (v4, v5) are shown here; every model is in season.html.";
+    "<br>Only v3 and the tickets built on it (v4D, v4R, v5) are shown here; every model is in season.html.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;
     $("meta").textContent = DATA.jornada ? "Official ticket · current season"

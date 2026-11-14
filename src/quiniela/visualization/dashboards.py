@@ -234,12 +234,26 @@ def historical_payload(historical_dir: Path = HISTORICAL_DIR, prizes: Any = None
 PLANNED_KEY = "planned"
 PLANNED_SPEC = {
     "key": PLANNED_KEY,
-    "name": "Planned ticket",
-    "version": "v4",
+    "name": "Direct ticket",
+    "version": "v4D",
     "reference": False,
-    "description": "v3 signs plus the best doubles and triples for a 48-bet budget, chosen to "
-    "maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
+    "description": "v3 signs plus the best direct doubles and triples for a 48-bet budget, "
+    "chosen to maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
     # A way of playing, not a probability model: never "best model" in the evaluation
+    "ticket": True,
+}
+
+# The v4 ticket that may also play one of the official reductions (v4R), next to v4D
+REDUCED_KEY = "reduced"
+REDUCED_SPEC = {
+    "key": REDUCED_KEY,
+    "name": "Reduced ticket",
+    "version": "v4R",
+    "reference": False,
+    "description": "Like v4D, but the 48 bets may also go to an official reduction (fewer "
+    "columns that cover more matches, guaranteeing 13 hits when every covered sign is right) "
+    "with direct doubles and triples on other matches: the best chance of 11 or more hits. "
+    "Matches marked R are in the reduction. Outside the ticket, the v3 sign.",
     "ticket": True,
 }
 
@@ -420,6 +434,7 @@ def _season_tickets(
     from quiniela.data.prizes import official_tickets
     from quiniela.prediction.money import plan_big_win
     from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket
+    from quiniela.prediction.reduced import plan_reduced
 
     if prizes is None or current.empty or "season" not in current.columns:
         return []
@@ -469,6 +484,7 @@ def _season_tickets(
             continue
         probs_array, crowd_array = np.array(probs), np.array(crowd)
         v4 = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
+        v4r = plan_reduced(probs_array, max_bets=DEFAULT_MAX_BETS)
         v5 = plan_big_win(
             probs_array,
             crowd_array,
@@ -480,11 +496,23 @@ def _season_tickets(
             rng=np.random.default_rng([MONEY_SEED, number]),
         )
         first14 = [m for m in ticket["matches"] if m["position"] <= 14]
-        for match, planned_picks, money_picks in zip(first14, v4.picks, v5.plan.picks, strict=True):
+        for match, planned_picks, reduced_picks, money_picks in zip(
+            first14, v4.picks, v4r.picks, v5.plan.picks, strict=True
+        ):
             match["picks"][PLANNED_KEY] = planned_picks
+            match["picks"][REDUCED_KEY] = reduced_picks
             match["picks"][MONEY_KEY] = money_picks
+        results = [m.get("sign") if isinstance(m.get("sign"), str) else None for m in first14]
         ticket["plans"] = {
             PLANNED_KEY: {"doubles": v4.doubles, "triples": v4.triples, "bets": v4.bets},
+            REDUCED_KEY: {
+                "doubles": v4r.doubles,
+                "triples": v4r.triples,
+                "bets": v4r.bets,
+                # Positions of the reduction's matches and the hits of the best column
+                "reduced": [first14[i]["position"] for i in v4r.reduced],
+                "hits": v4r.hits(results) if all(results) else None,
+            },
             MONEY_KEY: {
                 "doubles": v5.plan.doubles,
                 "triples": v5.plan.triples,
@@ -516,35 +544,77 @@ def _ticket_odds(coverage: np.ndarray) -> dict[str, float]:
     return {str(k): round(v, 5) for k, v in category_probabilities(coverage).items()}
 
 
-def _plan_matchday(group: pd.DataFrame, key: str) -> dict[str, Any] | None:
+def _plan_odds(plan: Any) -> dict[str, float]:
+    """Chance of each prize category of a planned ticket, from its hit distribution."""
+    dist = plan.distribution
+    odds = {str(k): float(dist[k:].sum()) for k in range(10, 14)}
+    odds["14"] = float(dist[14])
+    return {k: round(v, 5) for k, v in odds.items()}
+
+
+def _plan_summary(plan: Any) -> dict[str, Any]:
+    """Doubles, triples, bets and (v4R) reduction of a planned ticket."""
+    summary: dict[str, Any] = {
+        "doubles": plan.doubles,
+        "triples": plan.triples,
+        "bets": plan.bets,
+        "odds": _plan_odds(plan),
+    }
+    if plan.reduction is not None:
+        from quiniela.prediction.reduced import REDUCTIONS
+
+        reduction = REDUCTIONS[plan.reduction]
+        summary["reduction"] = {
+            "number": reduction.number,
+            "label": reduction.label,
+            "bets": reduction.bets,
+            "guarantee": TICKET_SIZE_HITS - reduction.guarantee,
+            "direct_doubles": plan.doubles - reduction.doubles,
+            "direct_triples": plan.triples - reduction.triples,
+        }
+    return summary
+
+
+# Hits of a full ticket (the guarantee of a reduction is counted from it)
+TICKET_SIZE_HITS = 14
+
+
+def _plan_matchday(group: pd.DataFrame, key: str, reduced: bool = False) -> dict[str, Any] | None:
     """Plan the v4 ticket of a matchday from the probabilities of model ``key``.
 
     Args:
         group: Matches of the matchday with ``ticket`` positions and the
             model's ``<key>_p_H``, ``<key>_p_D``, ``<key>_p_A`` columns.
         key: Model whose probabilities choose the signs.
+        reduced: Plan v4R (direct or with an official reduction) instead of
+            v4D (direct only).
 
     Returns:
-        The picks and coverage per match index, plus the plan summary, or
-        ``None`` without a full ticket with probabilities.
+        The picks and coverage per match index, the matches of the reduction,
+        the plan itself and its summary, or ``None`` without a full ticket
+        with probabilities.
     """
     from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket
+    from quiniela.prediction.reduced import plan_reduced
     from quiniela.prediction.ticket import TICKET_SIZE
 
     ticket = _fill_unpredicted(group.dropna(subset=["ticket"]).sort_values("ticket"), key)
     columns = [f"{key}_p_{o}" for o in ("H", "D", "A")]
     if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
         return None
-    plan = plan_ticket(ticket[columns].to_numpy(dtype=float), max_bets=DEFAULT_MAX_BETS)
+    probs = ticket[columns].to_numpy(dtype=float)
+    plan = (
+        plan_reduced(probs, max_bets=DEFAULT_MAX_BETS)
+        if reduced
+        else plan_ticket(probs, max_bets=DEFAULT_MAX_BETS)
+    )
     return {
         "picks": dict(zip(ticket.index, plan.picks, strict=True)),
         "coverage": dict(zip(ticket.index, plan.coverage, strict=True)),
-        "summary": {
-            "doubles": plan.doubles,
-            "triples": plan.triples,
-            "bets": plan.bets,
-            "odds": _ticket_odds(plan.coverage),
-        },
+        "reduced": [ticket.index[i] for i in plan.reduced],
+        "index": list(ticket.index),
+        "plan": plan,
+        "summary": _plan_summary(plan),
     }
 
 
@@ -599,10 +669,12 @@ def season_payload(
     planned = PLANNER_MODEL in keys
     if planned:
         position = next(i for i, m in enumerate(models) if m["key"] == PLANNER_MODEL) + 1
+        # v4D and v4R side by side
         models.insert(position, PLANNED_SPEC)
+        models.insert(position + 1, REDUCED_SPEC)
     with_money = planned and prizes is not None
     if with_money:
-        models.insert(position + 1, MONEY_SPEC)
+        models.insert(position + 2, MONEY_SPEC)
 
     # One column per model: predicted sign, its probability and, for models
     # that predict goals, the exact score and Pleno al 15 picks
@@ -686,6 +758,21 @@ def season_payload(
                 )
             group[f"{PLANNED_KEY}_conf"] = group[f"{PLANNED_KEY}_prob"]
             group[f"{PLANNED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
+        reduced_plan = _plan_matchday(group, PLANNER_MODEL, reduced=True) if planned else None
+        if planned:
+            # v4R: like v4D, with the matches of the reduction marked
+            group[f"{REDUCED_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
+            group[f"{REDUCED_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
+            group[f"{REDUCED_KEY}_source"] = None
+            if reduced_plan is not None:
+                picks = pd.Series(reduced_plan["picks"], dtype=object)
+                group.loc[picks.index, f"{REDUCED_KEY}_sign"] = picks
+                group.loc[picks.index, f"{REDUCED_KEY}_prob"] = (
+                    pd.Series(reduced_plan["coverage"]).round(4).to_numpy()
+                )
+                group.loc[reduced_plan["reduced"], f"{REDUCED_KEY}_source"] = "reduced"
+            group[f"{REDUCED_KEY}_conf"] = group[f"{REDUCED_KEY}_prob"]
+            group[f"{REDUCED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         money_plan = _money_matchday(group, PLANNER_MODEL, prizes) if with_money else None
         if with_money:
             # v5: like v4, with the doubles and triples of the best expected prize
@@ -710,9 +797,17 @@ def season_payload(
             ]
             hit = played & predicted & pd.Series(covered, index=group.index)
             miss = played & predicted & ~hit
+            ticket_hits = int((hit & in_ticket).sum())
+            if key == REDUCED_KEY and reduced_plan is not None:
+                # A reduced ticket does not play every combination: hits of its best column
+                results = [
+                    r if isinstance(r, str) else None
+                    for r in group.loc[reduced_plan["index"], "FTR"]
+                ]
+                ticket_hits = reduced_plan["plan"].hits(results)
             ticket = evaluate_ticket(
                 size=int(in_ticket.sum()),
-                hits=int((hit & in_ticket).sum()),
+                hits=ticket_hits,
                 pending=int((in_ticket & ~played).sum()),
             )
             summary[key] = {
@@ -729,10 +824,17 @@ def season_payload(
             }
             if key == PLANNED_KEY and plan is not None:
                 summary[key]["plan"] = plan["summary"]
+            if key == REDUCED_KEY and reduced_plan is not None:
+                summary[key]["plan"] = reduced_plan["summary"]
+                summary[key]["odds"] = reduced_plan["summary"]["odds"]
             if key == MONEY_KEY and money_plan is not None:
                 summary[key]["plan"] = money_plan[1]["summary"]
                 summary[key]["money"] = money_plan[1]["summary"]
-            euros = _matchday_euros(group, key, prizes, money_plan) if with_money else None
+            euros = (
+                _matchday_euros(group, key, prizes, money_plan, reduced_plan)
+                if with_money
+                else None
+            )
             if euros is not None:
                 summary[key]["euros"] = euros
                 spent = totals[key].setdefault("euros", {"cost": 0.0, "payout": 0.0, "played": 0})
@@ -753,7 +855,7 @@ def season_payload(
         ]
         columns += [c for k in keys for c in (f"{k}_score", f"{k}_pleno") if c in group.columns]
         columns += ["category", "quiniela"]
-        columns += [f"{k}_source" for k in keys if f"{k}_source" in group.columns]
+        columns += [f"{k}_source" for k in [*keys, REDUCED_KEY] if f"{k}_source" in group.columns]
         if "_kickoff_known" in group.columns:
             # Matches of the official ticket without a football-data fixture have no date yet
             group["kickoff_known"] = group["_kickoff_known"]
@@ -796,18 +898,19 @@ def season_payload(
 
 
 def _matchday_euros(
-    group: pd.DataFrame, key: str, context: Any, money_plan: Any
+    group: pd.DataFrame, key: str, context: Any, money_plan: Any, reduced_plan: Any = None
 ) -> dict[str, Any] | None:
     """Cost and prize of a model's ticket in a played matchday (v3, v4 and v5 only).
 
-    v3 plays one column, v4 its doubles and triples and v5 its big-win ticket.
+    v3 plays one column, v4D its doubles and triples, v4R its reduced columns
+    (``reduced_plan``) and v5 its big-win ticket.
     """
     from quiniela.evaluation.money import matchday_payout
     from quiniela.data.prizes import BET_PRICE
     from quiniela.prediction.planner import PLANNER_MODEL
     from quiniela.prediction.ticket import TICKET_SIZE
 
-    if key not in (PLANNER_MODEL, PLANNED_KEY, MONEY_KEY):
+    if key not in (PLANNER_MODEL, PLANNED_KEY, REDUCED_KEY, MONEY_KEY):
         return None
     ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
     if (
@@ -818,6 +921,11 @@ def _matchday_euros(
         return None
     picks = [str(p) for p in ticket[f"{key}_sign"]]
     bets = int(np.prod([len(p) for p in picks]))
+    columns = None
+    if key == REDUCED_KEY and reduced_plan is not None:
+        plan = reduced_plan["plan"]
+        bets = plan.bets
+        columns = plan.columns(list(ticket["FTR"]))
     # The big-win ticket is played every matchday (within its weekly budget)
     played = True
     if not played:
@@ -826,7 +934,9 @@ def _matchday_euros(
     fallback = ticket[[f"{PLANNER_MODEL}_p_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float)
     missing = np.isnan(crowd).any(axis=1)
     crowd[missing] = fallback[missing]
-    result = matchday_payout(context, ticket[["league", "game"]], picks, list(ticket["FTR"]), crowd)
+    result = matchday_payout(
+        context, ticket[["league", "game"]], picks, list(ticket["FTR"]), crowd, columns
+    )
     return {
         "cost": round(BET_PRICE * bets, 2),
         "payout": round(float(result["payout"]), 2),  # type: ignore[arg-type]
@@ -936,7 +1046,7 @@ def current_payload(
     summary = (matchday or {}).get("summary", {})
     money_plan = summary.get(MONEY_KEY, {}).get("money")
     planned_plan = summary.get(PLANNED_KEY, {}).get("plan")
-    if money_plan is not None or planned_plan is not None:
+    if money_plan is not None or planned_plan is not None or REDUCED_KEY in summary:
         if money_results is None:
             from quiniela.evaluation.money import load_money
 
@@ -950,6 +1060,11 @@ def current_payload(
         odds = summary[PLANNED_KEY].get("odds") or {}
         planned_plan["hits_signal"] = percentile_signal(
             odds.get("11"), money_results, "v4", "p_hits"
+        )
+    reduced_summary = summary.get(REDUCED_KEY, {}).get("plan")
+    if reduced_summary is not None:
+        reduced_summary["hits_signal"] = percentile_signal(
+            reduced_summary["odds"].get("11"), money_results, "v4r", "p_hits"
         )
 
     standings_by_league: dict[str, list[dict[str, Any]]] = {}
@@ -968,7 +1083,7 @@ def current_payload(
     # Only v3 and the tickets built on it (v4, v5): v1 and v2 stay in the season page
     from quiniela.prediction.planner import PLANNER_MODEL
 
-    shown = (PLANNER_MODEL, PLANNED_KEY, MONEY_KEY)
+    shown = (PLANNER_MODEL, PLANNED_KEY, REDUCED_KEY, MONEY_KEY)
     return {
         "models": [m for m in season["models"] if m["key"] in shown],
         "leagues": season["leagues"],
@@ -1160,18 +1275,21 @@ def _confidence_tables(backtest: pd.DataFrame) -> dict[str, dict[str, list[dict[
     return out
 
 
-def _planned_results(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[str, dict[str, Any]]:
-    """Hit rate and prizes of the v4 planned ticket, keyed by ``"<league>|<season>"``.
+def _planned_results(
+    backtest: pd.DataFrame, tickets: pd.DataFrame, strategy: str = "v4"
+) -> dict[str, dict[str, Any]]:
+    """Hit rate and prizes of a v4 ticket (v4D or v4R), keyed by ``"<league>|<season>"``.
 
     v4 marks the planner model's sign in every match and, on the ticket, its
     doubles and triples: a match is a hit when its result is among the
-    marked signs. Probability metrics do not apply (v4 has v3's probabilities).
-    Prizes are only given for both leagues together, as for the models.
+    marked signs (the prizes of v4R count the hits of its best column).
+    Probability metrics do not apply (v4 has v3's probabilities). Prizes are
+    only given for both leagues together, as for the models.
     """
     from quiniela.evaluation.backtest import summarize_tickets, ticket_picks
     from quiniela.prediction.planner import PLANNER_MODEL
 
-    picks = ticket_picks(tickets)
+    picks = ticket_picks(tickets, strategy)
     base = backtest[backtest["model"] == PLANNER_MODEL].dropna(subset=["prediction", "FTR"])
     if picks.empty or base.empty:
         return {}
@@ -1192,7 +1310,7 @@ def _planned_results(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[str,
             league_season = f"{labels.get('league', 'all')}|{labels.get('season', 'all')}"
             out[league_season] = {"matches": len(rows), "hit_rate": float(rows["_hit"].mean())}
 
-    planned = tickets[tickets["strategy"] == "v4"]
+    planned = tickets[tickets["strategy"] == strategy]
     for by in ([], ["season"]):
         for row in summarize_tickets(planned, by).to_dict(orient="records"):
             key = f"all|{row.get('season', 'all')}"
@@ -1317,15 +1435,18 @@ def evaluation_payload(
             results.setdefault(key, {})[row["model"]] = _clean(row)
 
     # v4 planned ticket: only hit rate and prizes, right after the planner model
-    planned = _planned_results(backtest, tickets)
-    for key, row in planned.items():
-        results.setdefault(key, {})[PLANNED_KEY] = row
-    if planned:
-        position = next(
-            (i + 1 for i, m in enumerate(models) if m["key"] == planner.PLANNER_MODEL),
-            len(models),
-        )
-        models.insert(position, PLANNED_SPEC)
+    position = next(
+        (i + 1 for i, m in enumerate(models) if m["key"] == planner.PLANNER_MODEL),
+        len(models),
+    )
+    # v4D and v4R side by side, right after v3
+    for spec, strategy in ((PLANNED_SPEC, "v4"), (REDUCED_SPEC, "v4r")):
+        planned = _planned_results(backtest, tickets, strategy)
+        for key, row in planned.items():
+            results.setdefault(key, {})[str(spec["key"])] = row
+        if planned:
+            models.insert(position, spec)
+            position += 1
 
     calibration: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for league in ["all", *sorted(backtest["league"].unique())]:

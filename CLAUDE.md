@@ -39,6 +39,10 @@ model is evaluated with a walk-forward backtest against the betting market.
 - v4 (`quiniela.prediction.planner`) is a decision layer, not a registered model: it places
   doubles and triples on the v3 ticket. The dashboards show it as the pseudo-model `planned`;
   the backtest replays it in `ticket_strategies` (saved to `data/backtest/tickets.parquet`).
+  It comes in two flavours shown side by side: v4D (direct tickets, pseudo-model `planned`,
+  strategy `v4`) and v4R (`quiniela.prediction.reduced`: the official reductions as covering
+  codes, pseudo-model `reduced`, strategy `v4r`); a reduced ticket's hits and prizes come from
+  its real columns (`TicketPlan.columns`), never from counting covered matches.
 - v5 (`quiniela.prediction.money`) is another decision layer (pseudo-model `money`): the
   ticket with the best expected prize in euros, from the official draws in `data/lae/`
   (`quiniela.data.prizes`); its backtest in euros is `quiniela.evaluation.money`

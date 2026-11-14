@@ -34,7 +34,7 @@ from joblib import Parallel, delayed
 
 from quiniela.config import BACKTEST_DIR, CURRENT_DIR, HISTORICAL_DIR, LAE_DIR
 from quiniela.data.prizes import BET_PRICE, SPECIAL_SHARE, draw_coverage, match_tickets
-from quiniela.prediction import money, planner
+from quiniela.prediction import money, planner, reduced
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.ticket import TICKET_SIZE
 
@@ -50,7 +50,8 @@ VOLUME_WINDOW = 5
 
 MONEY_STRATEGIES: dict[str, str] = {
     "single": "One column with the v3 signs (0.75 EUR)",
-    "v4": "v4: best chance of 11+ hits within 48 bets, every draw",
+    "v4": "v4D: best chance of 11+ hits within 48 bets (direct), every draw",
+    "v4r": "v4R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
     "v5": "v5 (prudent): only 10-13 hit prizes count, plays only when they pay",
     "v5_full": "v5 counting 14 hits and the Pleno al 15 too, only when it pays",
     "v5_always": "The full v5 ticket every draw, worth it or not",
@@ -78,6 +79,7 @@ MONEY_COLUMNS = [
     "p_big",
     "p_hits",
     "jackpot",
+    "reduction",
 ]
 
 PLENO_LABELS = np.array(["0", "1", "2", "M"])
@@ -163,12 +165,15 @@ def _season_money(
 
         nan = float("nan")
         v4 = planner.plan_ticket(probs, max_bets=max_bets, min_hits=11)
+        v4r = reduced.plan_reduced(probs, max_bets=max_bets, min_hits=11)
         plans: dict[str, tuple[planner.TicketPlan, float, float, bool, float]] = {
             "single": (planner.single_plan(probs, 11), nan, nan, True, nan),
             "v4": (v4, nan, nan, True, nan),
+            "v4r": (v4r, nan, nan, True, nan),
         }
-        # Planned chance of many hits: 11+ for v4 (its target), 13+ for the big-win ticket
-        p_hits = {"v4": v4.at_least(11)}
+        # Planned chance of many hits: 11+ for v4D and v4R (their target), 13+ for the big-win
+        p_hits = {"v4": v4.at_least(11), "v4r": v4r.at_least(11)}
+        signs = [OUTCOMES[r] for r in results]
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
         prudent = money.plan_money(*args, max_bets=max_bets, rng=rng)
         full = money.plan_money(*args, max_bets=max_bets, top_weight=1.0, rng=rng)
@@ -179,10 +184,15 @@ def _season_money(
         plans["v5_big"] = (big.plan, big.expected_payout - big.cost, nan, True, big.chance)
         p_hits["v5_big"] = big.chance_13
         for key, (plan, expected, expected_top, played, p_big) in plans.items():
-            payout, hits, top = money.ticket_payout(
-                plan.levels, probs, results, winners, float(draw["takings"]),
-                float(draw["jackpot"] or 0), float(draw["winners_special"] or 0), pleno,
+            draw_args = (
+                winners, float(draw["takings"]), float(draw["jackpot"] or 0),
+                float(draw["winners_special"] or 0), pleno,
             )  # fmt: skip
+            if plan.code is not None:
+                # A reduced ticket does not play every combination: count its real columns
+                payout, hits, top = money.plan_payout(plan, signs, *draw_args)
+            else:
+                payout, hits, top = money.ticket_payout(plan.levels, probs, results, *draw_args)
             cost = BET_PRICE * plan.bets
             rows.append(
                 (
@@ -206,6 +216,7 @@ def _season_money(
                     p_big,
                     p_hits.get(key, nan),
                     float(draw["jackpot"] or 0),
+                    plan.reduction,
                 )
             )
     return rows
@@ -465,6 +476,7 @@ def matchday_payout(
     picks: list[str],
     results: list[str],
     crowd: np.ndarray,
+    columns: np.ndarray | None = None,
 ) -> dict[str, object]:
     """Prize a ticket would have won in a played matchday.
 
@@ -478,12 +490,15 @@ def matchday_payout(
         picks: Signs marked in each match.
         results: Real results (``H``, ``D``, ``A``).
         crowd: Market probabilities of the matches (for the estimate).
+        columns: Columns of the ticket with 0..14 hits, for tickets that do
+            not play every combination of their picks (reduced); by default
+            they are counted from ``picks``.
 
     Returns:
         ``payout`` in EUR, ``best_hits``, ``source`` (``"draw"`` or ``"model"``)
         and ``jornada`` of the real draw when found.
     """
-    columns = money.picks_columns(picks, results)
+    columns = money.picks_columns(picks, results) if columns is None else columns
     best_hits = int(np.max(np.nonzero(columns)[0])) if columns.any() else 0
     keys = set(zip(games["league"], games["game"], strict=True))
     found = context.matched[

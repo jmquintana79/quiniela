@@ -712,6 +712,35 @@ def ticket_payout(
     return payout, best_hits, top
 
 
+def plan_payout(
+    plan: TicketPlan,
+    results: list[str],
+    winners: dict[int, float],
+    takings: float,
+    jackpot: float = 0.0,
+    winners_special: float = 0.0,
+    pleno_hit: bool = False,
+) -> tuple[float, int, float]:
+    """Real prize of any ticket (direct or reduced) in a past draw, from its columns.
+
+    Args:
+        plan: The ticket.
+        results: Real results (``H``, ``D``, ``A``) in ticket order.
+        winners: Real winners of every category (hits -> winners).
+        takings: Takings of the draw in EUR.
+        jackpot: Jackpot announced for the Pleno al 15.
+        winners_special: Real winners of the Pleno al 15.
+        pleno_hit: Whether our Pleno al 15 pick was right.
+
+    Returns:
+        ``(payout, best_hits, top)`` as in :func:`ticket_payout`.
+    """
+    columns = plan.columns(results)
+    payout, top = prize_payout(columns, winners, takings, jackpot, winners_special, pleno_hit)
+    best_hits = int(np.max(np.nonzero(columns)[0])) if columns.any() else 0
+    return payout, best_hits, top
+
+
 def picks_columns(picks: list[str], results: list[str]) -> np.ndarray:
     """Columns of a ticket with every number of hits, from its marked signs.
 

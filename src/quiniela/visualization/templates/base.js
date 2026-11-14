@@ -82,9 +82,10 @@ function categoryLegend(legend = {}) {
 }
 
 /** A model's mark on an official ticket match: sign(s), with ✓ / ✗ once played. */
-function ticketPick(picks, result) {
+function ticketPick(picks, result, reduced = false) {
   if (!picks) return '<span class="muted">–</span>';
-  const label = [...picks].map((p) => ({ H: "1", D: "X", A: "2" }[p])).join("");
+  const label = [...picks].map((p) => ({ H: "1", D: "X", A: "2" }[p])).join("") +
+    (reduced ? '<sup class="muted" data-tip="In the reduction (not every combination is played)">R</sup>' : "");
   if (!result) return `<span class="pick pending ${picks.length > 1 ? "multi" : ""}">${label}</span>`;
   const hit = picks.includes(result);
   return `<span class="pick ${hit ? "hit" : "miss"} ${picks.length > 1 ? "multi" : ""}">${label} ${hit ? "✓" : "✗"}</span>`;
@@ -110,7 +111,8 @@ function officialTicketTable(ticket, legend = {}, models = null) {
         const hit = goals[0] === m.pleno_pick[0] && goals[1] === m.pleno_pick[1];
         return `<td class="num"><span class="pick ${hit ? "hit" : "miss"}">${pick} ${hit ? "✓" : "✗"}</span></td>`;
       }
-      return `<td class="num">${ticketPick(m.picks?.[model.key], m.sign)}</td>`;
+      const reduced = (ticket.plans?.[model.key]?.reduced || []).includes(m.position);
+      return `<td class="num">${ticketPick(m.picks?.[model.key], m.sign, reduced)}</td>`;
     }).join("");
     return `<tr><td class="num muted">${m.position}</td><td>${categoryChip(m.category, legend)}</td>
       <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
@@ -119,8 +121,9 @@ function officialTicketTable(ticket, legend = {}, models = null) {
   const footer = cols.length ? `<tfoot><tr><td colspan="6">Hits <span class="muted">(14 matches) · price</span></td>${cols.map((model) => {
     const first14 = ticket.matches.filter((m) => m.position <= 14 && m.sign);
     const marked = first14.filter((m) => m.picks?.[model.key]);
-    const hits = marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const plan = ticket.plans?.[model.key];
+    // A reduced ticket (v4R) does not play every combination: hits of its best column
+    const hits = plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const bets = plan ? plan.bets : 1;
     return `<td class="num"><span class="strong">${marked.length ? `${hits}/${marked.length}` : "–"}</span>` +
       `<br><span class="muted">${eur(bets * 0.75)}${plan ? ` · ${plan.bets} bets` : ""}</span></td>`;
@@ -215,13 +218,15 @@ function pickCell(match, key) {
   const label = [...sign].map((s) => SIGN[s]).join("");
   const kind = { 2: "Double", 3: "Triple" }[sign.length];
   const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
-  const source = match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)" : "";
+  const source = match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
+    : match[`${key}_source`] === "reduced" ? " · in the reduction (not every combination is played)" : "";
+  const mark = match[`${key}_source`] === "reduced" ? '<sup class="muted">R</sup>' : "";
   const tip = kind ? `${kind} ${label}: covers ${pct(prob, 1)} of the outcomes`
     : `Predicted ${label} (${pct(prob, 1)})${conf}${extra}${source}`;
-  if (!match.FTR) return `<span class="pick pending ${kind ? "multi" : ""}" data-tip="${tip}">${label}</span>`;
+  if (!match.FTR) return `<span class="pick pending ${kind ? "multi" : ""}" data-tip="${tip}">${label}${mark}</span>`;
   const hit = sign.includes(match.FTR);
   return `<span class="pick ${hit ? "hit" : "miss"} ${kind ? "multi" : ""}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
-    `${label} ${hit ? "✓" : "✗"}</span>`;
+    `${label}${mark} ${hit ? "✓" : "✗"}</span>`;
 }
 
 /** Note for matchdays where some matches have no prediction (shown as an asterisk). */
@@ -253,12 +258,19 @@ function oddsLine(summary) {
   if (!odds) return "";
   const plan = summary.plan;
   // Price of the ticket: 0.75 EUR per bet, 2^doubles * 3^triples bets
+  const r = plan && plan.reduction;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  // A reduced ticket: the reduction's bets times its direct doubles and triples
+  const mix = r
+    ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets, 13 guaranteed if every covered sign is right` +
+      ` · matches marked R)${r.direct_doubles || r.direct_triples ? ` × direct ${[r.direct_doubles ? plural(r.direct_doubles, "double") : "",
+        r.direct_triples ? plural(r.direct_triples, "triple") : ""].filter(Boolean).join(" + ")}` : ""}`
+    : plan ? `${plural(plan.doubles, "double")} + ${plural(plan.triples, "triple")}` : "";
   const price = plan ? `<br><strong style="display:inline">Price of the ticket: ${eur(plan.bets * 0.75)}</strong>` +
-    `<span class="muted"> · ${plan.doubles} double${plan.doubles === 1 ? "" : "s"} + ${plan.triples} ` +
-    `triple${plan.triples === 1 ? "" : "s"} = ${plan.bets} bets × 0.75 €</span>` : "";
+    `<span class="muted"> · ${mix} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  // v4's light (chance of 11+ hits); v5 shows its own lights under its chart
+  // v4D's and v4R's light (chance of 11+ hits); v5 shows its own lights under its chart
   const light = plan && !summary.money && plan.hits_signal
     ? signalLine(plan.hits_signal, "chance of 11+ hits") + signalRule([[plan.hits_signal, "11+ hits"]]) : "";
   return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>${light}`;
@@ -433,8 +445,10 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
-  (60% or more), amber medium (45-60%), red low (below 45%). Planned ticket (v4): the v3 signs with
-  the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of a prize;
+  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v4D): the v3 signs with
+  the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
+  reduced ticket (v4R): the same budget, which may also go to an official reduction (fewer columns
+  covering more matches; R marks its matches; its hits are those of the best column);
   the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v5): the
   doubles and triples (at most 50 €) with the best chance of a prize of 10,000 € or more; its banner
   shows what can happen with it (chance of each payout range), so the decision is yours. Euros of played matchdays use the real prizes of

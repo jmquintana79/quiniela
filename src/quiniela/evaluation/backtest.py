@@ -28,7 +28,7 @@ from quiniela.config import BACKTEST_DIR, HISTORICAL_DIR
 from quiniela.data.loading import load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.evaluation.metrics import evaluate
-from quiniela.prediction import planner
+from quiniela.prediction import planner, reduced
 from quiniela.prediction.pipeline import ALL_MODELS, resolve_models, walk_forward
 from quiniela.prediction.ticket import (
     MIN_PRIZE_HITS,
@@ -259,7 +259,16 @@ TICKET_STRATEGIES: dict[str, tuple[str, str, int]] = {
     "optimal_14": ("Optimal placement, aiming at 14 hits", "optimal", 14),
     "optimal_10": ("Optimal placement, aiming at 10+ hits", "optimal", MIN_PRIZE_HITS),
     "optimal": ("Optimal placement, aiming at 11+ hits", "optimal", planner.DEFAULT_MIN_HITS),
-    "v4": ("v4: best mix within the budget, aiming at 11+ hits", "mix", planner.DEFAULT_MIN_HITS),
+    "v4": (
+        "v4D: best direct mix within the budget, aiming at 11+ hits",
+        "mix",
+        planner.DEFAULT_MIN_HITS,
+    ),
+    "v4r": (
+        "v4R: best direct or reduced ticket within the budget, aiming at 11+ hits",
+        "reduced",
+        planner.DEFAULT_MIN_HITS,
+    ),
 }
 
 # Random placements drawn per matchday (their prizes are averaged)
@@ -281,6 +290,7 @@ TICKET_COLUMNS = [
     "expected_hits",
     "games",
     "picks",
+    "reduction",
 ]
 
 # Separator of the ticket games ("<league>/<game>") and picks stored as one string
@@ -323,6 +333,8 @@ def _season_tickets(
                 plans = [planner.heuristic_plan(probs, doubles, triples, min_hits)]
             elif kind == "optimal":
                 plans = [planner.plan_ticket(probs, doubles, triples, min_hits=min_hits)]
+            elif kind == "reduced":
+                plans = [reduced.plan_reduced(probs, max_bets=max_bets, min_hits=min_hits)]
             else:
                 plans = [planner.plan_ticket(probs, max_bets=max_bets, min_hits=min_hits)]
             for draw, plan in enumerate(plans):
@@ -341,9 +353,10 @@ def _season_tickets(
                         prize_category(hits),
                         plan.at_least(MIN_PRIZE_HITS),
                         plan.at_least(TICKET_SIZE),
-                        float(plan.coverage.sum()),
+                        plan.expected_hits,
                         games,
                         LIST_SEPARATOR.join(plan.picks),
+                        plan.reduction,
                     )
                 )
     return rows

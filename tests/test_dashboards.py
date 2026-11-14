@@ -271,7 +271,11 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
 
     payload = dashboards.season_payload(current, {"market_blend": predictions})
 
-    assert [m["key"] for m in payload["models"]] == ["market_blend", dashboards.PLANNED_KEY]
+    assert [m["key"] for m in payload["models"]] == [
+        "market_blend",
+        dashboards.PLANNED_KEY,
+        dashboards.REDUCED_KEY,
+    ]
     assert payload["confidence_model"] == "market_blend"
     matches = {m["home_team"]: m for m in payload["matchdays"][0]["matches"]}
     assert matches["H0"]["market_blend_conf"] == 0.75
@@ -285,6 +289,10 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
     # The least predictable match gets more than one sign on the planned ticket
     assert len(matches["H1"]["planned_sign"]) > 1
     assert matches["H0"]["planned_sign"] == "H"
+    # v4R: never a lower planned chance of 11+ hits than v4D
+    reduced = summary[dashboards.REDUCED_KEY]["plan"]
+    assert reduced["bets"] <= 48 and reduced["odds"]["11"] >= plan["odds"]["11"] - 1e-9
+    assert summary[dashboards.REDUCED_KEY]["odds"] == reduced["odds"]
 
 
 def test_planned_ticket_counts_doubles_as_hits() -> None:
@@ -379,7 +387,11 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
 
     payload = dashboards.evaluation_payload(predictions, tickets)
 
-    assert [m["key"] for m in payload["models"]] == ["market_blend", dashboards.PLANNED_KEY]
+    assert [m["key"] for m in payload["models"]] == [
+        "market_blend",
+        dashboards.PLANNED_KEY,
+        dashboards.REDUCED_KEY,
+    ]
     overall = payload["results"]["all|all"]
     planned = overall[dashboards.PLANNED_KEY]
     # Only hit rate and prizes: v4 has the probabilities of v3
@@ -390,6 +402,8 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     v4 = tickets[tickets["strategy"] == "v4"]
     assert planned["prizes"] == int((v4["hits"] >= 10).sum())
     assert "prizes" not in payload["results"]["SP1|all"][dashboards.PLANNED_KEY]
+    v4r = tickets[tickets["strategy"] == "v4r"]
+    assert overall[dashboards.REDUCED_KEY]["prizes"] == int((v4r["hits"] >= 10).sum())
 
 
 def _prize_context(jackpot: float = 0.0):  # type: ignore[no-untyped-def]
@@ -421,7 +435,12 @@ def test_season_payload_money_ticket_and_euros() -> None:
         current, {"market_blend": predictions}, prizes=_prize_context(jackpot=5e8)
     )
     keys = [m["key"] for m in payload["models"]]
-    assert keys == ["market_blend", dashboards.PLANNED_KEY, dashboards.MONEY_KEY]
+    assert keys == [
+        "market_blend",
+        dashboards.PLANNED_KEY,
+        dashboards.REDUCED_KEY,
+        dashboards.MONEY_KEY,
+    ]
     summary = payload["matchdays"][0]["summary"]
     plan = summary[dashboards.MONEY_KEY]["money"]
     # Big-win mode: within 50 EUR, with the distribution of what can happen
@@ -433,6 +452,7 @@ def test_season_payload_money_ticket_and_euros() -> None:
     assert euros["played"] and euros["cost"] == 0.75 and euros["source"] == "model"
     assert euros["payout"] > 0
     assert payload["totals"][dashboards.PLANNED_KEY]["euros"]["played"] == 1
+    assert payload["totals"][dashboards.REDUCED_KEY]["euros"]["played"] == 1
 
 
 def _upcoming(tmp_path: Path):  # type: ignore[no-untyped-def]

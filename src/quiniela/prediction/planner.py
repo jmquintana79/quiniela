@@ -42,6 +42,7 @@ matches (``random_plan``) and "by eye" (``heuristic_plan``: triples on the
 least predictable matches, doubles on the next ones).
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import combinations
@@ -87,6 +88,12 @@ class TicketPlan:
         min_hits: Hits the plan maximises the probability of.
         distribution: Probability of every number of hits, from 0 to the
             number of matches.
+        reduction: Official reduction played on some matches (v4R, see
+            ``quiniela.prediction.reduced``), or ``None`` for a direct ticket.
+        reduced: Matches of the reduction, in the order of the code's
+            coordinates (triples first).
+        code: Columns of the reduction: rank of the sign marked in each of
+            the ``reduced`` matches.
     """
 
     picks: list[str]
@@ -97,6 +104,9 @@ class TicketPlan:
     bets: int
     min_hits: int
     distribution: np.ndarray
+    reduction: int | None = None
+    reduced: tuple[int, ...] = ()
+    code: np.ndarray | None = None
 
     @property
     def probability(self) -> float:
@@ -107,16 +117,66 @@ class TicketPlan:
         """Probability of ``hits`` or more hits."""
         return float(self.distribution[hits:].sum())
 
-    def hits(self, results: list[str] | np.ndarray) -> int:
-        """Number of matches whose real result is among the picks.
+    @property
+    def expected_hits(self) -> float:
+        """Expected hits of the best column."""
+        return float((self.distribution * np.arange(len(self.distribution))).sum())
+
+    def columns(self, results: Sequence[str | None] | np.ndarray) -> np.ndarray:
+        """Number of columns of the ticket with every number of hits.
 
         Args:
-            results: Real results (``H``, ``D``, ``A``) in ticket order.
+            results: Real results (``H``, ``D``, ``A``) in ticket order;
+                ``None`` for a match not played yet (a miss in every column).
+
+        Returns:
+            Shape ``(n + 1,)``: columns with 0..n hits.
+        """
+        results = list(results)
+        if len(results) != len(self.picks):
+            raise ValueError("One result per ticket match is needed")
+        poly = np.array([1.0])
+        block = set(self.reduced)
+        for i, (marked, result) in enumerate(zip(self.picks, results, strict=True)):
+            if i in block:
+                continue
+            right = 1.0 if isinstance(result, str) and result in marked else 0.0
+            # Each direct match multiplies the columns: (wrong signs) + (right sign) * x
+            poly = np.convolve(poly, [len(marked) - right, right])
+        if self.code is not None:
+            # The reduced matches: hits of each column of the reduction
+            right_rank = np.array(
+                [self._rank(self.picks[i], results[i]) for i in self.reduced], dtype=int
+            )
+            hits = (self.code == right_rank[None, :]).sum(axis=1)
+            poly = np.convolve(poly, np.bincount(hits, minlength=len(self.reduced) + 1))
+        return poly
+
+    @staticmethod
+    def _rank(marked: str, result: object) -> int:
+        """Rank of the real result among a match's marked signs (-1 if not marked)."""
+        return marked.index(result) if isinstance(result, str) and result in marked else -1
+
+    def hits(self, results: Sequence[str | None] | np.ndarray) -> int:
+        """Hits of the best column of the ticket.
+
+        For a direct ticket this is the number of matches whose real result is
+        among the picks; a reduced ticket can lose some of them.
+
+        Args:
+            results: Real results (``H``, ``D``, ``A``) in ticket order
+                (``None`` for matches not played yet).
 
         Returns:
             Hits of the ticket.
         """
-        return sum(result in picks for picks, result in zip(self.picks, results, strict=True))
+        if self.code is None:
+            return sum(
+                isinstance(result, str) and result in picks
+                for picks, result in zip(self.picks, results, strict=True)
+            )
+        columns = self.columns(results)
+        return int(np.max(np.nonzero(columns)[0]))
 
 
 def hit_distribution(coverage: np.ndarray) -> np.ndarray:
