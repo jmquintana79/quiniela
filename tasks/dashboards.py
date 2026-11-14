@@ -18,6 +18,7 @@ DASHBOARDS = (
     "dashboards/season.html",
     "dashboards/historical.html",
     "dashboards/evaluation.html",
+    "dashboards/prizes.html",
 )
 
 # %% TASKS
@@ -32,7 +33,9 @@ def build(ctx: Context) -> None:
 # Exposed as "dashboards.open"; the function name avoids shadowing the builtin
 @task(
     name="open",
-    help={"name": "Dashboard to open: current, season, historical, evaluation or all (default)."},
+    help={
+        "name": "Dashboard to open: current, season, historical, evaluation, prizes or all (default)."
+    },
 )
 def open_dashboards(ctx: Context, name: str = "all") -> None:
     """Open the dashboards in the default browser (macOS)."""

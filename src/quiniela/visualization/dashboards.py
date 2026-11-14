@@ -1372,6 +1372,60 @@ def _template(name: str) -> str:
     return resources.files("quiniela.visualization").joinpath("templates", name).read_text("utf-8")
 
 
+# Prize categories of the official draws, from the top one down
+PRIZE_CATEGORIES = [
+    ("special", "14 + Pleno al 15"),
+    ("14", "14 hits"),
+    ("13", "13 hits"),
+    ("12", "12 hits"),
+    ("11", "11 hits"),
+    ("10", "10 hits"),
+]
+
+
+def prizes_payload(draws: pd.DataFrame | None = None) -> dict[str, Any]:
+    """Collect the data shown in the prizes dashboard: every official draw saved.
+
+    Args:
+        draws: Official draws (output of ``quiniela.data.prizes.load_draws``).
+            Defaults to the draws saved in ``data/lae``.
+
+    Returns:
+        The prize categories and one row per draw, newest first, with the
+        jackpot carried into the draw and the winners and prize of each category.
+    """
+    from quiniela.data.prizes import load_draws
+
+    draws = load_draws() if draws is None else draws
+
+    def number(value: Any) -> float | None:
+        # Missing values (a few old draws lack some categories) become null in the JSON
+        return None if pd.isna(value) else float(value)
+
+    rows = []
+    for draw in draws.sort_values("date", ascending=False).itertuples(index=False):
+        rows.append(
+            {
+                "season": draw.season,
+                "jornada": None if pd.isna(draw.jornada) else int(draw.jornada),
+                "date": draw.date.strftime("%Y-%m-%d"),
+                "jackpot": number(draw.jackpot),
+                "prizes": {
+                    key: {
+                        "winners": number(getattr(draw, f"winners_{key}")),
+                        "prize": number(getattr(draw, f"prize_{key}")),
+                    }
+                    for key, _ in PRIZE_CATEGORIES
+                },
+            }
+        )
+    return {
+        "categories": [{"key": key, "label": label} for key, label in PRIZE_CATEGORIES],
+        "draws": rows,
+        "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
 def render(template: str, payload: dict[str, Any], output: Path) -> Path:
     """Embed the shared stylesheet, helpers and the data into a template and write it.
 
@@ -1453,4 +1507,5 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
         render(
             "evaluation.html", evaluation_payload(prizes=prizes), output_dir / "evaluation.html"
         ),
+        render("prizes.html", prizes_payload(), output_dir / "prizes.html"),
     ]

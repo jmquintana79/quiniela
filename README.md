@@ -108,7 +108,7 @@ It runs, in order ([`quiniela/update.py`](src/quiniela/update.py)):
 | 2. Current season | Downloads the results played so far and the upcoming fixtures. | Always downloaded: the source does not tell whether its files changed (a few small CSV files). |
 | 3. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
 | 4. Backtest | Only with `--backtest`: every model over past seasons, plus the real tickets in euros when the LAE draws are saved (about ten minutes). | Not run by default. |
-| 5. Dashboards | Rebuilds the four dashboards. | Local data only. |
+| 5. Dashboards | Rebuilds the five dashboards. | Local data only. |
 
 Special cases:
 
@@ -198,7 +198,7 @@ invoke update
 invoke update --backtest
 ```
 
-Four dashboards, each answering one question:
+Five dashboards, each answering one question:
 
 | Dashboard | Question | Content |
 |---|---|---|
@@ -206,6 +206,7 @@ Four dashboards, each answering one question:
 | `season.html` | How are the models doing this season? | Every matchday of the current season. |
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers, tickets with doubles and triples and real tickets in euros. |
+| `prizes.html` | What did each draw pay? | Every official draw since 2010-11: jackpot, winners and prize per winner of each category. |
 
 - `dashboards/current.html`: the **current matchday**. When the next official ticket is saved
   (`data/lae/upcoming.json`, see [the next ticket](#official-draws-real-tickets-winners-and-prizes))
@@ -271,6 +272,12 @@ Four dashboards, each answering one question:
   and v5 every draw: spent, won, net, return and best prize), the **official ticket matches by
   category** (how many were M, F, O or U each season, and v3's hit rate on the M ones),
   calibration charts and an explanation of each metric.
+- `dashboards/prizes.html`: every official draw saved in `data/lae/`, newest first, one row
+  per draw with its season, jornada, date and whether it had a jackpot (and how much), and
+  for each category (14 + Pleno al 15, 14, 13, 12, 11 and 10 hits) the prize each winner got
+  and the number of winners (a 10-hit prize under 1.50 € shows as *not paid*). Below the table,
+  linked from the top, one density chart per category of the prize per winner over every paid
+  draw, all on the same logarithmic euro axis (1 € to 15 M €), with the median and the range of the middle half.
 
 **Match categories and the official ticket.** Every match table (current, season and
 historical) shows two columns, with a legend:
@@ -1007,6 +1014,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.7.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.2) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | New `prizes.html` dashboard: every official draw since 2010-11 with its jackpot and, per category (14 + Pleno al 15 down to 10 hits), the prize per winner and the number of winners, plus a density chart per category on a common log euro axis (1 € to 15 M €). `season.html` matchdays table shows the prize won in euros by v3, v4 and v5. Roadmap and TODO list only pending work. |
 | [`v0.7.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Traffic lights in `current.html` (green / amber / red by the percentile among past real tickets): v5 by its chance of 10,000 € or more and of 13+ hits, v4 by its chance of 11+ hits, with the rule in small print and a red warning that none makes the quiniela profitable. The money backtest stores the planned hit chances. |
 | [`v0.7.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.7.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | Pleno al 15 of the official ticket in `current.html` (Dixon-Coles' goals categories for a La Liga / Segunda match, the public's most marked ones otherwise); price of each ticket under the Pleno and hits of the 14 matches in the table footer; sales deadline in large type, without the countdown; `season.html` official tickets with what v1 to v5 marked, the Pleno pick and each ticket's hits and price. |
 | [`v0.6.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.6.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 ticket planner, v5 money ticket (big-win mode in the dashboards), market reference | The next official ticket in `current.html` (saved with `tools/lae_upcoming.js`): sales deadline with countdown, predictions without colours until results, notice of football-data's fixtures; v3 uses the public's picks for the matches no model covers (women's football, national teams), and v4/v5 plan on them; match category (M, F, O, U) and official-ticket flag in every table, official tickets in the historical and season dashboards, ticket matches by category in the evaluation; `current.html` shows only v3, v4 and v5. Backtests recalculated (unchanged: past public picks do not exist). |

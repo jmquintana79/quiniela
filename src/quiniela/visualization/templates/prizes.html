@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiniela Prizes</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Quiniela prizes</h1>
+    <span class="meta" id="meta"></span>
+  </header>
+
+  <p class="meta" style="margin:0 0 12px"><a href="#distributions">Distribution of the prize per winner of each
+    category ↓</a></p>
+
+  <section class="card" style="margin-bottom:16px">
+    <div class="scroll" id="prizes"></div>
+    <p class="meta" style="margin:10px 0 0">Every official draw saved from Loterías y Apuestas del Estado
+      (<code>data/lae/</code>), newest first. Each prize cell gives the prize in euros each winner gets (per
+      winning bet) and, below it, the number of winners. Jackpot: the money carried into the draw for the 14 + Pleno al 15 category.
+      The 10-hit prize is not paid when it falls under 1.50 €.</p>
+  </section>
+
+  <section class="card" id="distributions">
+    <h2>Distribution of the prize per winner</h2>
+    <p class="meta" style="margin:0 0 12px">Density of the prize each winner got, one chart per category, over every
+      draw with winners and a paid prize. Every chart shares the same euro axis, from 1 € to 15 million €, and it is
+      logarithmic (each step is ten times the previous one): prizes range from 1 € to millions. The dashed line is the median; hover a chart for the share of draws
+      that paid less.</p>
+    <div class="grid two" id="densities"></div>
+  </section>
+</main>
+
+<script>const DATA = /*__DATA__*/null;</script>
+<script>/*__SCRIPT__*/</script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const count = (n) => n == null ? "–" : n.toLocaleString("en-GB");
+  const money = (v) => v == null ? "–" : `${v.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+  function prizeCell(c) {
+    if (!c || c.winners == null) return '<td class="num muted">–</td>';
+    if (c.winners === 0) return '<td class="num muted">No winners</td>';
+    const prize = c.prize ? `<span style="font-weight:600;font-size:14px">${money(c.prize)}</span>`
+      : '<span class="muted">not paid</span>';
+    return `<td class="num">${prize}` +
+      `<br><span class="muted" style="font-size:11px">${count(c.winners)} ${c.winners === 1 ? "winner" : "winners"}</span></td>`;
+  }
+
+  function jackpotCell(v) {
+    return v > 0 ? `<td><span class="badge">Jackpot</span><br><span class="muted" style="font-size:11px">${money(v)}</span></td>`
+      : '<td class="muted">No jackpot</td>';
+  }
+
+  /** Gaussian kernel density of values (already on a log10 scale) at the points xs. */
+  function density(values, xs) {
+    const n = values.length;
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    const sd = Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(n - 1, 1));
+    // Silverman's rule of thumb for the bandwidth
+    const h = Math.max(1.06 * sd * n ** -0.2, 0.02);
+    return xs.map((x) => values.reduce((a, v) => a + Math.exp(-0.5 * ((x - v) / h) ** 2), 0) / (n * h * Math.sqrt(2 * Math.PI)));
+  }
+
+  function quantile(sorted, q) {
+    const i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+  }
+
+  // Fixed axis from 1 € (the lowest prize ever paid; a log axis cannot start at 0) to 15 M €
+  const AXIS_MIN = 1, AXIS_MAX = 15e6;
+  const TICKS = [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7];
+  const tickLabel = (v) => v >= 1e6 ? `${v / 1e6}M €` : v >= 1e3 ? `${v / 1e3}k €` : `${v} €`;
+
+  /** One density chart of the prize per winner of a category, on a log10 euro axis. */
+  function densityChart(category) {
+    const paid = draws.map((d) => d.prizes[category.key])
+      .filter((c) => c && c.winners > 0 && c.prize > 0).map((c) => c.prize).sort((a, b) => a - b);
+    const skipped = draws.length - paid.length;
+    if (paid.length < 2) return `<div><h3>${esc(category.label)}</h3><p class="empty">Not enough paid draws.</p></div>`;
+    const logs = paid.map(Math.log10);
+    // The same euro axis for every category, so the charts can be compared at a glance
+    const lo = Math.log10(AXIS_MIN), hi = Math.log10(AXIS_MAX);
+    const W = 440, H = 170, left = 12, right = 12, top = 10, bottom = 26;
+    const pw = W - left - right, ph = H - top - bottom;
+    const steps = 160;
+    const xs = Array.from({ length: steps + 1 }, (_, i) => lo + (hi - lo) * i / steps);
+    const ys = density(logs, xs);
+    const ymax = Math.max(...ys);
+    const sx = (x) => left + (x - lo) / (hi - lo) * pw;
+    const sy = (y) => top + ph - y / ymax * ph;
+    const line = xs.map((x, i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(ys[i]).toFixed(1)}`).join("");
+    const area = `${line}L${sx(hi).toFixed(1)},${sy(0)}L${sx(lo).toFixed(1)},${sy(0)}Z`;
+    const ticks = TICKS.filter((v) => Math.log10(v) >= lo && Math.log10(v) <= hi).map((v) => {
+      const x = sx(Math.log10(v)).toFixed(1);
+      return `<line x1="${x}" x2="${x}" y1="${top}" y2="${top + ph}" stroke="var(--grid)" stroke-width="1"/>
+        <text x="${x}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--text-muted)">${tickLabel(v)}</text>`;
+    }).join("");
+    const median = quantile(paid, 0.5);
+    const mx = sx(Math.log10(median)).toFixed(1);
+    // Hover slices: the prize at that point and the share of draws that paid less
+    const slices = 40;
+    const hover = Array.from({ length: slices }, (_, i) => {
+      const x0 = lo + (hi - lo) * i / slices, x1 = lo + (hi - lo) * (i + 1) / slices;
+      const value = 10 ** ((x0 + x1) / 2);
+      const below = paid.filter((p) => p < value).length / paid.length;
+      return `<rect x="${sx(x0).toFixed(1)}" y="${top}" width="${(pw / slices).toFixed(1)}" height="${ph}" fill="transparent"
+        data-tip="${esc(`About ${money(value)}: ${pct(below, 0)} of the draws paid less`)}"/>`;
+    }).join("");
+    return `<div>
+      <h3 style="margin:0 0 4px">${esc(category.label)}</h3>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img"
+        aria-label="Density of the prize per winner, ${esc(category.label)}">
+        ${ticks}
+        <line x1="${left}" x2="${left + pw}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--text-muted)" stroke-width="1"/>
+        <path d="${area}" fill="var(--accent)" opacity="0.18"/>
+        <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <line x1="${mx}" x2="${mx}" y1="${top}" y2="${top + ph}" stroke="var(--text-secondary)" stroke-width="1" stroke-dasharray="4 3"/>
+        <text x="${Number(mx) + 4}" y="${top + 10}" font-size="11" fill="var(--text-secondary)">median ${money(median)}</text>
+        ${hover}
+      </svg>
+      <p class="meta" style="margin:4px 0 0">${count(paid.length)} draws · half paid between ${money(quantile(paid, 0.25))}
+        and ${money(quantile(paid, 0.75))} · lowest ${money(paid[0])}, highest ${money(paid[paid.length - 1])}${skipped
+          ? ` · ${count(skipped)} ${skipped === 1 ? "draw" : "draws"} without winners or not paid left out` : ""}.</p>
+    </div>`;
+  }
+
+  const draws = DATA.draws || [];
+  if (draws.length) {
+    const seasons = [...new Set(draws.map((d) => d.season))];
+    $("meta").textContent = `${draws.length.toLocaleString("en-GB")} draws · ${seasons[seasons.length - 1]} to ${seasons[0]}`;
+    $("prizes").innerHTML = `<table><thead><tr>
+        <th>Season</th><th class="num">Jornada</th><th>Date</th><th>Jackpot</th>
+        ${DATA.categories.map((c) => `<th class="num">${esc(c.label)}</th>`).join("")}
+      </tr></thead><tbody>${draws.map((d) => `<tr>
+        <td>${esc(d.season)}</td>
+        <td class="num">${d.jornada ?? "–"}</td>
+        <td class="muted">${new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+        ${jackpotCell(d.jackpot)}
+        ${DATA.categories.map((c) => prizeCell(d.prizes[c.key])).join("")}
+      </tr>`).join("")}</tbody></table>`;
+    $("densities").innerHTML = DATA.categories.map(densityChart).join("");
+  } else {
+    $("meta").textContent = "No official draws saved in data/lae yet.";
+  }
+</script>
+</body>
+</html>

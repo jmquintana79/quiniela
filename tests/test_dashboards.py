@@ -236,7 +236,7 @@ def test_current_payload_standings_and_odds_time(tmp_path: Path) -> None:
 
 
 def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("current", "season", "historical", "evaluation"):
+    for name in ("current", "season", "historical", "evaluation", "prizes"):
         monkeypatch.setattr(
             dashboards, f"{name}_payload", lambda *_, **__: {"leagues": [], "models": []}
         )
@@ -253,6 +253,7 @@ def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.Mo
         "current.html",
         "evaluation.html",
         "historical.html",
+        "prizes.html",
         "season.html",
     ]
 
@@ -493,3 +494,25 @@ def test_percentile_signal(value: float, level: str) -> None:
     assert dashboards.percentile_signal(value, history, "v5_big", "p_hits") is None
     assert dashboards.big_win_signal(value, history) is None
     assert dashboards.percentile_signal(None, history, "v4", "p_hits") is None
+
+
+def test_prizes_payload() -> None:
+    draws = pd.DataFrame(
+        {
+            "season": ["2025-26", "2025-26"],
+            "jornada": [7.0, float("nan")],
+            "date": pd.to_datetime(["2025-10-05", "2025-10-12"]),
+            "jackpot": [500_000.0, 0.0],
+        }
+    )
+    for key in ("special", "14", "13", "12", "11", "10"):
+        draws[f"winners_{key}"] = [3.0, float("nan")]
+        draws[f"prize_{key}"] = [100.0, float("nan")]
+
+    payload = dashboards.prizes_payload(draws)
+
+    assert [c["key"] for c in payload["categories"]][:2] == ["special", "14"]
+    newest, oldest = payload["draws"]
+    assert newest["date"] == "2025-10-12" and newest["jornada"] is None
+    assert newest["prizes"]["13"] == {"winners": None, "prize": None}
+    assert oldest["jackpot"] == 500_000 and oldest["prizes"]["special"]["winners"] == 3
