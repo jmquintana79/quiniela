@@ -483,9 +483,14 @@ function tableOfContents() {
   const sections = [...document.querySelectorAll("[data-toc]")];
   if (!header || !sections.length) return;
   const links = sections.map((section) => {
-    // Stable anchors from the section name (e.g. #liga-f-metrics)
+    // Stable anchors from the section name (e.g. #toc-liga-f-metrics). The "toc-" prefix
+    // keeps them apart from the ids the page scripts fill in (e.g. #standings): two equal ids
+    // would make those scripts overwrite the whole section
     if (!section.id) {
-      section.id = section.dataset.toc.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const slug = section.dataset.toc.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      let id = `toc-${slug}`;
+      for (let n = 2; document.getElementById(id); n++) id = `toc-${slug}-${n}`;
+      section.id = id;
     }
     return `<a href="#${section.id}">${esc(section.dataset.toc)}</a>`;
   });
