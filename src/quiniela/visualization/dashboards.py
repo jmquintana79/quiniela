@@ -1302,6 +1302,7 @@ def _planned_results(
     only given for both leagues together, as for the models.
     """
     from quiniela.evaluation.backtest import summarize_tickets, ticket_picks
+    from quiniela.evaluation.metrics import hit_rate_by_result
     from quiniela.prediction.planner import PLANNER_MODEL
 
     picks = ticket_picks(tickets, strategy)
@@ -1313,7 +1314,8 @@ def _planned_results(
     )
     signs = merged["picks"].fillna(merged["prediction"])
     table = merged.assign(
-        _hit=[result in sign for sign, result in zip(signs, merged["FTR"], strict=True)]
+        _signs=signs,
+        _hit=[result in sign for sign, result in zip(signs, merged["FTR"], strict=True)],
     )
 
     out: dict[str, dict[str, Any]] = {}
@@ -1323,7 +1325,12 @@ def _planned_results(
             values = key if isinstance(key, tuple) else (key,)
             labels = dict(zip(by, values, strict=True))
             league_season = f"{labels.get('league', 'all')}|{labels.get('season', 'all')}"
-            out[league_season] = {"matches": len(rows), "hit_rate": float(rows["_hit"].mean())}
+            out[league_season] = {
+                "matches": len(rows),
+                "hit_rate": float(rows["_hit"].mean()),
+                # A double or triple is a hit for every result it covers
+                **hit_rate_by_result(rows["_signs"], rows["FTR"]),
+            }
 
     planned = tickets[tickets["strategy"] == strategy]
     for by in ([], ["season"]):

@@ -395,7 +395,8 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     overall = payload["results"]["all|all"]
     planned = overall[dashboards.PLANNED_KEY]
     # Only hit rate and prizes: v4 has the probabilities of v3
-    assert set(planned) == {"matches", "hit_rate", "prizes", "tickets"}
+    by_result = {f"{k}_{o}" for k in ("hit", "real") for o in ("H", "D", "A")}
+    assert set(planned) == {"matches", "hit_rate", "prizes", "tickets", *by_result}
     assert planned["matches"] == overall["market_blend"]["matches"] == 28
     # Doubles and triples can only add hits
     assert planned["hit_rate"] >= overall["market_blend"]["hit_rate"]
@@ -406,6 +407,11 @@ def test_evaluation_payload_includes_the_planned_ticket() -> None:
     table = payload["contingency"]["all|all"]["market_blend"]
     assert sum(map(sum, table)) == overall["market_blend"]["matches"] == 28
     assert overall["market_blend"]["macro_f1"] is not None
+    # Hit rate by result: the tickets cover more of each result than the single sign
+    for outcome in ("H", "D", "A"):
+        assert overall[dashboards.PLANNED_KEY][f"hit_{outcome}"] >= (
+            overall["market_blend"][f"hit_{outcome}"] - 1e-12
+        )
     v4r = tickets[tickets["strategy"] == "v3r"]
     assert overall[dashboards.REDUCED_KEY]["prizes"] == int((v4r["hits"] >= 10).sum())
 

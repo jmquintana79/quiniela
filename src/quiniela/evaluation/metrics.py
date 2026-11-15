@@ -24,6 +24,8 @@ otherwise), over $N$ matches:
   rewards predicting every sign, draws included, which is not what a
   quiniela pays for (every hit is worth the same), so it is reported but
   never used to choose a model.
+- **Hit rate by result**: for each real result (1, X, 2), the share of the
+  matches with that result whose predicted sign was right.
 - **Contingency table**: how many matches of each real result (rows) got
   each predicted sign (columns).
 - **Calibration**: predicted probabilities grouped in bins, compared with how
@@ -89,6 +91,33 @@ def macro_f1(predicted: pd.Series | np.ndarray, y: pd.Series | np.ndarray) -> fl
     return float(np.mean(scores))
 
 
+def hit_rate_by_result(
+    predicted: pd.Series | np.ndarray, y: pd.Series | np.ndarray
+) -> dict[str, float | None]:
+    """Hit rate of the matches of every real result, and the share of each result.
+
+    A prediction may cover several signs (``"HD"``, ``"HDA"``: doubles and
+    triples of a ticket): it is a hit when the real result is among them, so a
+    triple is a hit whatever the result.
+
+    Args:
+        predicted: Predicted sign or signs of each match.
+        y: Real results.
+
+    Returns:
+        ``hit_H``, ``hit_D``, ``hit_A`` (``None`` without matches of that
+        result) and ``real_H``, ``real_D``, ``real_A``.
+    """
+    signs, labels = np.asarray(predicted, dtype=object), np.asarray(y)
+    hit = np.array([isinstance(s, str) and r in s for s, r in zip(signs, labels, strict=True)])
+    out: dict[str, float | None] = {}
+    for outcome in OUTCOMES:
+        rows = labels == outcome
+        out[f"hit_{outcome}"] = float(hit[rows].mean()) if rows.any() else None
+        out[f"real_{outcome}"] = float(rows.mean()) if len(labels) else None
+    return out
+
+
 def contingency_table(
     predicted: pd.Series | np.ndarray, y: pd.Series | np.ndarray
 ) -> list[list[int]]:
@@ -137,7 +166,7 @@ def evaluate(
     probs: np.ndarray,
     y: pd.Series | np.ndarray,
     predicted: pd.Series | np.ndarray | None = None,
-) -> dict[str, float | int]:
+) -> dict[str, float | int | None]:
     """Compute every scalar metric for a set of predictions.
 
     Args:
@@ -147,7 +176,9 @@ def evaluate(
             them when a model uses another decision rule.
 
     Returns:
-        ``matches``, ``hit_rate``, ``log_loss``, ``brier``, ``rps``, ``macro_f1``, plus
+        ``matches``, ``hit_rate``, ``log_loss``, ``brier``, ``rps``, ``macro_f1``,
+        ``hit_H``, ``hit_D``, ``hit_A`` (hit rate of the matches of each real
+        result), ``real_H``, ``real_D``, ``real_A`` (share of each result), plus
         ``draw_picks`` (share of matches where a draw is the predicted sign)
         and ``draw_rate`` (share of real draws), to check how draws are handled.
     """
@@ -165,6 +196,7 @@ def evaluate(
         "brier": brier_score(probs, labels),
         "rps": ranked_probability_score(probs, labels),
         "macro_f1": macro_f1(signs, labels),
+        **hit_rate_by_result(signs, labels),
         "draw_picks": float(np.mean(signs == "D")),
         "draw_rate": float(np.mean(labels == "D")),
     }

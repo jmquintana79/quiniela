@@ -67,3 +67,12 @@ def test_macro_f1_and_contingency() -> None:
     assert metrics.evaluate(probs, real, predicted)["macro_f1"] == pytest.approx(
         metrics.macro_f1(predicted, real)
     )
+
+
+def test_hit_rate_by_result_counts_doubles_and_triples() -> None:
+    picks = np.array(["H", "D", "HDA", "HD", "A"], dtype=object)
+    real = np.array(["H", "H", "D", "D", "H"])
+    out = metrics.hit_rate_by_result(picks, real)
+    # Real 1: hit, miss, miss; real X: the triple and the double 1X both cover it; no real 2
+    assert out["hit_H"] == pytest.approx(1 / 3) and out["hit_D"] == 1.0 and out["hit_A"] is None
+    assert out["real_H"] == pytest.approx(0.6) and out["real_A"] == 0.0

@@ -19,6 +19,30 @@
   </div>
 
   <section class="card" style="margin-bottom:16px">
+    <h2 id="metrics-title">Metrics</h2>
+    <div class="scroll" id="metrics"></div>
+    <p class="meta" style="margin:10px 0 0">
+      <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
+      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v3·D</strong> and <strong>v3·R</strong> are not
+      probability models but ways of playing v3: the v3 signs with doubles and triples on the
+      ticket (up to 48 bets a matchday; v3·R may also play an official reduction), so only their hit
+      rate (a double or triple is a hit when the result is among its signs) and prizes are shown
+      (v3·R's prizes count the hits of its best column), and they are never bold.
+    </p>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2 id="by-result-title">Hit rate by result</h2>
+    <p class="meta" style="margin:0 0 10px">
+      For each <strong>observed</strong> result (1, X, 2), the share of its matches that each model got right.
+      For <strong>v3·D</strong> and <strong>v3·R</strong> a double or triple is a hit for every result it covers (a
+      triple 1X2 is a hit whether it ends 1, X or 2), on the ticket matches; elsewhere they are v3's sign.
+      Same league and season filters as the metrics. Informative: never bold.
+    </p>
+    <div class="scroll" id="by-result"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
     <h2 id="contingency-title">Contingency tables</h2>
     <p class="meta" style="margin:0 0 10px">
       How many matches of each <strong>observed</strong> result (rows: what really happened) got each
@@ -39,19 +63,6 @@
       its best column. Season filter only.
     </p>
     <div class="grid two" id="ticket-contingency"></div>
-  </section>
-
-  <section class="card" style="margin-bottom:16px">
-    <h2 id="metrics-title">Metrics</h2>
-    <div class="scroll" id="metrics"></div>
-    <p class="meta" style="margin:10px 0 0">
-      <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
-      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v3·D</strong> and <strong>v3·R</strong> are not
-      probability models but ways of playing v3: the v3 signs with doubles and triples on the
-      ticket (up to 48 bets a matchday; v3·R may also play an official reduction), so only their hit
-      rate (a double or triple is a hit when the result is among its signs) and prizes are shown
-      (v3·R's prizes count the hits of its best column), and they are never bold.
-    </p>
   </section>
 
   <section class="card" style="margin-bottom:16px">
@@ -333,9 +344,25 @@
     return cards.join("") || '<p class="empty">No official tickets for this season. Run <code>invoke backtest.run</code>.</p>';
   }
 
+  /** Hit rate of the matches of every observed result (1, X, 2), one column per model. */
+  function byResultTable() {
+    const rows = DATA.results[`${state.league}|${state.season}`] || {};
+    const shown = models.filter((m) => rows[m.key]?.hit_H != null);
+    if (!shown.length) return '<p class="empty">No predictions for this selection.</p>';
+    const real = shown.find((m) => !m.ticket && rows[m.key].real_H != null) ?? shown[0];
+    const line = (outcome, label) => `<tr><td>Observed ${label} <span class="muted">(${pct(rows[real.key][`real_${outcome}`], 1)} of the matches)</span></td>
+      ${shown.map((m) => `<td class="num">${fmt(rows[m.key][`hit_${outcome}`], "pct")}</td>`).join("")}</tr>`;
+    const overall = `<tr><td class="muted">All results (hit rate)</td>${shown.map((m) =>
+      `<td class="num muted">${fmt(rows[m.key].hit_rate, "pct")}</td>`).join("")}</tr>`;
+    return `<table><thead><tr><th>Result</th>${shown.map(modelHeader).join("")}</tr></thead>
+      <tbody>${line("H", "1")}${line("D", "X")}${line("A", "2")}${overall}</tbody></table>`;
+  }
+
   function render() {
     const seasonLabel = state.season === "all" ? "all seasons" : state.season;
     $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("by-result-title").textContent = `Hit rate by result · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("by-result").innerHTML = byResultTable();
     $("contingency-title").textContent = `Contingency tables · ${DATA.leagues[state.league]} · ${seasonLabel}`;
     $("contingency").innerHTML = contingencyTables();
     $("ticket-contingency-title").textContent = `Contingency tables of the v3 tickets · official tickets · ${seasonLabel}`;
