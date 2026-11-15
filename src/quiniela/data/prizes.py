@@ -318,7 +318,7 @@ def draw_coverage(matched: pd.DataFrame) -> pd.DataFrame:
     return counts.rename("matched").reset_index()
 
 
-# The next ticket, saved by hand from the betting page (tools/lae_upcoming.js)
+# The next ticket, saved from the betting page with the Quiniela bookmark (quiniela.io.lae)
 UPCOMING_FILE = "upcoming.json"
 
 # Sales close at Spanish local time
@@ -363,7 +363,7 @@ def load_upcoming_file(path: Path) -> UpcomingTicket | None:
     """Read a next-ticket file (``upcoming.json`` or one of its archived copies).
 
     Args:
-        path: The JSON file saved with ``tools/lae_upcoming.js``.
+        path: The JSON file saved with the Quiniela bookmark (``tools/lae_bookmarklet.js``).
 
     Returns:
         The ticket, or ``None`` when the file is missing or not valid.

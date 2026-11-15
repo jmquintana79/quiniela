@@ -39,11 +39,27 @@ Each draw has the 15 matches of the real ticket (teams, kick-off, sign and score
 takings, the winners and prize per winner of every category and the jackpot announced for the
 Pleno al 15. The history is complete from 2010-11 (about 55 to 76 draws per season).
 
-**Saving it.** The service only answers web browsers: scripts get "Access Denied", so it is not
-downloaded automatically. Open the URL of each season (start year in `fechaInicioInclusiva`,
-1 August to 31 July) in a browser and save the page as `data/lae/lae_<season>.json`, e.g.
-`lae_2025-26.json`; any file name works and repeated draws are dropped. Refresh the current
-season's file every week, after the draw, to get its prizes.
+**Saving it: one click, from `invoke update`.** The service only answers web browsers (scripts
+get "Access Denied", and the project does not try to get around it), so the files are saved by
+your own browser:
+
+1. **Once**: open `dashboards/bookmarklet.html` (written by `invoke update` or
+   `invoke dashboards.build`) and drag its **Quiniela** button to the bookmarks bar. It is
+   [`tools/lae_bookmarklet.js`](tools/lae_bookmarklet.js).
+2. **Every `invoke update`** checks what is missing (`quiniela.io.lae`): the next ticket (none
+   saved, or the saved one already closed) and the season's draws (no file, or the draw of a
+   closed ticket missing a day and a half after its deadline, when its matches are over). If
+   something is missing, it **opens the LAE pages in your browser** and waits: **click the
+   Quiniela bookmark** on each page. On the results page (this URL, one per season, 1 August to
+   31 July) it saves the season's draws; on the betting page, the next ticket.
+3. `invoke update` **picks the files up from your Downloads folder** (`quiniela_lae_<season>.json`
+   and `quiniela_upcoming_j<jornada>.json`), moves them to `data/lae/` (`lae_<season>.json`,
+   `upcoming.json`) and carries on: predictions, Liga F history, dashboards. Press Enter to go on
+   without them; it stops waiting after five minutes.
+
+`invoke update --no-browser` (or running it without a terminal) never opens the browser and
+only warns about what is missing. Older seasons were saved the same way, once; any file name
+works in `data/lae/` and repeated draws are dropped.
 
 **What it shows** (checked on every draw since 2015-16):
 
@@ -63,10 +79,10 @@ each category (median 112,158 € for 14 + Pleno al 15, 51,115 € for 14, 1,999
 **The next ticket.** The matches of the next ticket, its sales deadline and the public's share
 of each sign ("Pronósticos más apostados") are on the official betting page,
 `https://juegos.loteriasyapuestas.es/jugar/la-quiniela/apuesta`, days before football-data
-publishes the fixtures. To save them, open that page, paste
-[`tools/lae_upcoming.js`](tools/lae_upcoming.js) in the browser console (developer tools) and
-press Enter: the browser downloads `upcoming.json`; move it to `data/lae/upcoming.json` and run
-`invoke dashboards.build`. `current.html` then shows that ticket (see
+publishes the fixtures. `invoke update` opens it when the saved ticket is missing or closed, and
+one click on the Quiniela bookmark saves it (see above); every ticket saved is also archived by
+season and jornada in `data/lae/public/` (the history of the public's picks, see
+[Liga F](#liga-f-womens-league)). `current.html` then shows that ticket (see
 [Dashboards](#dashboards)). The public's shares are v3's prediction for the matches no model
 covers (see [v3](#v3--dixon-coles--market-market_blend)).
 
@@ -787,7 +803,7 @@ triples on these probabilities, so all 14 matches of the ticket count with an es
 the matches without data got the league shares of 1, X and 2). The public's shares only exist for
 the ticket being sold (the betting page shows them; the results service does not keep them), so
 past tickets keep the league shares for those matches and the backtests do not change: the rule
-applies from the first ticket saved with `tools/lae_upcoming.js` on.
+applies from the first ticket saved with the Quiniela bookmark on.
 
 **In practice.** v2 only does the work when there are no odds: v3 then uses v2 as it is. When
 the odds are available, the forecast is essentially the market's, slightly corrected (see the
@@ -1405,8 +1421,9 @@ protection), so the history is what the quiniela itself publishes:
   in `data/lae/public/<season>_j<jornada>.json` (a newer save of the same jornada replaces it).
 - Both are joined by season, jornada and ticket position in `data/women/liga_f.parquet`.
 
-Saving `upcoming.json` **every week** before the deadline is what builds the v1F history: a
-jornada without it has no v1F prediction. `data/` is not versioned, so back up
+Running `invoke update` **every week** before the deadline (and clicking the bookmark when it
+opens the betting page) is what builds the v1F history: a jornada without its ticket saved has
+no v1F prediction. `data/` is not versioned, so back up
 `data/lae/public/`: it cannot be downloaded again.
 
 ### v1F · Public picks (`public_picks`)
@@ -1447,6 +1464,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.10.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.10.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks (Liga F), tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | LAE data from `invoke update` with one click: it checks whether the next ticket or a played draw is missing, opens the LAE pages in your browser and picks the files up from Downloads after a click on the **Quiniela bookmark** (`tools/lae_bookmarklet.js`, installed from `dashboards/bookmarklet.html`; replaces the console script); `--no-browser` only warns. |
 | [`v0.10.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.10.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), **v1F public picks (Liga F)**, tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | **Liga F apart**: its history (`data/women/liga_f.parquet`: the women's matches of the official tickets with results, and the public picks of every next ticket archived in `data/lae/public/`), its own model counter (**v1F**, the public's picks, `WOMEN_MODELS`) and evaluation (`quiniela.evaluation.women`, with a result-shares reference); every dashboard shows men's and Liga F figures apart, and a **table of contents** after the header. The tickets are named **v3+v1F·D, ·R, ·B, ·E**: v3 on the men's matches and v1F on the Liga F ones. |
 | [`v0.9.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.9.2) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), tickets v3·D, v3·R and v3·B (v3·E in the backtest), market reference | Evaluation: new **hit rate by result** table (1, X, 2) for every model and for v3·D and v3·R, where a double or triple is a hit for every result it covers (draws: v3 3.7%, v3·D 21%, v3·R 32%); `evaluation.html` reordered: metrics, hit rate by result, contingency tables, then the rest. README documents the consensus test of the models (no gain). |
 | [`v0.9.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.9.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), tickets v3·D, v3·R and v3·B (v3·E in the backtest), market reference | Evaluation: **contingency tables** (observed result × predicted sign) of every model, with the league and season filters, and of the v3 tickets on the official tickets (observed result × marked signs: 1, X, 2, 1X, 12, X2, 1X2), before the metrics; **macro-F1** as an informative metric (v3 0.374, the highest; never bold). The euro backtest stores each ticket's picks and results. |
@@ -1478,7 +1496,7 @@ version in `pyproject.toml`:
 │   ├── backtest/tickets.parquet             # backtest tickets with doubles and triples
 │   ├── backtest/money.parquet               # real tickets of past draws played in euros
 │   ├── lae/lae_<season>.json                # official draws saved from LAE (by hand)
-│   ├── lae/upcoming.json                    # next official ticket (tools/lae_upcoming.js)
+│   ├── lae/upcoming.json                    # next official ticket (Quiniela bookmark)
 │   ├── lae/public/<season>_j<NN>.json       # archive of every next ticket: Liga F public picks (back it up)
 │   ├── women/liga_f.parquet                 # Liga F matches of the tickets with results and public picks
 │   └── cache/                               # raw CSV files cached by soccerdata
@@ -1491,7 +1509,7 @@ version in `pyproject.toml`:
 │   ├── visualization/       # dashboard builder and HTML templates
 │   ├── update.py            # `invoke update`: every step in one go
 │   └── scripts.py           # `quiniela` command line entry point
-├── tools/lae_upcoming.js    # browser snippet that saves the next official ticket
+├── tools/lae_bookmarklet.js # Quiniela bookmark: saves the next ticket and the draws from LAE pages
 ├── docs/api/                # generated API docs (not versioned)
 ├── tasks/                   # invoke tasks (update, download, predict, backtest, dashboards, dev)
 └── tests/

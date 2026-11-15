@@ -4,6 +4,7 @@ Examples:
 
     quiniela update                     # data, predictions and dashboards
     quiniela update --backtest          # also re-run the backtest
+    quiniela update --no-browser        # never open the LAE pages in the browser
     quiniela download historical --start 2015 --end 2025
     quiniela download historical --start 2015  # up to the last completed season
     quiniela download current
@@ -69,6 +70,11 @@ def _build_parser() -> argparse.ArgumentParser:
     update.add_argument(
         "--backtest", action="store_true", help="Also re-run the backtest of every model."
     )
+    update.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the LAE pages in the browser when their data is missing.",
+    )
     return parser
 
 
@@ -87,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "update":
         from quiniela.update import run_update
 
-        report = run_update(run_backtest=args.backtest)
+        report = run_update(run_backtest=args.backtest, browser=not args.no_browser)
         print(report.summary())
         return
     if args.command == "dashboards":

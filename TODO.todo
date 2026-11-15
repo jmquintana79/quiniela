@@ -59,7 +59,9 @@ Matices:
 
 Tareas:
   ✔ Archivar cada upcoming.json (data/lae/public/, automático en invoke update y
-    dashboards.build, v0.10.0). Falta guardarlo a mano cada semana antes del cierre.
+    dashboards.build, v0.10.0).
+  ✔ invoke update abre las páginas de LAE cuando falta algo y recoge los archivos de
+    Descargas tras un clic en el marcador Quiniela (v0.10.1).
   ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
     modelo de premios de v3+v1F·E y v3+v1F·B.
   ☐ Medir con el backtest en euros si mejora frente al mercado.
@@ -76,7 +78,7 @@ Tareas:
     público archivados (data/women/liga_f.parquet, data/lae/public/; v0.10.0).
   ✔ v1F (porcentajes del público) y su evaluación aparte; dashboards con bloques
     masculino y Liga F e índice de contenidos (v0.10.0).
-  ☐ Guardar upcoming.json todas las semanas (sin él, esa jornada no tiene v1F) y
+  ☐ Ejecutar invoke update cada semana antes del cierre (un clic en el marcador) y
     hacer copia de data/lae/public/ (no está versionado).
   ☐ Buscar una fuente legítima de resultados de la Liga F (sin protección antibots).
   ☐ v2F: pi-ratings o Dixon-Coles con esos resultados; compararlo con v1F.

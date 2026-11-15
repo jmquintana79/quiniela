@@ -54,8 +54,8 @@ model is evaluated with a walk-forward backtest against the betting market.
   in the euro backtest `quiniela.evaluation.money` (`data/backtest/money.parquet`, from the
   official draws in `data/lae/`, `quiniela.data.prizes`). A reduced ticket's hits and prizes
   come from its real columns (`TicketPlan.columns`), never from counting covered matches.
-- The next official ticket (`data/lae/upcoming.json`, saved with `tools/lae_upcoming.js` in a
-  browser) drives `current.html` (`quiniela.prediction.pipeline.predict_upcoming`); v3 uses its
+- The next official ticket (`data/lae/upcoming.json`, saved with the Quiniela bookmark
+  `tools/lae_bookmarklet.js` from `invoke update`, `quiniela.io.lae`) drives `current.html` (`quiniela.prediction.pipeline.predict_upcoming`); v3 uses its
   public picks for the matches no model covers. Matches carry a category (M, F, O, U:
   `quiniela.data.prizes.match_category`) and the official jornada they were on.
 - New submodules of packages with `__all__` (`quiniela.config`, `quiniela.prediction`,
@@ -101,6 +101,7 @@ Tests must not need network access (mock downloads, use small synthetic data fro
 - Segunda is registered in soccerdata from `quiniela.io.download` (not built in).
 - The ClubElo API (soccerdata `ClubElo`) returned 502 when last tried.
 - The LAE results service answers browsers only (scripts get "Access Denied"): its JSON is
-  saved by hand in `data/lae/` (see the README). Do not try to get around the protection.
+  saved by the user's own browser (Quiniela bookmark; `invoke update` opens the pages and picks
+  the files up from Downloads, see the README). Do not try to get around the protection.
   Its `temporada` field, not the request dates, gives the season of a draw.
 - Poetry 1.8.3 needs `pkginfo>=1.12,<2` in its own environment to read recent packages.
