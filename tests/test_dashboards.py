@@ -243,6 +243,7 @@ def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.Mo
     # No real data: no prize context nor saved ticket
     monkeypatch.setattr("quiniela.evaluation.money.prize_context", lambda: None)
     monkeypatch.setattr(dashboards, "_upcoming_view", lambda *_, **__: None)
+    monkeypatch.setattr(dashboards, "_liga_f", lambda: pd.DataFrame())
     old = tmp_path / "predictions.html"
     old.write_text("old")
 
@@ -565,3 +566,32 @@ def test_ticket_contingency_counts_the_marked_signs() -> None:
     v3r = out["tables"]["2025-26"]["v3r"]
     assert v3r[2][0] == 1 and v3r[2][5] == 1 and v3r[0][0] == 1
     assert dashboards._ticket_contingency(pd.DataFrame()) == {}
+
+
+def test_liga_f_payload_scores_v1f_apart() -> None:
+    history = pd.DataFrame(
+        {
+            "season": ["2026-27"] * 3,
+            "jornada": [3, 4, 21],
+            "position": [11, 11, 11],
+            "date": pd.to_datetime(["2026-08-30", "2026-09-06", "2026-11-14"]),
+            "home": ["A (f)", "B (f)", "C (f)"],
+            "away": ["B (f)", "C (f)", "A (f)"],
+            "FTHG": [2.0, 0.0, None],
+            "FTAG": [0.0, 0.0, None],
+            "FTR": ["H", "D", None],
+            "public_H": [None, 30.0, 50.0],
+            "public_D": [None, 50.0, 30.0],
+            "public_A": [None, 20.0, 20.0],
+        }
+    )
+    payload = dashboards.liga_f_payload(history)
+    assert [m["key"] for m in payload["models"]] == ["public_picks", "liga_f_shares"]
+    results = payload["results"]["all"]
+    # v1F only on the played match with public picks (it marked X: a hit)
+    assert results["public_picks"]["matches"] == 1 and results["public_picks"]["hit_rate"] == 1
+    assert results["liga_f_shares"]["matches"] == 2
+    assert payload["data"][0]["with_picks"] == 2 and payload["data"][0]["played"] == 2
+    newest = payload["matches"][0]
+    assert newest["jornada"] == 21 and newest["public_picks"] == "H" and newest["FTR"] is None
+    assert dashboards.liga_f_payload(None)["matches"] == []

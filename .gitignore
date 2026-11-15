@@ -180,6 +180,7 @@ data/current/
 data/predictions/
 data/backtest/
 data/lae/
+data/women/
 datasets/
 
 # Local preview server config

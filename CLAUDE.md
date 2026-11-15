@@ -36,13 +36,19 @@ model is evaluated with a walk-forward backtest against the betting market.
 - Models receive the whole match table as `X` (league, date, teams, odds and, when fitting,
   goals); the target's goals and result are removed before `predict`. Never use information
   unavailable before the match (no closing odds, no look-ahead).
-- **Notation: model · ticket.** Registered models are numbered (v1 head-to-head, v2
-  Dixon-Coles, v3 DC + market, v4 pi-ratings...). Tickets are decision layers, not registered
-  models, written as the model whose probabilities they use plus a letter: **·D** direct
+- **Notation: model · ticket.** Men's models are numbered (v1 head-to-head, v2 Dixon-Coles,
+  v3 DC + market, v4 pi-ratings...); **Liga F models have their own counter with an F**
+  (v1F public picks, `quiniela.prediction.public_picks`, registered in `WOMEN_MODELS`), with
+  their own history (`quiniela.data.women`: `data/women/liga_f.parquet` and the archived
+  next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). Every
+  dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`
+  sections, `tableOfContents()` in `base.js`). Tickets are decision layers, not registered
+  models, written as the models whose probabilities they use plus a letter: **·D** direct
   doubles and triples (`quiniela.prediction.planner`), **·R** with the official reductions
   (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
-  (`quiniela.prediction.money`). They plan on `PLANNER_MODEL` (v3), so they are v3·D, v3·R,
-  v3·B and v3·E (called v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d`, `v3r`,
+  (`quiniela.prediction.money`). They use `PLANNER_MODEL` (v3) on the men's matches and
+  `WOMEN_PLANNER_MODEL` (v1F) on the Liga F ones: v3+v1F·D, ·R, ·B and ·E (v3·D... in v0.9,
+  v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d`, `v3r`,
   `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`
   (`data/backtest/tickets.parquet`), and `v3d`, `v3r`, `v3e`, `v3e_full`, `v3e_always`, `v3b`
   in the euro backtest `quiniela.evaluation.money` (`data/backtest/money.parquet`, from the

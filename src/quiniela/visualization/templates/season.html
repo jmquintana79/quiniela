@@ -13,16 +13,25 @@
     <span class="meta" id="meta"></span>
   </header>
 
-  <section class="card" style="margin-bottom:16px">
-    <h2>Season so far</h2>
+  <section class="card" style="margin-bottom:16px" data-toc="Men's · Season so far">
+    <h2>Men's leagues · Season so far</h2>
     <div class="tiles" id="totals"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px">
-    <h2>Matchdays</h2>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Season so far">
+    <h2>Liga F · Season so far</h2>
+    <p class="meta" style="margin:0 0 10px">The women's matches of this season's official tickets, apart from the men's
+      models. <strong>v1F</strong> (public picks) is scored on the matches whose betting page was saved; the reference, the
+      result shares of the earlier Liga F matches, on every played match.</p>
+    <div class="tiles" id="women-totals"></div>
+    <div class="scroll" id="women-matches" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Men's · Matchdays">
+    <h2>Men's leagues · Matchdays</h2>
     <div class="scroll" id="overview"></div>
     <p class="meta" style="margin:10px 0 0">Click a matchday to open it below. The current matchday is
-      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v3·D, v3·R and v3·B
+      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v3+v1F·D, v3+v1F·R and v3+v1F·B
       tickets with the real prizes of the official draw (* estimated with the prize model when the draw is
       not saved), and the cost of the ticket below; the 10-hit prize is not paid when it falls under 1.50 €.</p>
   </section>
@@ -34,19 +43,20 @@
 
   <section style="margin-bottom:8px" id="banners"></section>
 
-  <section class="card" style="margin-bottom:16px">
+  <section class="card" style="margin-bottom:16px" data-toc="Official tickets">
     <h2 id="ticket-title">Official tickets</h2>
     <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
     <p class="meta" style="margin:0 0 10px">Every official ticket of the season saved from Loterías y Apuestas del Estado,
-      with all its matches and what every model marked: v1, v2 and v3 their sign on the La Liga / Segunda
-      matches, v3·D, v3·R and v3·B their doubles and triples on the 14 matches (v3·R may play an official
-      reduction: R marks its matches) (with the v3 probabilities; the league
-      shares of 1, X and 2 where no model predicts), and the Pleno al 15 pick (Dixon-Coles' goals categories)
+      with all its matches and what every model marked: v1 to v4 their sign on the La Liga / Segunda
+      matches, v1F (public picks) on the Liga F matches whose betting page was saved, v3+v1F·D, v3+v1F·R and
+      v3+v1F·B their doubles and triples on the 14 matches (v3+v1F·R may play an official reduction: R marks its
+      matches) with the v3 probabilities on the men's matches, v1F's on those Liga F matches and the league
+      shares of 1, X and 2 elsewhere, and the Pleno al 15 pick (Dixon-Coles' goals categories)
       when it is a La Liga / Segunda match. ✓ hit · ✗ miss. The footer gives the hits and the price of each ticket.</p>
     <div class="scroll" id="ticket"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-toc="Matchday detail">
     <h2 id="matches-title">Matches</h2>
     <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
     <div class="scroll" id="matches"></div>
@@ -82,7 +92,7 @@
     }).join("");
   }
 
-  // Euros are only computed for the tickets that are actually bought: v3, v3·D, v3·R and v3·B
+  // Euros are only computed for the tickets that are actually bought: v3, v3+v1F·D, v3+v1F·R and v3+v1F·B
   const PRIZE_KEYS = ["market_blend", "v3d", "v3r", "v3b"];
 
   /** Prize won in euros, with the cost of the ticket below it. */
@@ -127,7 +137,7 @@
   // Official tickets of the season (every match: men's, women's and other competitions)
   function showTicket(i) {
     const t = (DATA.tickets || [])[i];
-    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, models) + categoryLegend(DATA.categories);
+    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, DATA.ticket_models || models) + categoryLegend(DATA.categories);
     $("ticket-title").textContent = t ? `Official ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Official tickets";
   }
   if ((DATA.tickets || []).length) {
@@ -139,6 +149,23 @@
     $("ticket").innerHTML = '<p class="empty">No official tickets of this season saved in data/lae.</p>';
   }
   $("totals").innerHTML = totalsTiles();
+  // Liga F: v1F and the reference on this season's women's matches
+  const liga = DATA.liga_f;
+  if (liga) {
+    const rows = liga.results?.all || {};
+    $("women-totals").innerHTML = (liga.models || []).map((m) => {
+      const r = rows[m.key];
+      return `<div class="tile" data-tip="${esc(m.description)}">
+        <div class="label">${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span></div>
+        <div class="value">${r ? pct(r.hit_rate, 1) : "–"}</div>
+        <div class="detail">${r ? `${Math.round(r.hit_rate * r.matches)} hits of ${r.matches} played matches` : "No played match with its data yet"}</div>
+      </div>`;
+    }).join("");
+    $("women-matches").innerHTML = ligaFMatchesTable(liga.matches);
+  } else {
+    $("women-totals").innerHTML = '<p class="empty">No Liga F history saved yet. Run <code>invoke update</code>.</p>';
+  }
+  tableOfContents();
   if (DATA.matchdays.length && models.length) {
     $("meta").textContent = `${DATA.matchdays.length} matchdays`;
     $("matchday").innerHTML = DATA.matchdays.map((md, i) =>

@@ -14,6 +14,7 @@ Submodules:
 - ``market_blend``: v3, learned combination of Dixon-Coles and the market.
 - ``confidence``: confidence and margin of a prediction, from its probabilities.
 - ``pi_ratings``: v4, home and away pi-ratings learned from goal differences.
+- ``public_picks``: v1F, the Liga F model (the public's picks).
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``planner``: the ·D ticket (direct doubles and triples of the quiniela ticket).
 - ``reduced``: the ·R ticket (official reductions of the quiniela ticket).
@@ -31,6 +32,7 @@ from quiniela.prediction import (
     pi_ratings,
     pipeline,
     planner,
+    public_picks,
     reduced,
     registry,
     ticket,
@@ -40,6 +42,7 @@ from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
 from quiniela.prediction.pi_ratings import PiRatingsModel
+from quiniela.prediction.public_picks import PublicPicksModel
 from quiniela.prediction.registry import DEFAULT_MODEL, MODELS, ModelSpec, Predictor
 
 # Submodules are listed so the API docs (pdoc) include them
@@ -51,6 +54,7 @@ __all__ = [
     "MarketBlendModel",
     "MarketModel",
     "PiRatingsModel",
+    "PublicPicksModel",
     "ModelSpec",
     "Predictor",
     "confidence",
@@ -62,6 +66,7 @@ __all__ = [
     "pi_ratings",
     "pipeline",
     "planner",
+    "public_picks",
     "reduced",
     "registry",
     "ticket",

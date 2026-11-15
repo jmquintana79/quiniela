@@ -356,7 +356,18 @@ def load_upcoming(lae_dir: Path = LAE_DIR) -> UpcomingTicket | None:
     Returns:
         The ticket, or ``None`` when the file is missing or not valid.
     """
-    path = lae_dir / UPCOMING_FILE
+    return load_upcoming_file(lae_dir / UPCOMING_FILE)
+
+
+def load_upcoming_file(path: Path) -> UpcomingTicket | None:
+    """Read a next-ticket file (``upcoming.json`` or one of its archived copies).
+
+    Args:
+        path: The JSON file saved with ``tools/lae_upcoming.js``.
+
+    Returns:
+        The ticket, or ``None`` when the file is missing or not valid.
+    """
     if not path.exists():
         return None
     try:

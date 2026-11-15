@@ -22,6 +22,7 @@ from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
 from quiniela.prediction.pi_ratings import PiRatingsModel
+from quiniela.prediction.public_picks import PublicPicksModel
 
 
 class Predictor(Protocol):
@@ -107,3 +108,19 @@ MODELS: dict[str, ModelSpec] = {
 }
 
 DEFAULT_MODEL = "head_to_head"
+
+# Liga F (women's league) models: their own version counter with an "F", evaluated
+# apart from the men's models (quiniela.evaluation.women) on the Liga F matches of
+# the official tickets (quiniela.data.women)
+WOMEN_MODELS: dict[str, ModelSpec] = {
+    "public_picks": ModelSpec(
+        name="Public picks",
+        factory=PublicPicksModel,
+        description='Liga F: the share of quiniela bettors marking each sign ("Pronósticos más '
+        'apostados"), normalised to probabilities; the most marked sign is the prediction.',
+        version="v1F",
+    ),
+}
+
+# Liga F model whose probabilities the tickets use for the women's matches
+WOMEN_PLANNER_MODEL = "public_picks"

@@ -103,7 +103,7 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
     const marks = cols.map((model) => {
       if (m.position === 15) {
-        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3·D, v3·R and v3·B tickets
+        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3+v1F·D, v3+v1F·R and v3+v1F·B tickets
         if (!m.pleno_pick || model.key === "head_to_head") return '<td class="num muted">–</td>';
         const pick = `${m.pleno_pick[0]}-${m.pleno_pick[1]}`;
         if (!m.score) return `<td class="num"><span class="pick pending">${pick}</span></td>`;
@@ -122,11 +122,13 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const first14 = ticket.matches.filter((m) => m.position <= 14 && m.sign);
     const marked = first14.filter((m) => m.picks?.[model.key]);
     const plan = ticket.plans?.[model.key];
-    // A reduced ticket (v3·R) does not play every combination: hits of its best column
+    // A reduced ticket (v3+v1F·R) does not play every combination: hits of its best column
     const hits = plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const bets = plan ? plan.bets : 1;
+    // Liga F models only mark the women's matches: hits, no ticket price
+    const price = model.women ? "Liga F matches" : `${eur(bets * 0.75)}${plan ? ` · ${plan.bets} bets` : ""}`;
     return `<td class="num"><span class="strong">${marked.length ? `${hits}/${marked.length}` : "–"}</span>` +
-      `<br><span class="muted">${eur(bets * 0.75)}${plan ? ` · ${plan.bets} bets` : ""}</span></td>`;
+      `<br><span class="muted">${price}</span></td>`;
   }).join("")}</tr></tfoot>` : "";
   return `<table><thead><tr><th class="num">#</th><th>Cat.</th><th class="num">Home</th><th>Away</th>
       <th class="num">Score</th><th class="num">1X2</th>${cols.map((m) => `<th class="num">${modelLabel(m)}</th>`).join("")}</tr></thead>
@@ -207,7 +209,7 @@ function confidenceCell(match, key, tiers) {
  * Prediction cell: the predicted sign only (probability, score and Pleno al 15
  * in the tooltip, to keep columns narrow); green check for a hit, red cross
  * for a miss, outline while pending, dashed outline without a prediction.
- * A pick can cover several signs (doubles "1X" and triples "1X2" of v3·D).
+ * A pick can cover several signs (doubles "1X" and triples "1X2" of v3+v1F·D).
  */
 function pickCell(match, key) {
   const sign = match[`${key}_sign`];
@@ -218,7 +220,8 @@ function pickCell(match, key) {
   const label = [...sign].map((s) => SIGN[s]).join("");
   const kind = { 2: "Double", 3: "Triple" }[sign.length];
   const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
-  const source = match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
+  const source = match[`${key}_source`] === "v1F" ? " · Liga F: v1F, the public's picks"
+    : match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
     : match[`${key}_source`] === "reduced" ? " · in the reduction (not every combination is played)" : "";
   const mark = match[`${key}_source`] === "reduced" ? '<sup class="muted">R</sup>' : "";
   const tip = kind ? `${kind} ${label}: covers ${pct(prob, 1)} of the outcomes`
@@ -270,7 +273,7 @@ function oddsLine(summary) {
     `<span class="muted"> · ${mix} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  // v3·D's and v3·R's light (chance of 11+ hits); v3·B shows its own lights under its chart
+  // v3+v1F·D's and v3+v1F·R's light (chance of 11+ hits); v3+v1F·B shows its own lights under its chart
   const light = plan && !summary.money && plan.hits_signal
     ? signalLine(plan.hits_signal, "chance of 11+ hits") + signalRule([[plan.hits_signal, "11+ hits"]]) : "";
   return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>${light}`;
@@ -290,7 +293,7 @@ function chanceText(p) {
 }
 
 /**
- * v3·B big-win ticket: what can happen with it, as a horizontal bar chart of the
+ * v3+v1F·B big-win ticket: what can happen with it, as a horizontal bar chart of the
  * chance of each payout range (one series, values always shown), plus the key
  * figures, so the decision to play is the reader's.
  */
@@ -321,7 +324,7 @@ function moneyLine(summary) {
   return `<div style="margin-top:8px">
       <span class="muted">What can happen with this ticket (${eur(m.cost)}), chance per matchday:</span>
       <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;display:block;margin-top:4px"
-        role="img" aria-label="Chance of each payout range of the v3·B ticket">${bars}</svg>
+        role="img" aria-label="Chance of each payout range of the v3+v1F·B ticket">${bars}</svg>
       <span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
         13+ hits ${chanceText(m.chance_13)} · 14 hits ${chanceText(m.chance_14)} ·
         on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot} ·
@@ -371,7 +374,8 @@ function eurosLine(summary) {
 
 /** One banner per model with the outcome of its 14-match quiniela ticket. */
 function quinielaBanners(md, models) {
-  return models.map((m) => {
+  // Liga F models (v1F) only predict the women's matches: no 14-match ticket of their own
+  return models.filter((m) => !m.women).map((m) => {
     const s = md.summary[m.key];
     const t = s.ticket;
     const note = missingNote(s);
@@ -403,7 +407,21 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
   const result = (m) => m.FTR
     ? `<span class="strong">${m.FTHG} – ${m.FTAG}</span> <span class="muted">(${SIGN[m.FTR]})</span>`
     : '<span class="muted">Pending</span>';
+  // Hit rates apart for the men's leagues and the Liga F (separate models and evaluation)
+  const hasWomen = md.matches.some((m) => m.category === "F");
+  const groupRate = (model, women) => {
+    const rows = md.matches.filter((m) => (m.category === "F") === women);
+    const marked = rows.filter((m) => m[`${model.key}_sign`]);
+    const played = marked.filter((m) => m.FTR);
+    const hits = played.filter((m) => m[`${model.key}_sign`].includes(m.FTR)).length;
+    const details = [`${hits}/${played.length} ✓`];
+    if (rows.length - marked.length) details.push(`${rows.length - marked.length} –`);
+    if (marked.length - played.length) details.push(`${marked.length - played.length} pending`);
+    return `<td class="num"><span class="strong">${played.length ? pct(hits / played.length, 1) : "–"}</span>` +
+      `<br><span class="muted">${details.join(" · ")}</span></td>`;
+  };
   const footer = models.map((m) => {
+    if (hasWomen) return groupRate(m, false);
     const s = md.summary[m.key];
     const played = s.hits + s.misses;
     const details = [`${s.hits}/${played} ✓`];
@@ -412,6 +430,7 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
     return `<td class="num"><span class="strong">${played ? pct(s.rate, 1) : "–"}</span>` +
       `<br><span class="muted">${details.join(" · ")}</span></td>`;
   }).join("");
+  const womenFooter = hasWomen ? `<tr><td colspan="${confModel ? 9 : 8}">Hit rate · Liga F <span class="muted">(F matches)</span></td>${models.map((m) => groupRate(m, true)).join("")}</tr>` : "";
   // Hits of the 14-match ticket
   const ticketFooter = models.map((m) => {
     const t = md.summary[m.key].ticket;
@@ -432,7 +451,7 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
       ${confModel ? `<td class="num">${confidenceCell(m, confKey, tiers)}</td>` : ""}
       ${models.map((model) => `<td class="num">${pickCell(m, model.key)}</td>`).join("")}
     </tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate <span class="muted">(played matches)</span></td>${footer}</tr>
+    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate${hasWomen ? " · men's" : ""} <span class="muted">(${hasWomen ? "M and O matches" : "played matches"})</span></td>${footer}</tr>${womenFooter}
       <tr><td colspan="${confModel ? 9 : 8}">Hits <span class="muted">(14 matches)</span></td>${ticketFooter}</tr></tfoot></table>`;
 }
 
@@ -445,11 +464,59 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
-  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3·D): the v3 signs with
+  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v1F·D): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
-  reduced ticket (v3·R): the same budget, which may also go to an official reduction (fewer columns
+  reduced ticket (v3+v1F·R): the same budget, which may also go to an official reduction (fewer columns
   covering more matches; R marks its matches; its hits are those of the best column);
-  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v3·B): the
+  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v3+v1F·B): the
   doubles and triples (at most 50 €) with the best chance of a prize of 10,000 € or more; its banner
   shows what can happen with it (chance of each payout range), so the decision is yours. Euros of played matchdays use the real prizes of
   the official draw when it is saved in data/lae (otherwise an estimate).`;
+
+
+/**
+ * Table of contents after the dashboard header: one link per section marked
+ * with data-toc (sections without an id get one).
+ */
+function tableOfContents() {
+  const header = document.querySelector("main > header");
+  const sections = [...document.querySelectorAll("[data-toc]")];
+  if (!header || !sections.length) return;
+  const links = sections.map((section) => {
+    // Stable anchors from the section name (e.g. #liga-f-metrics)
+    if (!section.id) {
+      section.id = section.dataset.toc.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+    return `<a href="#${section.id}">${esc(section.dataset.toc)}</a>`;
+  });
+  const nav = document.createElement("nav");
+  nav.className = "toc";
+  nav.setAttribute("aria-label", "Contents");
+  nav.innerHTML = `<span class="muted">Contents</span>${links.join("")}`;
+  header.after(nav);
+}
+
+/** Liga F matches of the official tickets with the result and the v1F pick (✓ hit, ✗ miss). */
+function ligaFMatchesTable(matches, key = "public_picks") {
+  if (!matches?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
+  return `<table><thead><tr><th>Season</th><th class="num">Jornada</th><th>Date</th><th class="num">Home</th><th>Away</th>
+      <th class="num">Score</th><th class="num">1X2</th><th class="num">Public picks v1F</th></tr></thead>
+    <tbody>${matches.map((m) => {
+      const tip = m.p ? `Public: 1 ${pct(m.p[0], 0)} · X ${pct(m.p[1], 0)} · 2 ${pct(m.p[2], 0)}` : "Betting page not saved: no v1F pick";
+      return `<tr><td>${esc(m.season)}</td><td class="num">${m.jornada}</td><td class="muted">${m.date ? fmtDate(m.date) : "–"}</td>
+        <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
+        <td class="num">${m.score ?? "–"}</td><td class="num">${{ H: "1", D: "X", A: "2" }[m.FTR] ?? "–"}</td>
+        <td class="num" data-tip="${esc(tip)}">${ticketPick(m[key], m.FTR)}</td></tr>`;
+    }).join("")}</tbody></table>`;
+}
+
+/** Per-season data of the Liga F history: matches, played, with public picks, result shares, goals. */
+function ligaFDataTable(data) {
+  if (!data?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
+  return `<table><thead><tr><th>Season</th><th class="num">Matches</th><th class="num">Played</th>
+      <th class="num">With public picks (v1F)</th><th class="num">1</th><th class="num">X</th><th class="num">2</th>
+      <th class="num">Goals per match</th></tr></thead>
+    <tbody>${data.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.matches}</td><td class="num">${d.played}</td>
+      <td class="num">${d.with_picks}</td><td class="num">${pct(d.H, 1)}</td><td class="num">${pct(d.D, 1)}</td>
+      <td class="num">${pct(d.A, 1)}</td><td class="num">${d.goals == null ? "–" : d.goals.toFixed(2)}</td></tr>`).join("")}</tbody></table>`;
+}

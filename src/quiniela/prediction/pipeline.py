@@ -27,7 +27,7 @@ from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
 from quiniela.prediction.planner import PLANNER_MODEL
-from quiniela.prediction.registry import MODELS
+from quiniela.prediction.registry import MODELS, WOMEN_PLANNER_MODEL
 
 if TYPE_CHECKING:
     from quiniela.data.prizes import UpcomingTicket
@@ -371,8 +371,14 @@ def predict_upcoming(
         odds = MarketModel().fit(target).predict_proba(target)
         with_odds = int((~np.isnan(odds).any(axis=1)).sum())
     public = _public_predictions(upcoming, matches[~ours])
+    # Liga F matches: the v1F model (public picks); other competitions: the public's picks too
+    women = public["game"].isin(matches.loc[matches["league"] == WOMEN_LEAGUE, "game"])
+    public.loc[women.to_numpy(), "source"] = "v1F"
+    if women.any():
+        predictions[WOMEN_PLANNER_MODEL] = public[women.to_numpy()].reset_index(drop=True)
     if PLANNER_MODEL in predictions:
-        # v3: Dixon-Coles + market where there is data, the public's picks elsewhere
+        # The ticket of v3 + v1F: Dixon-Coles + market where there is data, v1F on the
+        # Liga F matches and the public's picks on the other competitions
         model_rows = predictions[PLANNER_MODEL].assign(source="model")
         predictions[PLANNER_MODEL] = pd.concat([model_rows, public], ignore_index=True)
     elif not public.empty:
@@ -405,7 +411,7 @@ def _pleno_pick(
 
     A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
     (from its score matrix); any other match, the categories the public marks
-    most ("Pronósticos más apostados"). The same pick goes on the v3, v3·D, v3·R and v3·B
+    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v1F·D, v3+v1F·R and v3+v1F·B
     tickets (the Pleno al 15 is a single match: no doubles).
 
     Returns:

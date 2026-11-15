@@ -159,11 +159,14 @@ def test_predict_upcoming(tmp_path: Path) -> None:
     dc = predictions["dixon_coles"]
     assert len(dc) == 1 and dc["prediction"].notna().all()
     assert predictions["market"]["p_H"].isna().all()
-    # v3: the model for the Segunda match, the public's picks for the women's one
+    # v3: the model for the Segunda match, v1F (the public's picks) for the women's one
     v3 = predictions["market_blend"].set_index("home_team")
     assert v3.loc["Valladolid", "source"] == "model"
-    assert v3.loc["Alavés", "source"] == "public"
+    assert v3.loc["Alavés", "source"] == "v1F"
     assert v3.loc["Alavés", "p_H"] == pytest.approx(0.35)
+    # v1F: only the Liga F match
+    v1f = predictions["public_picks"]
+    assert v1f["home_team"].tolist() == ["Alavés"] and v1f["source"].eq("v1F").all()
     assert matches[[f"_fill_p_{o}" for o in "HDA"]].sum(axis=1).round(6).eq(1).all()
 
 

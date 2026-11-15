@@ -1,8 +1,8 @@
 Quiniela · tareas pendientes
 ==============================================================================
-Orden de prioridad propuesto: 1 → 2.
+Orden de prioridad propuesto: 3 → 1 → 2.
   1. mejora las PROBABILIDADES (una variable más en la v3).
-  2. mejora la DECISIÓN (el público en el modelo de premios de v3·E y v3·B).
+  2. mejora la DECISIÓN (el público en el modelo de premios de v3+v1F·E y v3+v1F·B).
 Formato: ☐ pendiente · ✔ hecho
 Lo ya hecho está en el README (Releases y cada modelo).
 
@@ -45,7 +45,7 @@ Tareas:
 2. Jugar contra la mayoría con los porcentajes del público · PRIORIDAD BAJA
 ==============================================================================
 Idea:
-  v3·E y v3·B ya buscan el mejor premio, pero usan el mercado como "lo que marca el
+  v3+v1F·E y v3+v1F·B ya buscan el mejor premio, pero usan el mercado como "lo que marca el
   público". El boleto oficial (data/lae/upcoming.json) trae el porcentaje real de
   apostantes por signo: en partidos igualados, un signo algo menos probable pero
   poco apostado puede valer más (p. ej. X al 35 % marcada por el 10 %, frente a 1
@@ -58,11 +58,28 @@ Matices:
     efecto es pequeño.
 
 Tareas:
-  ☐ Guardar cada semana upcoming.json para tener histórico de porcentajes del
-    público y poder evaluarlos.
+  ✔ Archivar cada upcoming.json (data/lae/public/, automático en invoke update y
+    dashboards.build, v0.10.0). Falta guardarlo a mano cada semana antes del cierre.
   ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
-    modelo de premios de v3·E y v3·B.
+    modelo de premios de v3+v1F·E y v3+v1F·B.
   ☐ Medir con el backtest en euros si mejora frente al mercado.
+
+
+3. Liga F (fútbol femenino) · PRIORIDAD ALTA
+==============================================================================
+Idea:
+  Desde 2026-27 los boletos de fin de semana llevan 4 partidos de la Liga F (29 % del
+  boleto). Se modela y evalúa aparte (v1F, v2F...): hoy v1F = porcentajes del público.
+
+Tareas:
+  ✔ Histórico de la Liga F: resultados de los boletos oficiales y porcentajes del
+    público archivados (data/women/liga_f.parquet, data/lae/public/; v0.10.0).
+  ✔ v1F (porcentajes del público) y su evaluación aparte; dashboards con bloques
+    masculino y Liga F e índice de contenidos (v0.10.0).
+  ☐ Guardar upcoming.json todas las semanas (sin él, esa jornada no tiene v1F) y
+    hacer copia de data/lae/public/ (no está versionado).
+  ☐ Buscar una fuente legítima de resultados de la Liga F (sin protección antibots).
+  ☐ v2F: pi-ratings o Dixon-Coles con esos resultados; compararlo con v1F.
 
 
 Otras ideas (ya en el README)

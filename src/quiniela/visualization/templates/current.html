@@ -17,18 +17,18 @@
   <section class="block">
     <div id="status"></div>
     <div id="fixtures"></div>
-    <div id="banners" style="margin-bottom:8px"></div>
-    <div class="card">
+    <div id="banners" style="margin-bottom:8px" data-toc="Tickets and prize chances"></div>
+    <div class="card" id="matches-card" data-toc="Matches and predictions">
       <h2 id="matches-title">Matches</h2>
       <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
       <div class="scroll" id="matches"></div>
-      <div id="pleno" style="margin-top:12px"></div>
+      <div id="pleno" style="margin-top:12px" data-toc="Pleno al 15 and prices"></div>
       <p class="meta" style="margin:10px 0 0" id="legend"></p>
       <p class="meta" style="margin:6px 0 0" id="odds"></p>
     </div>
   </section>
 
-  <section class="block">
+  <section class="block" data-toc="Standings">
     <h2 class="section-title">Standings</h2>
     <div class="filters"><div class="segmented" id="league-switch"></div></div>
     <div class="card"><div class="scroll" id="standings"></div></div>
@@ -108,7 +108,7 @@
         `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
     return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
       <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
-        <th class="num">Pick on the v3, v3·D, v3·R and v3·B tickets</th></tr></thead><tbody><tr>
+        <th class="num">Pick on the v3, v3+v1F·D, v3+v1F·R and v3+v1F·B tickets</th></tr></thead><tbody><tr>
         <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
@@ -126,7 +126,7 @@
       const bets = plan?.bets ?? 1;
       const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
       const r = plan?.reduction;
-      // v3·R may play an official reduction (fewer columns), times its direct doubles and triples
+      // v3+v1F·R may play an official reduction (fewer columns), times its direct doubles and triples
       const direct = r ? [r.direct_doubles ? plural(r.direct_doubles, "direct double") : "",
         r.direct_triples ? plural(r.direct_triples, "direct triple") : ""].filter(Boolean).join(" + ") : "";
       const marks = r ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets)${direct ? ` + ${direct}` : ""}`
@@ -147,7 +147,10 @@
   }
 
   $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only v3 and the tickets built on it (v3·D, v3·R, v3·B) are shown here; every model is in season.html.";
+    "<br>Only v3, v1F and the tickets built on them (v3+v1F·D, v3+v1F·R, v3+v1F·B) are shown here; every model is in season.html." +
+    " Liga F matches (F) are predicted by <strong>v1F</strong>, the public's picks (the women's league has its own models and evaluation);" +
+    " the v3 column shows v1F there and the public's picks on other competitions, and the tickets use v3 on the men's matches and v1F on the Liga F ones." +
+    " The footer gives the hit rates apart: men's (M and O matches) and Liga F.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;
     $("meta").textContent = DATA.jornada ? "Official ticket · current season"
@@ -174,6 +177,7 @@
     segmented($("league-switch"), codes.map((c) => DATA.leagues[c] ?? c), 0, showStandings);
     showStandings(0);
   }
+  tableOfContents();
 </script>
 </body>
 </html>

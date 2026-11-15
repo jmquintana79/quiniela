@@ -5,16 +5,16 @@ Segunda matches (``quiniela.data.prizes``), the ticket is played with:
 
 - ``single``: one column with the v3 signs (0.75 EUR, a reference: the
   minimum ticket is two columns);
-- ``v3d`` (v3·D): direct doubles and triples for the highest chance of 11+
+- ``v3d`` (v3+v1F·D): direct doubles and triples for the highest chance of 11+
   hits within 48 bets;
-- ``v3r`` (v3·R): the same, with the official reductions as candidates;
-- ``v3e`` (v3·E): the prudent expected-prize planner (only 10 to 13-hit
+- ``v3r`` (v3+v1F·R): the same, with the official reductions as candidates;
+- ``v3e`` (v3+v1F·E): the prudent expected-prize planner (only 10 to 13-hit
   prizes count), only when its expected net prize is positive;
 - ``v3e_full``: the expected-prize planner counting every prize (14 hits and
   the Pleno al 15 too), only when its expected net prize is positive;
 - ``v3e_always``: the full planner's ticket every draw, to measure what
   choosing the draws adds;
-- ``v3b`` (v3·B): the big-win mode, every draw: at most 50 EUR, the ticket
+- ``v3b`` (v3+v1F·B): the big-win mode, every draw: at most 50 EUR, the ticket
   with the best chance of a prize of 10,000 EUR or more.
 
 The other ticket matches (other competitions, women's league) get the league
@@ -52,12 +52,12 @@ VOLUME_WINDOW = 5
 
 MONEY_STRATEGIES: dict[str, str] = {
     "single": "One column with the v3 signs (0.75 EUR)",
-    "v3d": "v3·D: best chance of 11+ hits within 48 bets (direct), every draw",
-    "v3r": "v3·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
-    "v3e": "v3·E (prudent): only 10-13 hit prizes count, plays only when they pay",
-    "v3e_full": "v3·E counting 14 hits and the Pleno al 15 too, only when it pays",
-    "v3e_always": "The full v3·E ticket every draw, worth it or not",
-    "v3b": "v3·B big win: best chance of 10,000+ EUR within 50 EUR, every draw",
+    "v3d": "v3+v1F·D: best chance of 11+ hits within 48 bets (direct), every draw",
+    "v3r": "v3+v1F·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
+    "v3e": "v3+v1F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
+    "v3e_full": "v3+v1F·E counting 14 hits and the Pleno al 15 too, only when it pays",
+    "v3e_always": "The full v3+v1F·E ticket every draw, worth it or not",
+    "v3b": "v3+v1F·B big win: best chance of 10,000+ EUR within 50 EUR, every draw",
 }
 
 MONEY_COLUMNS = [
@@ -178,7 +178,7 @@ def _season_money(
             "v3d": (plan_d, nan, nan, True, nan),
             "v3r": (plan_r, nan, nan, True, nan),
         }
-        # Planned chance of many hits: 11+ for v3·D and v3·R (their target), 13+ for v3·B
+        # Planned chance of many hits: 11+ for v3+v1F·D and v3+v1F·R (their target), 13+ for v3+v1F·B
         p_hits = {"v3d": plan_d.at_least(11), "v3r": plan_r.at_least(11)}
         signs = [OUTCOMES[r] for r in results]
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
@@ -258,7 +258,7 @@ def money_backtest(
         matches: football-data matches (odds and results) of every season.
         seasons: Seasons to play. Defaults to the seasons of ``backtest``.
         model_key: Model whose probabilities choose the signs (v3).
-        max_bets: Budget of v3·D, v3·R and v3·E.
+        max_bets: Budget of v3+v1F·D, v3+v1F·R and v3+v1F·E.
         seed: Seed of the simulations.
         n_jobs: Parallel jobs (one per season).
 
@@ -406,7 +406,7 @@ def load_money(backtest_dir: Path = BACKTEST_DIR) -> pd.DataFrame:
 
 @dataclass(frozen=True)
 class PrizeContext:
-    """What the dashboards need to plan v3·B and value tickets in euros.
+    """What the dashboards need to plan v3+v1F·B and value tickets in euros.
 
     Attributes:
         model: Prize model fitted on every saved draw.

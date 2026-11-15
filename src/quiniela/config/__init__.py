@@ -10,7 +10,9 @@ from quiniela.config.paths import (
     HISTORICAL_DIR,
     LAE_DIR,
     PREDICTIONS_DIR,
+    PUBLIC_DIR,
     ROOT_DIR,
+    WOMEN_DIR,
     ensure_data_dirs,
 )
 
@@ -24,7 +26,9 @@ __all__ = [
     "HISTORICAL_DIR",
     "LAE_DIR",
     "PREDICTIONS_DIR",
+    "PUBLIC_DIR",
     "ROOT_DIR",
+    "WOMEN_DIR",
     "ensure_data_dirs",
     "paths",
 ]

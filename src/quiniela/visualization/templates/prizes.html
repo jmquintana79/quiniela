@@ -16,7 +16,7 @@
   <p class="meta" style="margin:0 0 12px"><a href="#distributions">Distribution of the prize per winner of each
     category ↓</a></p>
 
-  <section class="card" style="margin-bottom:16px">
+  <section data-toc="Prizes of every draw" class="card" style="margin-bottom:16px">
     <div class="scroll" id="prizes"></div>
     <p class="meta" style="margin:10px 0 0">Every official draw saved from Loterías y Apuestas del Estado
       (<code>data/lae/</code>), newest first. Each prize cell gives the prize in euros each winner gets (per
@@ -24,7 +24,7 @@
       The 10-hit prize is not paid when it falls under 1.50 €.</p>
   </section>
 
-  <section class="card" id="distributions">
+  <section data-toc="Prize distributions" class="card" id="distributions">
     <h2>Distribution of the prize per winner</h2>
     <p class="meta" style="margin:0 0 12px">Density of the prize each winner got, one chart per category, over every
       draw with winners and a paid prize. Every chart shares the same euro axis, from 1 € to 15 million €, and it is
@@ -146,6 +146,7 @@
   } else {
     $("meta").textContent = "No official draws saved in data/lae yet.";
   }
+  tableOfContents();
 </script>
 </body>
 </html>

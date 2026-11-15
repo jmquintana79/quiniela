@@ -216,3 +216,9 @@ section.block > h2.section-title {
 .signal-amber .signal-dot { color: var(--warning); }
 .signal-red { color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, transparent); }
 .signal-red .signal-dot { color: var(--critical); }
+
+/* Table of contents after the dashboard header */
+.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; margin: 0 0 16px; font-size: 13px; }
+.toc a { color: var(--accent); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+h2.group { font-size: 18px; margin: 24px 0 10px; }
