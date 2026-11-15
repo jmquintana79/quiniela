@@ -127,9 +127,11 @@ It runs, in order ([`quiniela/update.py`](src/quiniela/update.py)):
 |---|---|---|
 | 1. Missing seasons | Downloads every completed season (per league) that is not in `data/historical/`. Covers the change of season (the season that just ended joins the history), a first installation and gaps. | Seasons already downloaded are skipped; soccerdata also caches their raw files. |
 | 2. Current season | Downloads the results played so far and the upcoming fixtures. | Always downloaded: the source does not tell whether its files changed (a few small CSV files). |
-| 3. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
-| 4. Backtest | Only with `--backtest`: every model over past seasons, plus the real tickets in euros when the LAE draws are saved (about ten minutes). | Not run by default. |
-| 5. Dashboards | Rebuilds the five dashboards. | Local data only. |
+| 3. Liga F | Downloads the missing completed Liga F seasons and refreshes the current one (results and fixtures) from ESPN ([Liga F](#liga-f-womens-league)). A failure is a warning. | Completed seasons are skipped; months are cached in `data/cache/espn/`. |
+| 4. LAE | When the next ticket or a played draw is missing, opens the LAE pages in your browser; one click on the Quiniela bookmark saves each one ([official draws](#official-draws-real-tickets-winners-and-prizes)). | Only what is missing; `--no-browser` only warns. |
+| 5. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
+| 6. Backtest | Only with `--backtest`: every model over past seasons, plus the real tickets in euros when the LAE draws are saved (about ten minutes). | Not run by default. |
+| 7. Dashboards | Rebuilds the five dashboards, with the Liga F history and evaluation (v2F walk-forward, about half a minute). | Local data only. |
 
 Special cases:
 
@@ -231,15 +233,15 @@ Five dashboards, each answering one question:
 
 **In every dashboard**, a **table of contents** after the header links to each section, and the
 models' figures (metrics, hits, hit rates) come **twice, apart**: one block for the **men's
-leagues** (La Liga and Segunda, the v1-v4 models) and one for the **Liga F** (the v1F model and
-its reference), each with the history it has (see [Liga F](#liga-f-womens-league)):
+leagues** (La Liga and Segunda, the v1-v4 models) and one for the **Liga F** (the v1F and v2F
+models and their reference), each with the history it has (see [Liga F](#liga-f-womens-league)):
 
 | Dashboard | Men's leagues | Liga F |
 |---|---|---|
-| `current.html` | Footer hit rate of the men's matches (and other competitions) | **Public picks v1F** column and its own footer hit rate |
-| `season.html` | Season totals and matchdays | Season block: v1F and reference hits, every Liga F match with the v1F pick |
-| `evaluation.html` | Metrics, hit rate by result, contingency tables, confidence, calibration | The same tables for v1F and the reference, plus the data and every match |
-| `historical.html` | Outcomes, standings and results | Outcomes and goals by season and every Liga F match |
+| `current.html` | Footer hit rate of the men's matches (and other competitions) | **Public picks v1F** and **Pi-ratings v2F** columns and their own footer hit rate |
+| `season.html` | Season totals and matchdays | Season block: v1F, v2F and reference hits, every Liga F ticket match with the v1F and v2F picks |
+| `evaluation.html` | Metrics, hit rate by result, contingency tables, confidence, calibration | The same tables for v1F, v2F and the reference, **v1F against v2F** on the common matches, the data by season and every ticket match |
+| `historical.html` | Outcomes, standings and results | Outcomes and goals by season (ESPN) and every Liga F ticket match |
 
 The tickets (v3+v1F·D, ·R, ·B) mix both leagues and have their own block.
 
@@ -1401,61 +1403,107 @@ See [Roadmap](#roadmap) at the end of this file.
 Since 2026-27 weekend tickets have **4 Liga F matches** (10 of the 11 Sunday draws from the
 3rd jornada; before, only two summer draws of 2023-24 had women's matches), 29% of a weekend
 ticket. The women's league is modelled and evaluated **apart from the men's**: its own
-models (v1F, v2F...), its own history and its own tables in every dashboard.
+models (v1F, v2F...), its own data and its own tables in every dashboard.
 
-| Season | Liga F matches on the tickets | Played | With public picks | 1 | X | 2 | Goals per match |
-|---|---|---|---|---|---|---|---|
-| 2023-24 | 16 | 16 | 0 | 50.0% | 18.8% | 31.3% | 2.88 |
-| 2026-27 (to jornada 21) | 44 | 40 | 4 | 57.5% | 17.5% | 25.0% | 2.85 |
+| Season | Liga F matches (ESPN) | Played | On the official tickets | With public picks | 1 | X | 2 | Goals per match |
+|---|---|---|---|---|---|---|---|---|
+| 2022-23 | 240 | 240 | 0 | 0 | 44.2% | 20.4% | 35.4% | 3.17 |
+| 2023-24 | 240 | 240 | 16 | 0 | 44.2% | 18.3% | 37.5% | 3.15 |
+| 2024-25 | 240 | 240 | 0 | 0 | 41.7% | 21.7% | 36.7% | 2.82 |
+| 2025-26 | 240 | 240 | 0 | 0 | 39.6% | 20.8% | 39.6% | 2.88 |
+| 2026-27 (to 15 November) | 240 | 82 | 44 | 4 | 45.1% | 22.0% | 32.9% | 2.98 |
 
-*Fewer draws (18% against 28% in the men's leagues) and more home wins: an uneven league.*
+*Fewer draws than the men's leagues (about 20% against 28%) and many more away wins (about 37%
+against 26%): a very uneven league, where the strong teams win anywhere.*
 
-### History (`quiniela.data.women`)
+### Data
 
-No source of Liga F results is used yet (football-data.co.uk has none, and FBref is behind bot
-protection), so the history is what the quiniela itself publishes:
+**Results and fixtures: ESPN** ([`quiniela/io/espn.py`](src/quiniela/io/espn.py)). ESPN's
+public scoreboard (the JSON its own website uses, `site.api.espn.com/.../soccer/esp.w.1/scoreboard`)
+has every Liga F match since 2022-23, its first professional season (240 a season): date, teams,
+score and status, the season's fixtures included. It is read month by month (about twelve
+small requests a season; soccerdata's ESPN reader asks for every match day and has no scores),
+cached in `data/cache/espn/` and saved in `data/women/espn/<season>.parquet`. **`invoke update`
+downloads the missing completed seasons and refreshes the current one** every time (a failure
+is a warning; the men's update goes on). It is not an official, documented API and has no
+odds, so everything is kept locally. ESPN also has team statistics per match (shots, shots on
+target, possession...), not used yet (see [Roadmap](#roadmap)).
 
-- **Results**: the Liga F matches (marked `(F)`) of the official draws saved in `data/lae/`.
-- **Public picks**: the share of bettors marking 1, X and 2 is only on the betting page of the
-  next ticket. Every `invoke update` / `invoke dashboards.build` **archives `data/lae/upcoming.json`**
-  in `data/lae/public/<season>_j<jornada>.json` (a newer save of the same jornada replaces it).
-- Both are joined by season, jornada and ticket position in `data/women/liga_f.parquet`.
+Other sources checked: StatsBomb's open data has the Liga F of 2023-24 only; FBref, Flashscore and
+Sofascore are behind bot protection or forbid scripts; football-data.co.uk and TheSportsDB have
+no Liga F; FootyStats is paid.
 
-Running `invoke update` **every week** before the deadline (and clicking the bookmark when it
-opens the betting page) is what builds the v1F history: a jornada without its ticket saved has
-no v1F prediction. `data/` is not versioned, so back up
-`data/lae/public/`: it cannot be downloaded again.
+**The tickets and the public's picks** ([`quiniela/data/women.py`](src/quiniela/data/women.py)):
+
+- the Liga F matches (marked `(F)`) of the official draws saved in `data/lae/`, with results;
+- the share of bettors marking 1, X and 2, only on the betting page of the next ticket: every
+  `invoke update` / `invoke dashboards.build` **archives `data/lae/upcoming.json`** in
+  `data/lae/public/<season>_j<jornada>.json`;
+- each ticket match is **linked to its ESPN match** (same teams within four days), through an
+  alias table for the names that differ (`At. Madrid (f)` → Atlético Madrid, `Madrid (f)` →
+  Madrid CFF, `Tenerife (f)` → Granadilla Tenerife / Tenerife...): 58 of the 60 ticket matches
+  are linked; the other two were women's matches of another competition (Las Planas).
+
+Everything is joined in `data/women/liga_f.parquet`. Running `invoke update` **every week**
+before the deadline (and clicking the bookmark when it opens the betting page) builds the v1F
+history: a jornada without its ticket saved has no v1F prediction. `data/` is not versioned, so
+back up `data/lae/public/`: it cannot be downloaded again.
 
 ### v1F · Public picks (`public_picks`)
 
 [`quiniela/prediction/public_picks.py`](src/quiniela/prediction/public_picks.py), registered in
-`WOMEN_MODELS`. The current Liga F model: the public's share $s_k$ of each sign, normalised,
+`WOMEN_MODELS`. The public's share $s_k$ of each sign, normalised,
 
 ```math
 P(k) = \frac{s_k}{s_1 + s_X + s_2}, \qquad \hat r = \underset{k}{\arg\max}\; s_k
 ```
 
 Without public picks it falls back to the shares of 1, X and 2 of the earlier Liga F matches.
-On the next ticket it is its own column (**Public picks v1F**), the v3 column shows it on the
-Liga F matches, and the tickets (v3+v1F·D, ·R, ·B) plan those matches with its probabilities.
+It is the Liga F model of the tickets (`WOMEN_PLANNER_MODEL`): the v3 column shows it on the
+Liga F matches and v3+v1F·D, ·R, ·B plan them with its probabilities.
+
+### v2F · Pi-ratings (`pi_ratings_f`)
+
+The [v4 pi-ratings](#v4--pi-ratings-pi_ratings) (same model, same parameters, `PiRatingsModel`)
+trained on every Liga F match from ESPN: home and away ratings learned from goal differences,
+mapped to 1X2 by an ordered logistic regression fitted on the Liga F itself. On the next ticket
+it predicts each women's match trained on the matches played before the sales deadline.
 
 ### Evaluation (`quiniela.evaluation.women`)
 
-Every Liga F model predicts each played match walk-forward (trained on the Liga F matches
-before it) and is scored only where it has its input: v1F on the matches with public picks.
-The reference, **result shares** of the earlier Liga F matches (v1F without picks, always the
-most frequent result), is scored on every played match. Same metrics, hit rate by result and
-contingency tables as the men's models.
+- **v2F and the reference** (the **result shares** of the earlier matches, always the most
+  frequent result) predict **every Liga F match walk-forward, week by week**, trained on the
+  matches played before that week; 2022-23 only trains.
+- **v1F** is scored on the ticket matches whose betting page was saved.
+- Each model is scored on its own matches, and all of them together on the **common** matches
+  (the ticket matches with public picks): the fair comparison of v1F and v2F.
 
-| | v1F (public picks) | Result shares (reference) |
+| 2023-24 to 2026-27 (802 matches) | v2F (pi-ratings) | Result shares (reference) |
 |---|---|---|
-| Matches scored | 0 (the first saved jornada, 21, is not played yet) | 56 |
-| Hit rate | – | 55.4% |
-| Log-loss | – | 1.0244 |
+| Hit rate | **59.2%** | 42.1% |
+| Log-loss | **0.8955** | 1.0585 |
+| Brier | **0.5239** | 0.6419 |
+| RPS | **0.1822** | 0.2395 |
+| Hit rate of home wins / draws / away wins | 81.1% / 0.0% / 67.0% | 100% / 0% / 0% |
 
-The v1F evaluation grows by about four matches a week from jornada 21 on. The next steps are a
-source of Liga F results (so v2F could be a pi-ratings or Dixon-Coles model, which only need
-results) and comparing it with the public.
+| Season | v2F hit rate | v2F log-loss |
+|---|---|---|
+| 2023-24 | 62.9% | 0.8298 |
+| 2024-25 | 57.1% | 0.9514 |
+| 2025-26 | 58.3% | 0.8886 |
+| 2026-27 (82 matches) | 57.3% | 0.9448 |
+
+**Observations.**
+
+- **The Liga F is much more predictable than the men's leagues**: v2F gets 59% right with results
+  alone, against 49% for the same model on La Liga and Segunda (and a log-loss of 0.90 against
+  1.02). A few teams (Barcelona above all, then Real Madrid and Atlético) win almost every match,
+  home or away.
+- **It never marks a draw**, like the men's models: draws are 20% of the matches but never the
+  most likely result.
+- **v1F against v2F** has no common match yet: the first ticket with public picks archived is
+  jornada 21, scored once its draw is saved. v1F stays the Liga F model of the tickets until that
+  comparison has enough matches; then the better one plans them.
 
 ## Releases
 
@@ -1464,6 +1512,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.11.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.11.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and **v2F pi-ratings (Liga F)**, tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | **Liga F results from ESPN** (every match since 2022-23, fixtures included, downloaded by `invoke update` into `data/women/espn/`), linked to the women's matches of the official tickets through a team alias table. New model **v2F**: the pi-ratings on the Liga F, evaluated walk-forward week by week on 802 matches (59.2% hit rate and log-loss 0.896 against 42.1% and 1.059 for the result-shares reference). Dashboards: v2F column on the next ticket and the official tickets, v1F-against-v2F comparison on the common ticket matches, Liga F data by season from ESPN. |
 | [`v0.10.2`](https://github.com/jmquintana79/quiniela/releases/tag/v0.10.2) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks (Liga F), tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | Fix: the table-of-contents anchors take a `toc-` prefix, so they no longer clash with the ids the pages fill in (the **Standings** of `current.html` lost its title and buttons when switching league). |
 | [`v0.10.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.10.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks (Liga F), tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | LAE data from `invoke update` with one click: it checks whether the next ticket or a played draw is missing, opens the LAE pages in your browser and picks the files up from Downloads after a click on the **Quiniela bookmark** (`tools/lae_bookmarklet.js`, installed from `dashboards/bookmarklet.html`; replaces the console script); `--no-browser` only warns. |
 | [`v0.10.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.10.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), **v1F public picks (Liga F)**, tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | **Liga F apart**: its history (`data/women/liga_f.parquet`: the women's matches of the official tickets with results, and the public picks of every next ticket archived in `data/lae/public/`), its own model counter (**v1F**, the public's picks, `WOMEN_MODELS`) and evaluation (`quiniela.evaluation.women`, with a result-shares reference); every dashboard shows men's and Liga F figures apart, and a **table of contents** after the header. The tickets are named **v3+v1F·D, ·R, ·B, ·E**: v3 on the men's matches and v1F on the Liga F ones. |
@@ -1499,13 +1548,14 @@ version in `pyproject.toml`:
 │   ├── lae/lae_<season>.json                # official draws saved from LAE (by hand)
 │   ├── lae/upcoming.json                    # next official ticket (Quiniela bookmark)
 │   ├── lae/public/<season>_j<NN>.json       # archive of every next ticket: Liga F public picks (back it up)
-│   ├── women/liga_f.parquet                 # Liga F matches of the tickets with results and public picks
+│   ├── women/liga_f.parquet                 # Liga F matches of the tickets with results, public picks and ESPN link
+│   ├── women/espn/<season>.parquet          # every Liga F match from ESPN (since 2022-23)
 │   └── cache/                               # raw CSV files cached by soccerdata
 ├── src/quiniela/
 │   ├── config/paths.py      # filesystem paths used by the project
-│   ├── io/download.py       # historical and current season downloads
+│   ├── io/                  # downloads: football-data (download), Liga F from ESPN (espn), LAE one-click (lae)
 │   ├── data/                # match loaders, matchday inference, official draws (prizes), Liga F history (women)
-│   ├── prediction/          # model registry, models (v1-v4, v1F), pipeline, confidence, ticket rules, planner, reduced, money
+│   ├── prediction/          # model registry, models (v1-v4, v1F, v2F), pipeline, confidence, ticket rules, planner, reduced, money
 │   ├── evaluation/          # metrics, the multi-season backtest, the backtest in euros and the Liga F evaluation
 │   ├── visualization/       # dashboard builder and HTML templates
 │   ├── update.py            # `invoke update`: every step in one go
@@ -1605,3 +1655,9 @@ Other ideas:
 - **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals; the
   [pi-ratings](#v4--pi-ratings-pi_ratings) could learn from the shots-on-target difference
   instead of the goal difference.
+- **Liga F: a v2F variant with shots on target** (pending, not implemented). ESPN gives the shots
+  on target of each team in every Liga F match (`summary?event=<id>`, one request per match, so
+  they would be cached like the scoreboard): the pi-ratings could learn from the shots-on-target
+  difference, or from a mix of goals and shots, and be compared with v2F walk-forward.
+- **Liga F: the tickets on v2F.** Once the v1F-against-v2F comparison on the ticket matches has
+  enough matches, plan the Liga F matches of the tickets with the better of the two.

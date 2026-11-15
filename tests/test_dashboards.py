@@ -583,15 +583,24 @@ def test_liga_f_payload_scores_v1f_apart() -> None:
             "public_H": [None, 30.0, 50.0],
             "public_D": [None, 50.0, 30.0],
             "public_A": [None, 20.0, 20.0],
+            "espn_game": [None, None, None],
+            "home_team": [None, None, None],
+            "away_team": [None, None, None],
         }
     )
-    payload = dashboards.liga_f_payload(history)
-    assert [m["key"] for m in payload["models"]] == ["public_picks", "liga_f_shares"]
+    from quiniela.io.espn import COLUMNS
+
+    payload = dashboards.liga_f_payload(history, espn=pd.DataFrame(columns=COLUMNS))
+    assert [m["key"] for m in payload["models"]] == [
+        "public_picks",
+        "pi_ratings_f",
+        "liga_f_shares",
+    ]
     results = payload["results"]["all"]
     # v1F only on the played match with public picks (it marked X: a hit)
     assert results["public_picks"]["matches"] == 1 and results["public_picks"]["hit_rate"] == 1
     assert results["liga_f_shares"]["matches"] == 2
-    assert payload["data"][0]["with_picks"] == 2 and payload["data"][0]["played"] == 2
+    assert payload["data"][0]["with_picks"] == 2 and payload["data"][0]["tickets"] == 3
     newest = payload["matches"][0]
     assert newest["jornada"] == 21 and newest["public_picks"] == "H" and newest["FTR"] is None
     assert dashboards.liga_f_payload(None)["matches"] == []

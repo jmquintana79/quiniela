@@ -49,3 +49,51 @@ def test_public_picks_model() -> None:
     assert np.allclose(probs[1], [0.5, 0.25, 0.25])
     assert model.predict(X).tolist() == ["A", "H"]
     assert model.has_picks(X).tolist() == [True, False]
+
+
+def test_espn_candidates_and_link() -> None:
+    names = {"Atlético Madrid", "Madrid CFF", "Real Madrid", "Granadilla Tenerife", "Eibar"}
+    assert women.espn_candidates("At. Madrid (f)", names) == {"Atlético Madrid"}
+    assert women.espn_candidates("Madrid (f)", names) == {"Madrid CFF"}
+    assert women.espn_candidates("Real Madrid (F)", names) == {"Real Madrid"}
+    assert women.espn_candidates("Las Planas (f)", names) == set()
+    history = pd.DataFrame(
+        {
+            "home": ["Eibar (f)", "Las Planas (f)"],
+            "away": ["At. Madrid (f)", "Eibar (f)"],
+            "date": pd.to_datetime(["2026-11-14", "2026-11-14"]),
+        }
+    )
+    espn_matches = pd.DataFrame(
+        {
+            "game": ["2026-11-15 Eibar-Atlético Madrid"],
+            "home_team": ["Eibar"],
+            "away_team": ["Atlético Madrid"],
+            "date": pd.to_datetime(["2026-11-15 12:00"]),
+        }
+    )
+    linked = women.link_espn(history, espn_matches)
+    assert linked["espn_game"].tolist() == ["2026-11-15 Eibar-Atlético Madrid", None]
+
+
+def test_results_backtest_walks_forward() -> None:
+    from quiniela.evaluation.women import results_backtest, summarize_women
+    from tests.helpers import simulate_league
+
+    strengths = {"Strong": 0.9, "Good": 0.3, "Mid": 0.0, "Weak": -0.4, "Poor": -0.6, "Bad": -0.9}
+    first = simulate_league(strengths, "2022-09-03", 20, league="LIGAF", seed=1).assign(
+        season="2022-23"
+    )
+    second = simulate_league(strengths, "2023-09-02", 20, league="LIGAF", seed=2).assign(
+        season="2023-24"
+    )
+    matches = pd.concat([first, second], ignore_index=True)
+    predictions = results_backtest(matches)
+    # The first season only trains; v2F and the reference predict the second one
+    assert set(predictions["season"]) == {"2023-24"}
+    assert set(predictions["model"]) == {"pi_ratings_f", "liga_f_shares"}
+    summary = summarize_women(predictions)
+    scores = summary["results"]["all"]
+    assert scores["pi_ratings_f"]["log_loss"] < scores["liga_f_shares"]["log_loss"]
+    # Without v1F inputs there is no common comparison
+    assert summary["common"] == {}

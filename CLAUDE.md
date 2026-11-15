@@ -38,7 +38,8 @@ model is evaluated with a walk-forward backtest against the betting market.
   unavailable before the match (no closing odds, no look-ahead).
 - **Notation: model · ticket.** Men's models are numbered (v1 head-to-head, v2 Dixon-Coles,
   v3 DC + market, v4 pi-ratings...); **Liga F models have their own counter with an F**
-  (v1F public picks, `quiniela.prediction.public_picks`, registered in `WOMEN_MODELS`), with
+  (v1F public picks, `quiniela.prediction.public_picks`; v2F pi-ratings on the Liga F results of
+  ESPN, `quiniela.io.espn`; both in `WOMEN_MODELS`), with
   their own history (`quiniela.data.women`: `data/women/liga_f.parquet` and the archived
   next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). Every
   dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`

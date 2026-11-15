@@ -120,6 +120,14 @@ WOMEN_MODELS: dict[str, ModelSpec] = {
         'apostados"), normalised to probabilities; the most marked sign is the prediction.',
         version="v1F",
     ),
+    "pi_ratings_f": ModelSpec(
+        name="Pi-ratings",
+        factory=PiRatingsModel,
+        description="Liga F: home and away pi-ratings of every team learned from the goal "
+        "differences of every Liga F match since 2022-23 (ESPN), mapped to 1X2 by an ordered "
+        "logistic regression; the v4 model applied to the women's league.",
+        version="v2F",
+    ),
 }
 
 # Liga F model whose probabilities the tickets use for the women's matches

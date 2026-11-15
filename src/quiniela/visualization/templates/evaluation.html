@@ -57,14 +57,22 @@
 
   <h2 class="group" id="liga-f">Liga F (women's league)</h2>
   <p class="meta" style="margin:-4px 0 12px">Evaluated apart from the men's models, on the Liga F matches of the official
-    tickets (data/women/liga_f.parquet). The Liga F model is <strong>v1F</strong>, the public's picks (share of bettors marking each
-    sign); it is scored only on the matches whose betting page was saved (data/lae/public), a history that grows every jornada.
-    The reference, <strong>result shares</strong> of the earlier Liga F matches (what v1F uses without picks), is scored on every
-    played match. Season filter only.</p>
+    tickets and on every Liga F match since 2022-23 (ESPN). <strong>v1F</strong>, the public's picks, is scored only on the ticket
+    matches whose betting page was saved (data/lae/public), a history that grows every jornada; <strong>v2F</strong>, pi-ratings of
+    the Liga F results, and the reference, <strong>result shares</strong> of the earlier matches (always the most frequent result),
+    on every Liga F match, walk-forward week by week from 2023-24 (2022-23 only trains). Season filter only.</p>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Metrics">
     <h2 id="women-metrics-title">Liga F · Metrics</h2>
     <div class="scroll" id="women-metrics"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · v1F against v2F">
+    <h2 id="women-common-title">Liga F · v1F against v2F</h2>
+    <p class="meta" style="margin:0 0 10px">Every Liga F model on the <strong>same matches</strong>: the Liga F matches of the
+      official tickets whose betting page was saved (v1F needs the public's picks). The fair comparison of the public
+      (v1F) and the pi-ratings (v2F); it grows by about four matches a week.</p>
+    <div class="scroll" id="women-common"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Hit rate by result">
@@ -414,6 +422,14 @@
     $("women-metrics-title").textContent = `Liga F · Metrics · ${seasonLabel}`;
     $("women-by-result-title").textContent = `Liga F · Hit rate by result · ${seasonLabel}`;
     $("women-contingency-title").textContent = `Liga F · Contingency tables · ${seasonLabel}`;
+    const common = liga.common?.[state.season] || {};
+    const commonModels = (liga.models || []).filter((m) => common[m.key]);
+    $("women-common").innerHTML = commonModels.length ? `<table><thead><tr><th>Metric</th>${commonModels.map((m) =>
+      `<th class="num">${label(m)}</th>`).join("")}</tr></thead><tbody>${DATA.metrics.filter((metric) =>
+      commonModels.some((m) => common[m.key]?.[metric.key] != null)).map((metric) => `<tr><td>${esc(metric.label)}</td>${commonModels.map((m) =>
+      `<td class="num">${fmt(common[m.key]?.[metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
+      : '<p class="empty">No ticket match with public picks and a result yet: the first is jornada 21 (archived), once its draw is saved.</p>';
+    $("women-common-title").textContent = `Liga F · v1F against v2F · ${seasonLabel}`;
     $("women-data").innerHTML = ligaFDataTable(liga.data);
     $("women-matches").innerHTML = ligaFMatchesTable((liga.matches || []).filter((m) => state.season === "all" || m.season === state.season));
   }

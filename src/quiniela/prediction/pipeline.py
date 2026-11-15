@@ -376,6 +376,12 @@ def predict_upcoming(
     public.loc[women.to_numpy(), "source"] = "v1F"
     if women.any():
         predictions[WOMEN_PLANNER_MODEL] = public[women.to_numpy()].reset_index(drop=True)
+    # v2F: pi-ratings of the Liga F (ESPN results) on the women's matches of the ticket
+    women_matches = matches[matches["league"] == WOMEN_LEAGUE]
+    if not women_matches.empty:
+        pi_rows = _women_results_predictions(upcoming, women_matches, closes)
+        if not pi_rows.empty:
+            predictions["pi_ratings_f"] = pi_rows
     if PLANNER_MODEL in predictions:
         # The ticket of v3 + v1F: Dixon-Coles + market where there is data, v1F on the
         # Liga F matches and the public's picks on the other competitions
@@ -476,6 +482,66 @@ def _pleno_pick(
             pick_home=most(out["public_home"]), pick_away=most(out["public_away"]), source="public"
         )
     return out
+
+
+def _women_results_predictions(
+    upcoming: "UpcomingTicket", matches: pd.DataFrame, closes: pd.Timestamp
+) -> pd.DataFrame:
+    """v2F predictions of the ticket's Liga F matches, from the ESPN results.
+
+    Each women's match of the ticket is linked to its ESPN fixture (team
+    aliases and dates around the sales deadline) and predicted by the
+    pi-ratings trained on every Liga F match played.
+
+    Args:
+        upcoming: The next ticket (LAE team names by position).
+        matches: The ticket's Liga F matches (``official_position``, ``game``).
+        closes: Sales deadline.
+
+    Returns:
+        Predictions with ``PREDICTION_COLUMNS`` and ``source`` = ``"v2F"``.
+    """
+    from quiniela.data.women import MATCH_DAYS, espn_candidates
+    from quiniela.evaluation.women import upcoming_predictions
+    from quiniela.io.espn import load_liga_f_matches
+
+    espn = load_liga_f_matches()
+    if espn.empty:
+        return pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
+    # Trained on the matches before the deadline: the prediction stays pre-match once played
+    pending = upcoming_predictions(espn, before=closes - pd.Timedelta(days=MATCH_DAYS))
+    names = set(espn["home_team"]) | set(espn["away_team"])
+    lae = upcoming.matches.set_index("position")
+    rows = []
+    for _, match in matches.iterrows():
+        position = int(match["official_position"])
+        homes = espn_candidates(str(lae.loc[position, "lae_home"]), names)
+        aways = espn_candidates(str(lae.loc[position, "lae_away"]), names)
+        near = pending[
+            pending["home_team"].isin(homes)
+            & pending["away_team"].isin(aways)
+            & ((pending["date"] - closes).abs() <= pd.Timedelta(days=MATCH_DAYS))
+        ]
+        if near.empty:
+            continue
+        fixture = near.iloc[0]
+        rows.append(
+            {
+                **match[
+                    ["league", "season", "game", "matchday", "date", "home_team", "away_team"]
+                ].to_dict(),
+                "p_H": fixture["p_H"],
+                "p_D": fixture["p_D"],
+                "p_A": fixture["p_A"],
+                "prediction": fixture["prediction"],
+            }
+        )
+    if not rows:
+        return pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
+    out = pd.DataFrame(rows)
+    probs = out[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
+    out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
+    return out.reindex(columns=PREDICTION_COLUMNS).assign(source="v2F")
 
 
 def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:

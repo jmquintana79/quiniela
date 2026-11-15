@@ -71,7 +71,8 @@ Tareas:
 ==============================================================================
 Idea:
   Desde 2026-27 los boletos de fin de semana llevan 4 partidos de la Liga F (29 % del
-  boleto). Se modela y evalúa aparte (v1F, v2F...): hoy v1F = porcentajes del público.
+  boleto). Se modela y evalúa aparte: v1F = porcentajes del público (el que usan los
+  boletos), v2F = pi-ratings con los resultados de ESPN.
 
 Tareas:
   ✔ Histórico de la Liga F: resultados de los boletos oficiales y porcentajes del
@@ -80,8 +81,17 @@ Tareas:
     masculino y Liga F e índice de contenidos (v0.10.0).
   ☐ Ejecutar invoke update cada semana antes del cierre (un clic en el marcador) y
     hacer copia de data/lae/public/ (no está versionado).
-  ☐ Buscar una fuente legítima de resultados de la Liga F (sin protección antibots).
-  ☐ v2F: pi-ratings o Dixon-Coles con esos resultados; compararlo con v1F.
+  ✔ Fuente de resultados de la Liga F: ESPN (todos los partidos desde 2022-23 y el
+    calendario), descargada por invoke update en data/women/espn/ (v0.11.0).
+  ✔ Equivalencias de nombres ESPN ↔ LAE (58 de 60 partidos de boletos enlazados).
+  ✔ v2F: pi-ratings con los resultados de ESPN, backtest semanal (59,2 % de acierto,
+    log-loss 0,896 en 802 partidos) y comparación con v1F en los partidos comunes.
+  ☐ Cuando la comparación v1F vs v2F tenga suficientes partidos, planificar los
+    partidos de la Liga F de los boletos con el mejor de los dos.
+  ☐ Variante de v2F con tiros a puerta (ESPN los da por partido en summary?event=<id>,
+    una petición por partido, con caché): pi-ratings aprendiendo de la diferencia de
+    tiros a puerta o de una mezcla de goles y tiros; compararla con v2F. NO
+    implementada todavía.
 
 
 Otras ideas (ya en el README)

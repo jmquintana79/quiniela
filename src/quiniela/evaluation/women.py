@@ -1,14 +1,19 @@
 """Evaluation of the Liga F (women's league) models, apart from the men's backtest.
 
-The Liga F history (``quiniela.data.women``) holds the women's matches of the
-official tickets with their results and, from the tickets whose betting page
-was saved, the public's picks. Every registered women's model
-(``quiniela.prediction.registry.WOMEN_MODELS``) predicts each played match
-walk-forward (trained on the Liga F matches played before it) and is scored
-only on the matches where it has its input: v1F (public picks) on the matches
-with public picks. A reference, the result shares of the earlier Liga F
-matches (what v1F falls back to without picks), is scored on every played
-match, so the tables are never empty while the public-picks history grows.
+Two sources, two kinds of model:
+
+- **Every Liga F match** since 2022-23 (ESPN, ``quiniela.io.espn``): the
+  models that learn from results (v2F, pi-ratings) predict every week
+  walk-forward, trained on the matches played before it; the first season
+  only trains. The reference, the **result shares** of the earlier matches
+  (always the most frequent result), is scored the same way.
+- **The Liga F matches of the official tickets** with the public's picks
+  archived (``quiniela.data.women``): v1F (public picks) is only scored there.
+
+Every model is scored on the matches where it has its input (``all``), and
+all of them together on the matches where every one has it (``common``:
+today the ticket matches with public picks), the fair comparison of v1F and
+v2F.
 """
 
 from typing import Any
@@ -22,6 +27,10 @@ from quiniela.prediction.registry import WOMEN_MODELS
 
 OUTCOMES = ["H", "D", "A"]
 
+# Keys of the women's models
+PUBLIC_KEY = "public_picks"
+PI_KEY = "pi_ratings_f"
+
 # Reference of the Liga F evaluation: shares of 1, X and 2 of the earlier matches
 SHARES_KEY = "liga_f_shares"
 SHARES_SPEC: dict[str, Any] = {
@@ -33,71 +42,184 @@ SHARES_SPEC: dict[str, Any] = {
     "without public picks); its sign is always the most frequent result.",
 }
 
+PREDICTION_COLUMNS = [
+    "season",
+    "game",
+    "date",
+    "home_team",
+    "away_team",
+    "FTR",
+    "model",
+    "p_H",
+    "p_D",
+    "p_A",
+    "prediction",
+    "has_input",
+]
 
-def women_predictions(history: pd.DataFrame) -> pd.DataFrame:
-    """Walk-forward predictions of every women's model on the played Liga F matches.
+
+def _rows(matches: pd.DataFrame, key: str, probs: np.ndarray, has_input: bool) -> pd.DataFrame:
+    """Prediction rows of one model for some matches."""
+    return matches[["season", "game", "date", "home_team", "away_team", "FTR"]].assign(
+        model=key,
+        p_H=probs[:, 0],
+        p_D=probs[:, 1],
+        p_A=probs[:, 2],
+        prediction=np.array(OUTCOMES)[probs.argmax(axis=1)],
+        has_input=has_input,
+    )
+
+
+def results_backtest(espn: pd.DataFrame) -> pd.DataFrame:
+    """Weekly walk-forward predictions of the result-based models on every played Liga F match.
 
     Args:
-        history: Output of ``quiniela.data.women.liga_f_history``.
+        espn: ESPN Liga F matches (``quiniela.io.espn.load_liga_f_matches``).
 
     Returns:
-        One row per played match and model with ``season``, ``jornada``,
-        ``position``, ``home``, ``away``, ``FTR``, ``model``, ``p_H``, ``p_D``,
-        ``p_A``, ``prediction`` and ``has_input`` (the model had its data).
+        ``PREDICTION_COLUMNS`` for v2F and the result-shares reference, from
+        the second season on (the first one only trains).
     """
+    played = espn.dropna(subset=["FTR"]).sort_values("date").reset_index(drop=True)
+    if played.empty:
+        return pd.DataFrame(columns=PREDICTION_COLUMNS)
+    first = played["season"].min()
+    week = played["date"].dt.to_period("W-SUN").dt.start_time
+    frames = []
+    for start, matches in played[played["season"] > first].groupby(week[played["season"] > first]):
+        train = played[played["date"] < start]
+        if train.empty:
+            continue
+        pi = WOMEN_MODELS[PI_KEY].factory().fit(train, train["FTR"])
+        frames.append(_rows(matches, PI_KEY, pi.predict_proba(matches), True))
+        shares = PublicPicksModel().fit(train, train["FTR"])
+        frames.append(_rows(matches, SHARES_KEY, shares.predict_proba(matches), True))
+    if not frames:
+        return pd.DataFrame(columns=PREDICTION_COLUMNS)
+    return pd.concat(frames, ignore_index=True)[PREDICTION_COLUMNS]
+
+
+def women_predictions(history: pd.DataFrame, espn: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Every women's model on the played Liga F matches.
+
+    Args:
+        history: Liga F ticket matches (``quiniela.data.women.liga_f_history``).
+        espn: ESPN Liga F matches; without them only v1F and the reference
+            (on the ticket matches) are scored.
+
+    Returns:
+        ``PREDICTION_COLUMNS``; ``game`` is the ESPN match (or
+        ``<season>-<jornada>-<position>`` for a ticket match not in ESPN).
+    """
+    frames = []
+    backtest = results_backtest(espn) if espn is not None and not espn.empty else None
+    if backtest is not None:
+        frames.append(backtest)
     played = history.dropna(subset=["FTR"]).sort_values("date").reset_index(drop=True)
-    rows = []
-    for i, match in played.iterrows():
-        earlier = played.iloc[:i]
-        # Matches of the same day are not known before this one
-        earlier = earlier[earlier["date"] < match["date"]]
-        X = played.iloc[[i]]
-        models: dict[str, tuple[Any, bool]] = {}
-        for key, spec in WOMEN_MODELS.items():
-            model = spec.factory().fit(earlier, earlier["FTR"])
-            has_input = bool(model.has_picks(X)[0]) if hasattr(model, "has_picks") else True
-            models[key] = (model, has_input)
-        reference = PublicPicksModel().fit(earlier, earlier["FTR"])
-        models[SHARES_KEY] = (reference, True)
-        for key, (model, has_input) in models.items():
-            inputs = X.drop(columns=PUBLIC_COLUMNS) if key == SHARES_KEY else X
-            probs = np.asarray(model.predict_proba(inputs), dtype=float)[0]
-            rows.append(
-                {
-                    **match[["season", "jornada", "position", "home", "away", "FTR"]].to_dict(),
-                    "model": key,
-                    "p_H": probs[0],
-                    "p_D": probs[1],
-                    "p_A": probs[2],
-                    "prediction": OUTCOMES[int(probs.argmax())],
-                    "has_input": has_input,
-                }
+    if not played.empty:
+        key = (
+            played["espn_game"]
+            if "espn_game" in played.columns
+            else pd.Series(None, index=played.index)
+        )
+        fallback = (
+            played["season"]
+            + "-"
+            + played["jornada"].astype(str)
+            + "-"
+            + played["position"].astype(str)
+        )
+        tickets = played.assign(
+            game=key.fillna(fallback),
+            home_team=(
+                played["home_team"] if "home_team" in played.columns else played["home"]
+            ).fillna(played["home"]),
+            away_team=(
+                played["away_team"] if "away_team" in played.columns else played["away"]
+            ).fillna(played["away"]),
+        )
+        for i, match in tickets.iterrows():
+            earlier = tickets[tickets["date"] < match["date"]]
+            model = PublicPicksModel().fit(earlier, earlier["FTR"])
+            row = tickets.loc[[i]]
+            has_picks = bool(model.has_picks(row)[0])
+            frames.append(_rows(row, PUBLIC_KEY, model.predict_proba(row), has_picks))
+            if backtest is None:
+                inputs = row.drop(columns=PUBLIC_COLUMNS)
+                frames.append(_rows(row, SHARES_KEY, model.predict_proba(inputs), True))
+    if not frames:
+        return pd.DataFrame(columns=PREDICTION_COLUMNS)
+    return pd.concat(frames, ignore_index=True)[PREDICTION_COLUMNS]
+
+
+def _scores(predictions: pd.DataFrame) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Metrics and contingency tables by season (``"all"``) and model."""
+    results: dict[str, dict[str, Any]] = {}
+    contingency: dict[str, dict[str, list[list[int]]]] = {}
+    for season, group in [("all", predictions), *predictions.groupby("season")]:
+        for model, rows in group.groupby("model"):
+            probs = rows[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
+            results.setdefault(str(season), {})[str(model)] = evaluate(
+                probs, rows["FTR"], rows["prediction"]
             )
-    columns = ["season", "jornada", "position", "home", "away", "FTR", "model"]
-    columns += ["p_H", "p_D", "p_A", "prediction", "has_input"]
-    return pd.DataFrame(rows, columns=columns)
+            contingency.setdefault(str(season), {})[str(model)] = contingency_table(
+                rows["prediction"], rows["FTR"]
+            )
+    return results, contingency
 
 
 def summarize_women(predictions: pd.DataFrame) -> dict[str, Any]:
-    """Metrics and contingency tables of the Liga F models, overall and by season.
+    """Metrics of the Liga F models, each on its own matches and all on the common ones.
 
     Args:
         predictions: Output of :func:`women_predictions`.
 
     Returns:
-        ``results`` and ``contingency`` keyed by season (``"all"`` for every
-        one) and model key; each model only on the matches with its input.
+        ``results`` and ``contingency`` (each model on the matches with its
+        input) and ``common`` / ``common_contingency`` (every model on the
+        matches where all of them have their input), keyed by season
+        (``"all"``) and model.
     """
-    results: dict[str, dict[str, Any]] = {}
-    contingency: dict[str, dict[str, list[list[int]]]] = {}
     scored = predictions[predictions["has_input"]]
-    for season, group in [("all", scored), *scored.groupby("season")]:
-        for model, rows in group.groupby("model"):
-            metrics = evaluate(
-                rows[["p_H", "p_D", "p_A"]].to_numpy(), rows["FTR"], rows["prediction"]
-            )
-            results.setdefault(str(season), {})[str(model)] = metrics
-            contingency.setdefault(str(season), {})[str(model)] = contingency_table(
-                rows["prediction"], rows["FTR"]
-            )
-    return {"results": results, "contingency": contingency}
+    results, contingency = _scores(scored)
+    # Every women's model and the reference must have scored the match
+    expected = {*WOMEN_MODELS, SHARES_KEY}
+    per_game = scored.groupby("game")["model"].agg(set)
+    common_games = per_game[per_game.apply(lambda models: expected <= models)].index
+    common, common_contingency = _scores(scored[scored["game"].isin(common_games)])
+    return {
+        "results": results,
+        "contingency": contingency,
+        "common": common,
+        "common_contingency": common_contingency,
+    }
+
+
+def upcoming_predictions(espn: pd.DataFrame, before: pd.Timestamp | None = None) -> pd.DataFrame:
+    """v2F predictions of the Liga F matches from a date on, trained on the matches before it.
+
+    Args:
+        espn: ESPN Liga F matches.
+        before: Only matches played before it train the model, and the
+            matches from it on are predicted (e.g. a ticket's sales deadline:
+            its matches keep their pre-match prediction once played).
+            Defaults to the first match not played yet.
+
+    Returns:
+        The predicted matches with ``p_H``, ``p_D``, ``p_A`` and ``prediction``.
+    """
+    pending = espn[espn["FTR"].isna()]
+    if before is None:
+        before = pending["date"].min() if not pending.empty else espn["date"].max()
+    train = espn[espn["FTR"].notna() & (espn["date"] < before)]
+    target = espn[espn["date"] >= before]
+    if train.empty or target.empty:
+        return target.assign(p_H=np.nan, p_D=np.nan, p_A=np.nan, prediction=None)
+    model = WOMEN_MODELS[PI_KEY].factory().fit(train, train["FTR"])
+    probs = model.predict_proba(target)
+    return target.assign(
+        p_H=probs[:, 0],
+        p_D=probs[:, 1],
+        p_A=probs[:, 2],
+        prediction=np.array(OUTCOMES)[probs.argmax(axis=1)],
+    )

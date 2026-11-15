@@ -13,7 +13,10 @@ itself publishes.
   prediction.
 
 ``liga_f_history`` joins both by season, jornada and ticket position, and
-``save_liga_f`` writes the table to ``data/women/liga_f.parquet``.
+links every ticket match to the same match in the Liga F results downloaded
+from ESPN (``quiniela.io.espn``: every match since 2022-23) through
+``TEAM_ALIASES_F``; ``save_liga_f`` writes the table to
+``data/women/liga_f.parquet``.
 """
 
 import logging
@@ -30,6 +33,7 @@ from quiniela.data.prizes import (
     load_upcoming,
     load_upcoming_file,
     match_category,
+    normalise,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,7 +55,28 @@ LIGA_F_COLUMNS = [
     "public_H",
     "public_D",
     "public_A",
+    "espn_game",
+    "home_team",
+    "away_team",
 ]
+
+# LAE names of Liga F teams (normalised, without the "(f)" mark) whose ESPN name differs;
+# the others are the same once normalised
+TEAM_ALIASES_F: dict[str, list[str]] = {
+    "at madrid": ["Atlético Madrid"],
+    "badalona w": ["FC Badalona"],
+    "betis": ["Real Betis"],
+    "huelva": ["Sporting de Huelva"],
+    "logrono": ["Dux Logroño"],
+    # "Madrid (f)" on the tickets is Madrid CFF, not Real Madrid
+    "madrid": ["Madrid CFF"],
+    "madrid cff": ["Madrid CFF"],
+    # ESPN renamed the club from 2025-26 on
+    "tenerife": ["Granadilla Tenerife", "Tenerife"],
+}
+
+# Largest gap between a ticket's date and the ESPN kick-off of the same match
+MATCH_DAYS = 4
 
 
 def ticket_season(closes: pd.Timestamp) -> str:
@@ -134,17 +159,78 @@ def load_public_picks(public_dir: Path = PUBLIC_DIR, lae_dir: Path = LAE_DIR) ->
     return out.drop_duplicates(["season", "jornada", "position"], keep="last")
 
 
-def liga_f_history(lae_dir: Path = LAE_DIR, public_dir: Path = PUBLIC_DIR) -> pd.DataFrame:
+def lae_women_name(lae_name: str) -> str:
+    """LAE name of a women's team without the ``(f)`` mark, normalised (``"at madrid"``)."""
+    return normalise(lae_name.replace("(f)", " ").replace("(F)", " "))
+
+
+def espn_candidates(lae_name: str, espn_names: set[str]) -> set[str]:
+    """ESPN names a LAE women's team can have (aliases, else the same normalised name).
+
+    Args:
+        lae_name: Team as LAE writes it, e.g. ``"At. Madrid (f)"``.
+        espn_names: Every ESPN team name.
+
+    Returns:
+        The matching ESPN names (empty when the team is not in the Liga F).
+    """
+    plain = lae_women_name(lae_name)
+    if plain in TEAM_ALIASES_F:
+        return set(TEAM_ALIASES_F[plain]) & espn_names
+    return {name for name in espn_names if normalise(name) == plain}
+
+
+def link_espn(history: pd.DataFrame, espn: pd.DataFrame) -> pd.DataFrame:
+    """Link every Liga F ticket match to the ESPN match with the same teams and dates.
+
+    Args:
+        history: Liga F ticket matches (``home``, ``away``, ``date``).
+        espn: ESPN Liga F matches (``quiniela.io.espn.load_liga_f_matches``).
+
+    Returns:
+        ``history`` with ``espn_game``, ``home_team`` and ``away_team`` (ESPN
+        names), empty when no ESPN match fits (other women's competitions).
+    """
+    out = history.copy()
+    out["espn_game"] = None
+    out["home_team"] = None
+    out["away_team"] = None
+    if espn.empty or out.empty:
+        return out
+    names = set(espn["home_team"]) | set(espn["away_team"])
+    for i, row in out.iterrows():
+        homes = espn_candidates(str(row["home"]), names)
+        aways = espn_candidates(str(row["away"]), names)
+        near = espn[
+            espn["home_team"].isin(homes)
+            & espn["away_team"].isin(aways)
+            & ((espn["date"] - pd.Timestamp(row["date"])).abs() <= pd.Timedelta(days=MATCH_DAYS))
+        ]
+        if len(near):
+            match = near.iloc[0]
+            out.at[i, "espn_game"] = match["game"]
+            out.at[i, "home_team"] = match["home_team"]
+            out.at[i, "away_team"] = match["away_team"]
+    return out
+
+
+def liga_f_history(
+    lae_dir: Path = LAE_DIR,
+    public_dir: Path = PUBLIC_DIR,
+    espn_dir: Path | None = WOMEN_DIR / "espn",
+) -> pd.DataFrame:
     """Every Liga F match of the official tickets, with its result and public picks.
 
     Args:
         lae_dir: Folder with the saved LAE draws and ``upcoming.json``.
         public_dir: Archive of next-ticket files.
+        espn_dir: Folder of the ESPN Liga F seasons (``None``: no link).
 
     Returns:
         ``LIGA_F_COLUMNS`` sorted by date: the result is empty for matches not
-        played yet (the next ticket) and the public picks for the tickets
-        whose betting page was not saved.
+        played yet (the next ticket), the public picks for the tickets whose
+        betting page was not saved, and the ESPN match for the women's
+        matches of other competitions.
     """
     tickets = load_tickets(lae_dir)
     played = pd.DataFrame(columns=LIGA_F_COLUMNS)
@@ -182,6 +268,9 @@ def liga_f_history(lae_dir: Path = LAE_DIR, public_dir: Path = PUBLIC_DIR) -> pd
     out["date"] = pd.to_datetime(out["date"]).fillna(
         pd.Series(pd.to_datetime(pending["closes"].reindex(index).to_numpy()))
     )
+    from quiniela.io.espn import load_liga_f_matches
+
+    out = link_espn(out, load_liga_f_matches(espn_dir) if espn_dir is not None else pd.DataFrame())
     out = out.reindex(columns=LIGA_F_COLUMNS)
     return out.sort_values(["date", "position"]).reset_index(drop=True)
 
@@ -197,7 +286,7 @@ def save_liga_f(women_dir: Path = WOMEN_DIR, lae_dir: Path = LAE_DIR) -> Path | 
         The saved file, or ``None`` when there are no Liga F matches yet.
     """
     archive_upcoming(lae_dir, lae_dir / "public")
-    history = liga_f_history(lae_dir, lae_dir / "public")
+    history = liga_f_history(lae_dir, lae_dir / "public", women_dir / "espn")
     if history.empty:
         return None
     women_dir.mkdir(parents=True, exist_ok=True)

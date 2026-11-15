@@ -451,6 +451,7 @@ def _season_tickets(
     prizes: Any,
     key: str,
     liga_f: pd.DataFrame | None = None,
+    liga: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Official tickets of the current season with what every model would have marked.
 
@@ -481,6 +482,11 @@ def _season_tickets(
     jackpots = dict(zip(prizes.draws["draw_id"], prizes.draws["jackpot"].fillna(0), strict=True))
     # v1F: the public's picks of the Liga F matches, for the tickets whose page was saved
     women_picks = _liga_f_picks(liga_f)
+    # v2F: the pi-ratings pick of each Liga F match (from the Liga F block of the page)
+    v2f = {
+        (m["season"], m["jornada"], m["position"]): m.get("pi_ratings_f")
+        for m in (liga or {}).get("matches", [])
+    }
     for number, ticket in enumerate(tickets):
         probs, crowd = [], []
         for match in ticket["matches"]:
@@ -505,6 +511,9 @@ def _season_tickets(
                 if v3 is not None and index in v3.index
                 else prior
             )
+            pick = v2f.get((season, ticket["jornada"], match["position"]))
+            if pick:
+                match["picks"]["pi_ratings_f"] = pick
             women = women_picks.get((season, ticket["jornada"], match["position"]))
             if women is not None:
                 # Liga F match with the public's picks: v1F marks it, and the tickets use it
@@ -683,53 +692,95 @@ def _ticket_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return plain + women + tickets
 
 
-def liga_f_payload(history: pd.DataFrame | None, season: str | None = None) -> dict[str, Any]:
+def liga_f_payload(
+    history: pd.DataFrame | None,
+    season: str | None = None,
+    espn: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     """Liga F block of the dashboards: its models, metrics, data and matches.
 
     Args:
-        history: Liga F history (``quiniela.data.women.liga_f_history``).
+        history: Liga F ticket matches (``quiniela.data.women.liga_f_history``).
         season: Only this season (``None`` for every season).
+        espn: Every Liga F match (``quiniela.io.espn.load_liga_f_matches``).
+            Defaults to the downloaded ones when a history is given.
 
     Returns:
-        ``models`` (v1F... and the result-shares reference), ``results`` and
-        ``contingency`` keyed by season (``"all"``) and model, ``data`` (per
-        season: matches, played, with public picks, result shares and goals)
-        and ``matches`` (each Liga F match with its result and v1F pick).
+        ``models`` (v1F, v2F... and the result-shares reference); ``results``
+        and ``contingency`` (each model on its own matches) and ``common`` /
+        ``common_contingency`` (all of them on the ticket matches with public
+        picks), keyed by season (``"all"``) and model; ``data`` (per season:
+        ESPN matches and results, ticket matches, public picks) and
+        ``matches`` (the ticket matches with the v1F and v2F picks).
     """
-    from quiniela.evaluation.women import SHARES_SPEC, summarize_women, women_predictions
+    from quiniela.evaluation.women import (
+        PI_KEY,
+        SHARES_SPEC,
+        summarize_women,
+        upcoming_predictions,
+        women_predictions,
+    )
+    from quiniela.io.espn import load_liga_f_matches
     from quiniela.prediction.registry import WOMEN_MODELS, WOMEN_PLANNER_MODEL
 
     models = [*_model_specs(list(WOMEN_MODELS)), SHARES_SPEC]
-    if history is None or history.empty:
-        return {"models": models, "results": {}, "contingency": {}, "data": [], "matches": []}
+    empty = {
+        "models": models,
+        "results": {},
+        "contingency": {},
+        "common": {},
+        "common_contingency": {},
+        "data": [],
+        "matches": [],
+    }
+    if history is None:
+        return empty
+    if espn is None:
+        espn = load_liga_f_matches()
     if season is not None:
         history = history[history["season"] == season]
-    predictions = women_predictions(history)
+        espn = espn[espn["season"] <= season]
+    if history.empty and espn.empty:
+        return empty
+    predictions = women_predictions(history, espn)
+    if season is not None:
+        predictions = predictions[predictions["season"] == season]
     summary = summarize_women(predictions)
+
     data = []
-    for name, rows in history.groupby("season"):
-        played = rows.dropna(subset=["FTR"])
+    seasons = sorted(set(espn["season"]) | set(history["season"]))
+    if season is not None:
+        seasons = [s for s in seasons if s == season]
+    for name in seasons:
+        league = espn[espn["season"] == name]
+        played = league.dropna(subset=["FTR"])
+        tickets = history[history["season"] == name]
         shares = played["FTR"].value_counts(normalize=True)
-        goals = (played["FTHG"] + played["FTAG"]).mean() if len(played) else None
         data.append(
             _clean(
                 {
                     "season": str(name),
-                    "matches": len(rows),
+                    "league_matches": len(league),
                     "played": len(played),
-                    "with_picks": int(rows["public_H"].notna().sum()),
+                    "tickets": len(tickets),
+                    "with_picks": int(tickets["public_H"].notna().sum()),
                     "H": float(shares.get("H", 0)) if len(played) else None,
                     "D": float(shares.get("D", 0)) if len(played) else None,
                     "A": float(shares.get("A", 0)) if len(played) else None,
-                    "goals": goals,
+                    "goals": (played["FTHG"] + played["FTAG"]).mean() if len(played) else None,
                 }
             )
         )
+
+    # v2F pick of every ticket match: walk-forward when played, pre-deadline when not
+    v2f = predictions[predictions["model"] == PI_KEY].set_index("game")["prediction"].to_dict()
+    if not espn.empty:
+        future = upcoming_predictions(espn)
+        v2f.update(future.dropna(subset=["prediction"]).set_index("game")["prediction"].to_dict())
     picks = _liga_f_picks(history)
     matches = []
     for row in history.sort_values(["date", "position"], ascending=[False, True]).itertuples():
         probs = picks.get((str(row.season), int(row.jornada), int(row.position)))
-        pick = OUTCOMES_HDA[int(np.argmax(probs))] if probs is not None else None
         matches.append(
             _clean(
                 {
@@ -743,18 +794,24 @@ def liga_f_payload(history: pd.DataFrame | None, season: str | None = None) -> d
                     "away": row.away,
                     "score": f"{int(row.FTHG)}-{int(row.FTAG)}" if pd.notna(row.FTHG) else None,
                     "FTR": row.FTR if isinstance(row.FTR, str) else None,
-                    WOMEN_PLANNER_MODEL: pick,
+                    WOMEN_PLANNER_MODEL: OUTCOMES_HDA[int(np.argmax(probs))]
+                    if probs is not None
+                    else None,
+                    PI_KEY: v2f.get(row.espn_game) if isinstance(row.espn_game, str) else None,
                     "p": [round(float(x), 4) for x in probs] if probs is not None else None,
                 }
             )
         )
+
+    def clean(scores: dict[str, Any]) -> dict[str, Any]:
+        return {s: {m: _clean(dict(v)) for m, v in by.items()} for s, by in scores.items()}
+
     return {
         "models": models,
-        "results": {
-            s: {m: _clean(dict(v)) for m, v in by_model.items()}
-            for s, by_model in summary["results"].items()
-        },
+        "results": clean(summary["results"]),
         "contingency": summary["contingency"],
+        "common": clean(summary["common"]),
+        "common_contingency": summary["common_contingency"],
         "data": data,
         "matches": matches,
     }
@@ -1009,6 +1066,8 @@ def season_payload(
             }
         )
 
+    # Liga F of this season (apart from the men's), also used by the official tickets
+    liga = liga_f_payload(liga_f, season=_current_season(current)) if liga_f is not None else None
     return {
         "models": models,
         "leagues": DISPLAY_LEAGUES,
@@ -1016,13 +1075,11 @@ def season_payload(
         "confidence_model": PLANNER_MODEL if PLANNER_MODEL in keys else (keys[0] if keys else None),
         "confidence_tiers": TIERS,
         "categories": _category_legend(),
-        "tickets": _season_tickets(current, predictions, prizes, PLANNER_MODEL, liga_f),
+        "tickets": _season_tickets(current, predictions, prizes, PLANNER_MODEL, liga_f, liga),
         # Columns of the official tickets: every model, v1F (Liga F) and the tickets
         "ticket_models": _ticket_models(models),
         # Liga F of this season: its own hits, apart from the men's
-        "liga_f": liga_f_payload(liga_f, season=_current_season(current))
-        if liga_f is not None
-        else None,
+        "liga_f": liga,
         "matchdays": matchdays,
         "totals": {
             k: {
@@ -1224,12 +1281,12 @@ def current_payload(
             stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
             odds_downloaded = max(odds_downloaded or stamp, stamp)
 
-    from quiniela.prediction.registry import WOMEN_PLANNER_MODEL
+    from quiniela.prediction.registry import WOMEN_MODELS
 
     # Only v3 and the tickets built on it (v3+v1F·D, v3+v1F·R, v3+v1F·B): v1, v2 and v3+v1F·D stay in the season page
     from quiniela.prediction.planner import PLANNER_MODEL
 
-    shown = (PLANNER_MODEL, WOMEN_PLANNER_MODEL, PLANNED_KEY, REDUCED_KEY, MONEY_KEY)
+    shown = (PLANNER_MODEL, *WOMEN_MODELS, PLANNED_KEY, REDUCED_KEY, MONEY_KEY)
     return {
         "models": [m for m in season["models"] if m["key"] in shown],
         "leagues": season["leagues"],

@@ -11,17 +11,20 @@ running anything). In order:
 2. **Current season**: results played so far and upcoming fixtures, always
    downloaded (the source does not say whether its files changed; they are a
    few small CSV files).
-3. **Loterías y Apuestas del Estado** (``quiniela.io.lae``): when the next
+3. **Liga F** (``quiniela.io.espn``): the missing completed seasons and the
+   current one (results and fixtures) from ESPN; a failure is a warning, the
+   men's data goes on.
+4. **Loterías y Apuestas del Estado** (``quiniela.io.lae``): when the next
    ticket or a played draw is missing, the LAE pages open in your browser and
    one click on the Quiniela bookmark saves each one (LAE answers browsers
    only); the files are picked up from Downloads. Skipped without a terminal
    or with ``--no-browser`` (a warning says what is missing).
-4. **Predictions**: every matchday of the current season with every model,
+5. **Predictions**: every matchday of the current season with every model,
    walk-forward. Covers skipped weeks and replaces the previous season's
    predictions when a new season starts.
-5. **Backtest** (optional): every model over past seasons, when a model
+6. **Backtest** (optional): every model over past seasons, when a model
    changed or a season ended.
-6. **Dashboards**: rebuilt from the local data (the Liga F history and the
+7. **Dashboards**: rebuilt from the local data (the Liga F history and the
    archive of next tickets are refreshed with them).
 
 Errors:
@@ -41,7 +44,7 @@ from pathlib import Path
 
 from quiniela.config import HISTORICAL_DIR
 from quiniela.evaluation import backtest, money
-from quiniela.io import download, lae
+from quiniela.io import download, espn, lae
 from quiniela.prediction import pipeline
 from quiniela.visualization import dashboards
 
@@ -58,6 +61,7 @@ class UpdateReport:
     Attributes:
         historical: Season files downloaded into the history.
         current: Current-season files downloaded.
+        women: Liga F season files downloaded from ESPN.
         lae: LAE files saved (next ticket, draws) from the browser downloads.
         predictions: Prediction files written (one per model).
         backtest: Backtest file written, if the backtest was run.
@@ -67,6 +71,7 @@ class UpdateReport:
 
     historical: list[Path] = field(default_factory=list)
     current: list[Path] = field(default_factory=list)
+    women: list[Path] = field(default_factory=list)
     lae: list[Path] = field(default_factory=list)
     predictions: list[Path] = field(default_factory=list)
     backtest: Path | None = None
@@ -78,6 +83,7 @@ class UpdateReport:
         lines = [
             f"Historical seasons downloaded: {len(self.historical)} files",
             f"Current season downloaded: {len(self.current)} files",
+            f"Liga F seasons downloaded: {len(self.women)} files",
             f"LAE files saved: {len(self.lae)}",
             f"Predictions: {len(self.predictions)} models",
             f"Backtest: {'updated' if self.backtest else 'not run'}",
@@ -167,24 +173,30 @@ def run_update(
             "published yet. Predictions skipped."
         )
 
-    # 3. Next ticket and draws from LAE (one click per page in the browser)
+    # 3. Liga F results and fixtures (ESPN); its failure must not stop the men's update
+    try:
+        report.women = espn.update_liga_f(today)
+    except Exception as error:  # noqa: BLE001 - any network or format error is a warning
+        report.warnings.append(f"Liga F not downloaded from ESPN ({error}).")
+
+    # 4. Next ticket and draws from LAE (one click per page in the browser)
     report.lae, lae_missing = lae.fetch_lae(interactive=browser)
     report.warnings += lae_missing
 
-    # 4. Predictions of every matchday with every model
+    # 5. Predictions of every matchday with every model
     if report.current:
         try:
             report.predictions = pipeline.run(pipeline.ALL_MODELS, all_matchdays=True)
         except ValueError as error:
             report.warnings.append(f"Predictions skipped: {error}")
 
-    # 5. Optional backtest of every model over past seasons
+    # 6. Optional backtest of every model over past seasons
     if run_backtest:
         report.backtest = backtest.save_backtest(backtest.run_backtest())
         # Real tickets and prizes in euros (needs the saved LAE draws)
         money.save_money()
 
-    # 6. Dashboards from the local data
+    # 7. Dashboards from the local data
     report.dashboards = dashboards.build_dashboards()
 
     for warning in report.warnings:

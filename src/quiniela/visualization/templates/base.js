@@ -501,27 +501,29 @@ function tableOfContents() {
   header.after(nav);
 }
 
-/** Liga F matches of the official tickets with the result and the v1F pick (✓ hit, ✗ miss). */
-function ligaFMatchesTable(matches, key = "public_picks") {
+/** Liga F matches of the official tickets with the result and the v1F and v2F picks (✓ hit, ✗ miss). */
+function ligaFMatchesTable(matches) {
   if (!matches?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
   return `<table><thead><tr><th>Season</th><th class="num">Jornada</th><th>Date</th><th class="num">Home</th><th>Away</th>
-      <th class="num">Score</th><th class="num">1X2</th><th class="num">Public picks v1F</th></tr></thead>
+      <th class="num">Score</th><th class="num">1X2</th><th class="num">Public picks v1F</th><th class="num">Pi-ratings v2F</th></tr></thead>
     <tbody>${matches.map((m) => {
       const tip = m.p ? `Public: 1 ${pct(m.p[0], 0)} · X ${pct(m.p[1], 0)} · 2 ${pct(m.p[2], 0)}` : "Betting page not saved: no v1F pick";
       return `<tr><td>${esc(m.season)}</td><td class="num">${m.jornada}</td><td class="muted">${m.date ? fmtDate(m.date) : "–"}</td>
         <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
         <td class="num">${m.score ?? "–"}</td><td class="num">${{ H: "1", D: "X", A: "2" }[m.FTR] ?? "–"}</td>
-        <td class="num" data-tip="${esc(tip)}">${ticketPick(m[key], m.FTR)}</td></tr>`;
+        <td class="num" data-tip="${esc(tip)}">${ticketPick(m.public_picks, m.FTR)}</td>
+        <td class="num" data-tip="${m.pi_ratings_f ? "Pi-ratings of the Liga F results (ESPN), before the match" : "Not a Liga F match in ESPN"}">${ticketPick(m.pi_ratings_f, m.FTR)}</td></tr>`;
     }).join("")}</tbody></table>`;
 }
 
-/** Per-season data of the Liga F history: matches, played, with public picks, result shares, goals. */
+/** Per-season Liga F data: league matches (ESPN), on the tickets, with public picks, result shares, goals. */
 function ligaFDataTable(data) {
-  if (!data?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
-  return `<table><thead><tr><th>Season</th><th class="num">Matches</th><th class="num">Played</th>
-      <th class="num">With public picks (v1F)</th><th class="num">1</th><th class="num">X</th><th class="num">2</th>
-      <th class="num">Goals per match</th></tr></thead>
-    <tbody>${data.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.matches}</td><td class="num">${d.played}</td>
-      <td class="num">${d.with_picks}</td><td class="num">${pct(d.H, 1)}</td><td class="num">${pct(d.D, 1)}</td>
-      <td class="num">${pct(d.A, 1)}</td><td class="num">${d.goals == null ? "–" : d.goals.toFixed(2)}</td></tr>`).join("")}</tbody></table>`;
+  if (!data?.length) return '<p class="empty">No Liga F data yet. Run <code>invoke update</code>.</p>';
+  return `<table><thead><tr><th>Season</th><th class="num">Liga F matches (ESPN)</th><th class="num">Played</th>
+      <th class="num">On official tickets</th><th class="num">With public picks (v1F)</th><th class="num">1</th><th class="num">X</th>
+      <th class="num">2</th><th class="num">Goals per match</th></tr></thead>
+    <tbody>${data.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.league_matches ?? 0}</td><td class="num">${d.played ?? 0}</td>
+      <td class="num">${d.tickets ?? 0}</td><td class="num">${d.with_picks ?? 0}</td><td class="num">${pct(d.H, 1)}</td>
+      <td class="num">${pct(d.D, 1)}</td><td class="num">${pct(d.A, 1)}</td>
+      <td class="num">${d.goals == null ? "–" : d.goals.toFixed(2)}</td></tr>`).join("")}</tbody></table>`;
 }
