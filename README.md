@@ -890,6 +890,56 @@ out-of-sample forecasts of one half of the seasons and scored on the other:
 - **It almost never picks a draw** (0.1% of the matches, like Dixon-Coles' 1.2%): no
   difference of ratings is small enough to make the draw the most likely result.
 
+### Consensus of the models (tested, not used)
+
+**Idea.** Combine v1 to v4 by their **consensus**: if the models disagree on a match, maybe it
+is less predictable than v3's probability says, and the doubles and triples should go there.
+Tested on the 9,262 backtest matches (2015-16 to 2025-26) with the walk-forward predictions of
+every model; nothing in the code uses it.
+
+**1. Hit rate at the same confidence.** Matches grouped by how many of v2 and v4 mark v3's sign:
+
+| v2 and v4 agreeing with v3 | Matches | v3's mean confidence | v3's real hit rate | Gap |
+|---|---|---|---|---|
+| None | 927 (10%) | 38.6% | 39.5% | +0.9 points |
+| One | 632 (7%) | 40.8% | 38.3% | -2.5 points |
+| Both | 7,703 (83%) | 51.6% | 52.2% | +0.6 points |
+
+v3 is calibrated in every group: at the same confidence it hits as often with or without
+consensus. Split again by confidence tier (below 40%, 40-45%, ... 70% or more) the gaps go up
+and down with no pattern and almost none beyond chance; counting v1 too changes nothing.
+
+**2. Correcting the probabilities by consensus.** A temperature per consensus group,
+$P(k) \propto p_{v3}(k)^{\tau_g}$ ($\tau_g < 1$ opens the probabilities of group $g$), fitted on
+half of the seasons and scored on the other half:
+
+| Trained → scored | v3 as it is | $\tau$ by consensus group |
+|---|---|---|
+| 2015-20 → 2020-26 | **1.0036** | 1.0039 |
+| 2020-26 → 2015-20 | **1.0019** | 1.0028 |
+
+The correction makes the log-loss worse both ways, and the fitted $\tau_g$ change direction from
+one half to the other: they only fit noise.
+
+**3. Who is right when they disagree.** In the 927 matches where v2 and v4 both mark another
+sign than v3:
+
+| Model | Right |
+|---|---|
+| v3 | **39.5%** |
+| v4 | 31.2% |
+| v1 | 30.5% |
+| v2 | 30.2% |
+
+The goal models mostly back the home side there (v2 marks 1 in 70% of them), while v3, following
+the market, mostly marks 2 (52%) or X (26%), and is right much more often. A disagreement does
+not mean an unpredictable match: it means the goal models are missing what the odds know.
+
+**Conclusion.** The consensus adds nothing beyond v3's probabilities, as expected: v3 already
+uses the disagreement between Dixon-Coles and the market, against Dixon-Coles (its negative
+weight in the pool), and adding v4 to that pool did not help either (see
+[v4](#v4--pi-ratings-pi_ratings)). The tickets keep planning on v3's probabilities.
+
 ### v3·D · Direct ticket (`planner`)
 
 [`quiniela/prediction/planner.py`](src/quiniela/prediction/planner.py)
