@@ -84,7 +84,8 @@ function categoryLegend(legend = {}) {
 /** A model's mark on an official ticket match: sign(s), with ✓ / ✗ once played. */
 function ticketPick(picks, result, reduced = false) {
   if (!picks) return '<span class="muted">–</span>';
-  const label = [...picks].map((p) => ({ H: "1", D: "X", A: "2" }[p])).join("") +
+  // Signs always in 1, X, 2 order, whatever order the planner marked them in
+  const label = [...picks].sort((a, b) => "HDA".indexOf(a) - "HDA".indexOf(b)).map((p) => ({ H: "1", D: "X", A: "2" }[p])).join("") +
     (reduced ? '<sup class="muted" data-tip="In the reduction (not every combination is played)">R</sup>' : "");
   if (!result) return `<span class="pick pending ${picks.length > 1 ? "multi" : ""}">${label}</span>`;
   const hit = picks.includes(result);
@@ -103,7 +104,7 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
     const marks = cols.map((model) => {
       if (m.position === 15) {
-        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3+v1F·D, v3+v1F·R and v3+v1F·B tickets
+        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets
         if (!m.pleno_pick || model.key === "head_to_head") return '<td class="num muted">–</td>';
         const pick = `${m.pleno_pick[0]}-${m.pleno_pick[1]}`;
         if (!m.score) return `<td class="num"><span class="pick pending">${pick}</span></td>`;
@@ -122,7 +123,7 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const first14 = ticket.matches.filter((m) => m.position <= 14 && m.sign);
     const marked = first14.filter((m) => m.picks?.[model.key]);
     const plan = ticket.plans?.[model.key];
-    // A reduced ticket (v3+v1F·R) does not play every combination: hits of its best column
+    // A reduced ticket (v3+v2F·R) does not play every combination: hits of its best column
     const hits = plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const bets = plan ? plan.bets : 1;
     // Liga F models only mark the women's matches: hits, no ticket price
@@ -209,7 +210,7 @@ function confidenceCell(match, key, tiers) {
  * Prediction cell: the predicted sign only (probability, score and Pleno al 15
  * in the tooltip, to keep columns narrow); green check for a hit, red cross
  * for a miss, outline while pending, dashed outline without a prediction.
- * A pick can cover several signs (doubles "1X" and triples "1X2" of v3+v1F·D).
+ * A pick can cover several signs (doubles "1X" and triples "1X2" of v3+v2F·D).
  */
 function pickCell(match, key) {
   const sign = match[`${key}_sign`];
@@ -217,10 +218,11 @@ function pickCell(match, key) {
   const prob = match[`${key}_prob`];
   const score = match[`${key}_score`];
   const extra = score ? ` · score ${score} · Pleno al 15 ${match[`${key}_pleno`]}` : "";
-  const label = [...sign].map((s) => SIGN[s]).join("");
+  const label = [...sign].sort((a, b) => "HDA".indexOf(a) - "HDA".indexOf(b)).map((s) => SIGN[s]).join("");
   const kind = { 2: "Double", 3: "Triple" }[sign.length];
   const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
-  const source = match[`${key}_source`] === "v1F" ? " · Liga F: v1F, the public's picks"
+  const source = match[`${key}_source`] === "v2F" ? " · Liga F: v2F, pi-ratings of the Liga F results"
+    : match[`${key}_source`] === "v1F" ? " · Liga F: v1F, the public's picks"
     : match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
     : match[`${key}_source`] === "reduced" ? " · in the reduction (not every combination is played)" : "";
   const mark = match[`${key}_source`] === "reduced" ? '<sup class="muted">R</sup>' : "";
@@ -273,7 +275,7 @@ function oddsLine(summary) {
     `<span class="muted"> · ${mix} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  // v3+v1F·D's and v3+v1F·R's light (chance of 11+ hits); v3+v1F·B shows its own lights under its chart
+  // v3+v2F·D's and v3+v2F·R's light (chance of 11+ hits); v3+v2F·B shows its own lights under its chart
   const light = plan && !summary.money && plan.hits_signal
     ? signalLine(plan.hits_signal, "chance of 11+ hits") + signalRule([[plan.hits_signal, "11+ hits"]]) : "";
   return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>${light}`;
@@ -293,7 +295,7 @@ function chanceText(p) {
 }
 
 /**
- * v3+v1F·B big-win ticket: what can happen with it, as a horizontal bar chart of the
+ * v3+v2F·B big-win ticket: what can happen with it, as a horizontal bar chart of the
  * chance of each payout range (one series, values always shown), plus the key
  * figures, so the decision to play is the reader's.
  */
@@ -324,7 +326,7 @@ function moneyLine(summary) {
   return `<div style="margin-top:8px">
       <span class="muted">What can happen with this ticket (${eur(m.cost)}), chance per matchday:</span>
       <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;display:block;margin-top:4px"
-        role="img" aria-label="Chance of each payout range of the v3+v1F·B ticket">${bars}</svg>
+        role="img" aria-label="Chance of each payout range of the v3+v2F·B ticket">${bars}</svg>
       <span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
         13+ hits ${chanceText(m.chance_13)} · 14 hits ${chanceText(m.chance_14)} ·
         on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot} ·
@@ -464,11 +466,11 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
-  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v1F·D): the v3 signs with
+  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v2F·D): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
-  reduced ticket (v3+v1F·R): the same budget, which may also go to an official reduction (fewer columns
+  reduced ticket (v3+v2F·R): the same budget, which may also go to an official reduction (fewer columns
   covering more matches; R marks its matches; its hits are those of the best column);
-  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v3+v1F·B): the
+  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v3+v2F·B): the
   doubles and triples (at most 50 €) with the best chance of a prize of 10,000 € or more; its banner
   shows what can happen with it (chance of each payout range), so the decision is yours. Euros of played matchdays use the real prizes of
   the official draw when it is saved in data/lae (otherwise an estimate).`;

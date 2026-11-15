@@ -123,12 +123,15 @@ def test_dixon_coles_predictions_include_scores() -> None:
     assert set(out["pleno_home"]) <= {"0", "1", "2", "M"}
 
 
-def test_predict_upcoming(tmp_path: Path) -> None:
+def test_predict_upcoming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from quiniela.data.prizes import load_upcoming
+    from quiniela.io import espn
     from tests.test_prizes import _upcoming_file
 
     from tests.helpers import make_matches
 
+    # No Liga F results downloaded: v2F cannot predict and v1F (the public) is the fallback
+    monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: pd.DataFrame(columns=espn.COLUMNS))
     _upcoming_file(tmp_path)
     ticket = load_upcoming(tmp_path)
     assert ticket is not None
@@ -167,7 +170,37 @@ def test_predict_upcoming(tmp_path: Path) -> None:
     # v1F: only the Liga F match
     v1f = predictions["public_picks"]
     assert v1f["home_team"].tolist() == ["Alavés"] and v1f["source"].eq("v1F").all()
+    assert "pi_ratings_f" not in predictions
     assert matches[[f"_fill_p_{o}" for o in "HDA"]].sum(axis=1).round(6).eq(1).all()
+
+
+def test_predict_upcoming_plans_liga_f_with_v2f(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from quiniela.data.prizes import load_upcoming
+    from quiniela.io import espn
+    from tests.helpers import make_matches, simulate_league
+    from tests.test_prizes import _upcoming_file
+
+    # Liga F results with Alavés and Eibar, and their fixture on the ticket's weekend
+    strengths = {"Alavés": 0.5, "Eibar": -0.5, "C": 0.2, "D": -0.2}
+    played = simulate_league(strengths, "2026-08-29", 10, league="LIGAF", seed=3)
+    fixture = make_matches([("LIGAF", "2026-11-15", "Alavés", "Eibar", None, None)])
+    liga = pd.concat([played, fixture], ignore_index=True).assign(season="2026-27")
+    monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: liga)
+    _upcoming_file(tmp_path)
+    current = make_matches([("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]).assign(
+        season="2026-27"
+    )
+    _, predictions, _ = pipeline.predict_upcoming(
+        load_upcoming(tmp_path), history=current.iloc[:0], current=current
+    )
+    # v2F predicts the Liga F match, and the tickets (the v3 column) use it there
+    v2f = predictions["pi_ratings_f"]
+    assert v2f["home_team"].tolist() == ["Alavés"] and v2f["source"].eq("v2F").all()
+    v3 = predictions["market_blend"].set_index("home_team")
+    assert v3.loc["Alavés", "source"] == "v2F"
+    assert v3.loc["Alavés", "p_H"] == pytest.approx(v2f["p_H"].iloc[0])
 
 
 def test_pleno_pick_from_the_public(tmp_path: Path) -> None:

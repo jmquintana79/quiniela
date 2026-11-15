@@ -108,7 +108,7 @@
         `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
     return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
       <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
-        <th class="num">Pick on the v3, v3+v1F·D, v3+v1F·R and v3+v1F·B tickets</th></tr></thead><tbody><tr>
+        <th class="num">Pick on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets</th></tr></thead><tbody><tr>
         <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
@@ -121,12 +121,13 @@
   // Price of each ticket (14 matches + Pleno al 15), shown under the Pleno al 15
   function pricesTable() {
     if (!DATA.models.length || !md) return "";
-    const rows = DATA.models.map((m) => {
+    // Liga F models only predict the women's matches: no ticket of their own to price
+    const rows = DATA.models.filter((m) => !m.women).map((m) => {
       const plan = md.summary[m.key]?.plan;
       const bets = plan?.bets ?? 1;
       const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
       const r = plan?.reduction;
-      // v3+v1F·R may play an official reduction (fewer columns), times its direct doubles and triples
+      // v3+v2F·R may play an official reduction (fewer columns), times its direct doubles and triples
       const direct = r ? [r.direct_doubles ? plural(r.direct_doubles, "direct double") : "",
         r.direct_triples ? plural(r.direct_triples, "direct triple") : ""].filter(Boolean).join(" + ") : "";
       const marks = r ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets)${direct ? ` + ${direct}` : ""}`
@@ -147,9 +148,9 @@
   }
 
   $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only v3, the Liga F models (v1F, v2F) and the tickets (v3+v1F·D, v3+v1F·R, v3+v1F·B) are shown here; every model is in season.html." +
+    "<br>Only v3, the Liga F models (v1F, v2F) and the tickets (v3+v2F·D, v3+v2F·R, v3+v2F·B) are shown here; every model is in season.html." +
     " Liga F matches (F) are predicted by <strong>v1F</strong>, the public's picks, and <strong>v2F</strong>, pi-ratings of the Liga F results (ESPN) (the women's league has its own models and evaluation);" +
-    " the v3 column shows v1F there and the public's picks on other competitions, and the tickets use v3 on the men's matches and v1F on the Liga F ones." +
+    " the v3 column shows v2F there (v1F where v2F has no prediction) and the public's picks on other competitions, and the tickets use v3 on the men's matches and v2F on the Liga F ones." +
     " The footer gives the hit rates apart: men's (M and O matches) and Liga F.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;

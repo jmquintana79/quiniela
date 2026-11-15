@@ -25,11 +25,11 @@
     <div class="scroll" id="metrics"></div>
     <p class="meta" style="margin:10px 0 0">
       <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
-      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v3+v1F·D</strong> and <strong>v3+v1F·R</strong> are not
+      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v3+v2F·D</strong> and <strong>v3+v2F·R</strong> are not
       probability models but ways of playing v3: the v3 signs with doubles and triples on the
-      ticket (up to 48 bets a matchday; v3+v1F·R may also play an official reduction), so only their hit
+      ticket (up to 48 bets a matchday; v3+v2F·R may also play an official reduction), so only their hit
       rate (a double or triple is a hit when the result is among its signs) and prizes are shown
-      (v3+v1F·R's prizes count the hits of its best column), and they are never bold.
+      (v3+v2F·R's prizes count the hits of its best column), and they are never bold.
     </p>
   </section>
 
@@ -37,7 +37,7 @@
     <h2 id="by-result-title">Hit rate by result</h2>
     <p class="meta" style="margin:0 0 10px">
       For each <strong>observed</strong> result (1, X, 2), the share of its matches that each model got right.
-      For <strong>v3+v1F·D</strong> and <strong>v3+v1F·R</strong> a double or triple is a hit for every result it covers (a
+      For <strong>v3+v2F·D</strong> and <strong>v3+v2F·R</strong> a double or triple is a hit for every result it covers (a
       triple 1X2 is a hit whether it ends 1, X or 2), on the ticket matches; elsewhere they are v3's sign.
       Same league and season filters as the metrics. Informative: never bold.
     </p>
@@ -93,7 +93,7 @@
     <div class="scroll" id="women-matches"></div>
   </section>
 
-  <h2 class="group">Tickets (v3 on the men's matches + v1F on the Liga F ones)</h2>
+  <h2 class="group">Tickets (v3 on the men's matches + v2F on the Liga F ones)</h2>
 
   <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
     <h2 id="ticket-contingency-title">Contingency tables of the v3 tickets</h2>
@@ -101,7 +101,7 @@
       The 14 matches of the official tickets of the euro backtest (both leagues and every other match
       of the ticket), with what each ticket marked: rows the <strong>observed</strong> result, columns the
       <strong>marked</strong> signs (one sign, the doubles 1X, 12, X2 and the triple 1X2). Bold cells are hits
-      (the result is among the marked signs). For v3+v1F·R a hit in a reduced match is not always a hit of
+      (the result is among the marked signs). For v3+v2F·R a hit in a reduced match is not always a hit of
       its best column. Season filter only.
     </p>
     <div class="grid two" id="ticket-contingency"></div>
@@ -139,7 +139,7 @@
     <p class="meta" style="margin:0 0 10px">
       The official tickets of past draws (Loterías y Apuestas del Estado, saved in data/lae) with at
       least 10 La Liga / Segunda matches, played with the v3 signs (the other matches get the home
-      sign) and paid with the real prizes of each draw, sharing each pool with the real winners. v3+v1F·E
+      sign) and paid with the real prizes of each draw, sharing each pool with the real winners. v3+v2F·E
       (prudent) plays only when the expected prize from 10 to 13 hits is above the cost; the full
       version also counts 14 hits and the Pleno al 15, rare but large prizes that a few hundred
       draws cannot confirm: read its net result together with the number of 13 and 14-hit tickets.
@@ -281,8 +281,8 @@
     $("tickets-note").innerHTML = rows.length
       ? `Every matchday's 14-match ticket with the signs of ${esc(model?.name ?? b.model)} ${esc(model?.version ?? "")}, played in
         different ways. Every strategy except the first spends the same budget: ${b.doubles} doubles and ${b.triples}
-        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v3+v1F·D also chooses the mix within
-        ${b.max_bets} bets, and v3+v1F·R may also play an official reduction (fewer columns covering more matches) in that
+        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v3+v2F·D also chooses the mix within
+        ${b.max_bets} bets, and v3+v2F·R may also play an official reduction (fewer columns covering more matches) in that
         budget. Random placements are averaged over ${b.random_draws} draws. Planned chance: average probability of
         10+ hits computed before the matchday; it should match the real prize rate. Both leagues (the ticket mixes them).`
       : "No ticket results yet. Run <code>invoke backtest.run</code>.";

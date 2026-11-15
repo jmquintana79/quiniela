@@ -29,6 +29,9 @@ from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
 from quiniela.prediction.planner import PLANNER_MODEL
 from quiniela.prediction.registry import MODELS, WOMEN_PLANNER_MODEL
 
+# The Liga F model of the public's picks (v1F)
+PUBLIC_PICKS_MODEL = "public_picks"
+
 if TYPE_CHECKING:
     from quiniela.data.prizes import UpcomingTicket
 
@@ -375,20 +378,27 @@ def predict_upcoming(
     women = public["game"].isin(matches.loc[matches["league"] == WOMEN_LEAGUE, "game"])
     public.loc[women.to_numpy(), "source"] = "v1F"
     if women.any():
-        predictions[WOMEN_PLANNER_MODEL] = public[women.to_numpy()].reset_index(drop=True)
+        predictions[PUBLIC_PICKS_MODEL] = public[women.to_numpy()].reset_index(drop=True)
     # v2F: pi-ratings of the Liga F (ESPN results) on the women's matches of the ticket
     women_matches = matches[matches["league"] == WOMEN_LEAGUE]
+    pi_rows = pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
     if not women_matches.empty:
         pi_rows = _women_results_predictions(upcoming, women_matches, closes)
         if not pi_rows.empty:
             predictions["pi_ratings_f"] = pi_rows
+    # The Liga F model of the tickets (v2F); v1F (the public) where it has no prediction
+    planner_women = pi_rows if WOMEN_PLANNER_MODEL == "pi_ratings_f" else pd.DataFrame()
+    fill = pd.concat(
+        [planner_women, public[~public["game"].isin(planner_women.get("game", []))]],
+        ignore_index=True,
+    )
     if PLANNER_MODEL in predictions:
-        # The ticket of v3 + v1F: Dixon-Coles + market where there is data, v1F on the
-        # Liga F matches and the public's picks on the other competitions
+        # The ticket of v3 + v2F: Dixon-Coles + market where there is data, v2F on the
+        # Liga F matches (v1F without it) and the public's picks on the other competitions
         model_rows = predictions[PLANNER_MODEL].assign(source="model")
-        predictions[PLANNER_MODEL] = pd.concat([model_rows, public], ignore_index=True)
-    elif not public.empty:
-        predictions[PLANNER_MODEL] = public
+        predictions[PLANNER_MODEL] = pd.concat([model_rows, fill], ignore_index=True)
+    elif not fill.empty:
+        predictions[PLANNER_MODEL] = fill
     info = {
         "ours": int(ours.sum()),
         "fixtures": int(matches.loc[ours, "_fixture"].sum()),
@@ -417,7 +427,7 @@ def _pleno_pick(
 
     A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
     (from its score matrix); any other match, the categories the public marks
-    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v1F·D, v3+v1F·R and v3+v1F·B
+    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B
     tickets (the Pleno al 15 is a single match: no doubles).
 
     Returns:

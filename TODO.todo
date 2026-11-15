@@ -2,7 +2,7 @@ Quiniela · tareas pendientes
 ==============================================================================
 Orden de prioridad propuesto: 3 → 1 → 2.
   1. mejora las PROBABILIDADES (una variable más en la v3).
-  2. mejora la DECISIÓN (el público en el modelo de premios de v3+v1F·E y v3+v1F·B).
+  2. mejora la DECISIÓN (el público en el modelo de premios de v3+v2F·E y v3+v2F·B).
 Formato: ☐ pendiente · ✔ hecho
 Lo ya hecho está en el README (Releases y cada modelo).
 
@@ -45,7 +45,7 @@ Tareas:
 2. Jugar contra la mayoría con los porcentajes del público · PRIORIDAD BAJA
 ==============================================================================
 Idea:
-  v3+v1F·E y v3+v1F·B ya buscan el mejor premio, pero usan el mercado como "lo que marca el
+  v3+v2F·E y v3+v2F·B ya buscan el mejor premio, pero usan el mercado como "lo que marca el
   público". El boleto oficial (data/lae/upcoming.json) trae el porcentaje real de
   apostantes por signo: en partidos igualados, un signo algo menos probable pero
   poco apostado puede valer más (p. ej. X al 35 % marcada por el 10 %, frente a 1
@@ -63,7 +63,7 @@ Tareas:
   ✔ invoke update abre las páginas de LAE cuando falta algo y recoge los archivos de
     Descargas tras un clic en el marcador Quiniela (v0.10.1).
   ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
-    modelo de premios de v3+v1F·E y v3+v1F·B.
+    modelo de premios de v3+v2F·E y v3+v2F·B.
   ☐ Medir con el backtest en euros si mejora frente al mercado.
 
 
@@ -71,8 +71,8 @@ Tareas:
 ==============================================================================
 Idea:
   Desde 2026-27 los boletos de fin de semana llevan 4 partidos de la Liga F (29 % del
-  boleto). Se modela y evalúa aparte: v1F = porcentajes del público (el que usan los
-  boletos), v2F = pi-ratings con los resultados de ESPN.
+  boleto). Se modela y evalúa aparte: v1F = porcentajes del público, v2F = pi-ratings con
+  los resultados de ESPN (el que usan los boletos desde v0.12.0; v1F de respaldo).
 
 Tareas:
   ✔ Histórico de la Liga F: resultados de los boletos oficiales y porcentajes del
@@ -86,8 +86,9 @@ Tareas:
   ✔ Equivalencias de nombres ESPN ↔ LAE (58 de 60 partidos de boletos enlazados).
   ✔ v2F: pi-ratings con los resultados de ESPN, backtest semanal (59,2 % de acierto,
     log-loss 0,896 en 802 partidos) y comparación con v1F en los partidos comunes.
-  ☐ Cuando la comparación v1F vs v2F tenga suficientes partidos, planificar los
-    partidos de la Liga F de los boletos con el mejor de los dos.
+  ✔ Los boletos planifican los partidos de la Liga F con v2F (v3+v2F·D/R/B/E, v0.12.0).
+  ☐ Revisar la comparación v1F vs v2F cuando tenga suficientes partidos, por si el
+    público resultara mejor.
   ☐ Variante de v2F con tiros a puerta (ESPN los da por partido en summary?event=<id>,
     una petición por partido, con caché): pi-ratings aprendiendo de la diferencia de
     tiros a puerta o de una mezcla de goles y tiros; compararla con v2F. NO
