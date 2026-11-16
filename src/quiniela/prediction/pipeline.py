@@ -318,6 +318,7 @@ def predict_upcoming(
     pending = current[current["FTR"].isna()]
     recent = current[current["FTR"].notna() & (current["date"] >= closes - RESULT_WINDOW)]
 
+    liga_f_positions = _liga_f_positions(upcoming, closes)
     rows = []
     for match in upcoming.matches[upcoming.matches["position"] <= 14].itertuples():
         home = translate_team(names, match.lae_home)
@@ -331,7 +332,10 @@ def predict_upcoming(
         }
         if row["league"] is None:
             women = "(f)" in f"{match.lae_home} {match.lae_away}".lower()
-            row["league"] = WOMEN_LEAGUE if women else OTHER_LEAGUE
+            # Only the Liga F (an ESPN Liga F fixture) is WOMEN; other women's competitions
+            # (e.g. the Champions League) are OTHER, like the men's national teams
+            liga_f = women and (liga_f_positions is None or match.position in liga_f_positions)
+            row["league"] = WOMEN_LEAGUE if liga_f else OTHER_LEAGUE
             row["home_team"], row["away_team"] = _plain(match.lae_home), _plain(match.lae_away)
         fixture = _pairing(pending, str(row["home_team"]), str(row["away_team"]))
         result = _pairing(recent, str(row["home_team"]), str(row["away_team"]))
@@ -493,6 +497,38 @@ def _pleno_pick(
             pick_home=most(out["public_home"]), pick_away=most(out["public_away"]), source="public"
         )
     return out
+
+
+def _liga_f_positions(upcoming: "UpcomingTicket", closes: pd.Timestamp) -> set[int] | None:
+    """Positions of the ticket's women's matches that are Liga F matches in ESPN.
+
+    Args:
+        upcoming: The next ticket.
+        closes: Sales deadline.
+
+    Returns:
+        The positions, or ``None`` without ESPN data (every women's match then
+        counts as Liga F).
+    """
+    from quiniela.data.women import MATCH_DAYS, espn_candidates
+    from quiniela.io.espn import load_liga_f_matches
+
+    espn = load_liga_f_matches()
+    if espn.empty:
+        return None
+    names = set(espn["home_team"]) | set(espn["away_team"])
+    near = espn[(espn["date"] - closes).abs() <= pd.Timedelta(days=MATCH_DAYS)]
+    positions = set()
+    for match in upcoming.matches.itertuples():
+        homes = espn_candidates(str(match.lae_home), names)
+        aways = espn_candidates(str(match.lae_away), names)
+        if (
+            homes
+            and aways
+            and (near["home_team"].isin(homes) & near["away_team"].isin(aways)).any()
+        ):
+            positions.add(int(match.position))
+    return positions
 
 
 def _women_results_predictions(

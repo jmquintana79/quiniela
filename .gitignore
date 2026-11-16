@@ -167,7 +167,9 @@ obj/
 .venv/
 .env
 data/cache/
-dashboards/
+# Dashboards are versioned except the heaviest one and the bookmark installer
+dashboards/historical.html
+dashboards/bookmarklet.html
 
 # Tool caches
 .mypy_cache/

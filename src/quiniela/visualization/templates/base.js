@@ -50,7 +50,7 @@ function standingsTable(rows) {
   return `<table><thead><tr>
       <th class="num">#</th><th>Team</th><th class="num">P</th><th class="num">W</th>
       <th class="num">D</th><th class="num">L</th><th class="num">GF</th><th class="num">GA</th>
-      <th class="num">GD</th><th class="num">Pts</th>${hasForm ? "<th>Form</th>" : ""}
+      <th class="num">GD</th><th class="num">Pts</th>${hasForm ? '<th data-tip="Results of the team\'s last 5 league matches, oldest first: W win, D draw, L loss">Last 5 league matches</th>' : ""}
     </tr></thead><tbody>${rows.map((r, i) => `<tr>
       <td class="num muted">${i + 1}</td><td class="strong">${esc(r.team)}</td>
       <td class="num">${r.played}</td><td class="num">${r.won}</td><td class="num">${r.drawn}</td>
@@ -123,8 +123,9 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const first14 = ticket.matches.filter((m) => m.position <= 14 && m.sign);
     const marked = first14.filter((m) => m.picks?.[model.key]);
     const plan = ticket.plans?.[model.key];
+    const outcome = ticket.outcomes?.[model.key];
     // A reduced ticket (v3+v2F·R) does not play every combination: hits of its best column
-    const hits = plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
+    const hits = outcome?.hits ?? plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const bets = plan ? plan.bets : 1;
     // Liga F models only mark the women's matches: hits, no ticket price
     const price = model.women ? "Liga F matches" : `${eur(bets * 0.75)}${plan ? ` · ${plan.bets} bets` : ""}`;
@@ -275,10 +276,8 @@ function oddsLine(summary) {
     `<span class="muted"> · ${mix} = ${plan.bets} bets × 0.75 €</span>` : "";
   const parts = ["10", "11", "12", "13"].map((k) => `${k}+ hits ${pct(odds[k], 1)}`);
   parts.push(`14 hits ${pct(odds["14"], 2)}`);
-  // v3+v2F·D's and v3+v2F·R's light (chance of 11+ hits); v3+v2F·B shows its own lights under its chart
-  const light = plan && !summary.money && plan.hits_signal
-    ? signalLine(plan.hits_signal, "chance of 11+ hits") + signalRule([[plan.hits_signal, "11+ hits"]]) : "";
-  return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>${light}`;
+  // The traffic lights are in the recommendations table of current.html, not in the banners
+  return `${price}<br><span class="muted">Chance before the matchday: ${parts.join(" · ")}</span>`;
 }
 
 /** Euros with two decimals. */
@@ -302,39 +301,12 @@ function chanceText(p) {
 function moneyLine(summary) {
   const m = summary.money;
   if (!m) return "";
-  const rows = m.outcomes;
-  const rowH = 24, labelW = 150, barW = 250, valueW = 150, top = 4;
-  const width = labelW + barW + valueW, height = top + rows.length * rowH;
-  const bars = rows.map((o, i) => {
-    const y = top + i * rowH;
-    const w = Math.max(o.chance * barW, o.chance > 0 ? 2 : 0);
-    const big = o.low >= m.threshold;
-    const tip = `${o.label}: ${chanceText(o.chance)} of the matchdays`;
-    return `<g data-tip="${esc(tip)}">
-      <rect x="0" y="${y}" width="${width}" height="${rowH}" fill="transparent"/>
-      <text x="${labelW - 8}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="11"
-        fill="var(--text-secondary)" font-weight="${big ? 600 : 400}">${esc(o.label)}</text>
-      <rect x="${labelW}" y="${y + 5}" width="${w.toFixed(1)}" height="${rowH - 10}" rx="4"
-        fill="var(--accent)" opacity="${big ? 1 : 0.75}"/>
-      <text x="${labelW + w + 6}" y="${y + rowH / 2 + 4}" font-size="11"
-        fill="var(--text-primary)">${chanceText(o.chance)}</text>
-    </g>`;
-  }).join("");
   const back = m.cost ? m.expected_payout / m.cost : null;
   const jackpot = m.jackpot ? ` · estimated jackpot of the Pleno al 15 ${Math.round(m.jackpot).toLocaleString("en-GB")} €` : "";
   const every = m.matchdays_per_win ? ` (about once every ${Math.round(m.matchdays_per_win).toLocaleString("en-GB")} matchdays)` : "";
-  return `<div style="margin-top:8px">
-      <span class="muted">What can happen with this ticket (${eur(m.cost)}), chance per matchday:</span>
-      <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;display:block;margin-top:4px"
-        role="img" aria-label="Chance of each payout range of the v3+v2F·B ticket">${bars}</svg>
-      <span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
-        13+ hits ${chanceText(m.chance_13)} · 14 hits ${chanceText(m.chance_14)} ·
-        on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot} ·
-        predictability (average v3 confidence) ${pct(m.predictability, 1)}.</span>
-      ${signalLine(m.signal, `chance of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more`)}
-      ${signalLine(m.hits_signal, "chance of 13+ hits")}
-      ${signalRule([[m.signal, "10,000 € or more"], [m.hits_signal, "13+ hits"]])}
-    </div>`;
+  // One line instead of the chart of payout ranges: the chance that matters and the money back
+  return `<br><span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
+      on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot}.</span>`;
 }
 
 /**
@@ -410,7 +382,8 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
     ? `<span class="strong">${m.FTHG} – ${m.FTAG}</span> <span class="muted">(${SIGN[m.FTR]})</span>`
     : '<span class="muted">Pending</span>';
   // Hit rates apart for the men's leagues and the Liga F (separate models and evaluation)
-  const hasWomen = md.matches.some((m) => m.category === "F");
+  // Only when models are shown: the tickets of current.html count every match together
+  const hasWomen = md.matches.some((m) => m.category === "F") && models.some((m) => !m.ticket);
   const groupRate = (model, women) => {
     const rows = md.matches.filter((m) => (m.category === "F") === women);
     const marked = rows.filter((m) => m[`${model.key}_sign`]);
@@ -453,8 +426,8 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
       ${confModel ? `<td class="num">${confidenceCell(m, confKey, tiers)}</td>` : ""}
       ${models.map((model) => `<td class="num">${pickCell(m, model.key)}</td>`).join("")}
     </tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="${confModel ? 9 : 8}">Hit rate${hasWomen ? " · men's" : ""} <span class="muted">(${hasWomen ? "M and O matches" : "played matches"})</span></td>${footer}</tr>${womenFooter}
-      <tr><td colspan="${confModel ? 9 : 8}">Hits <span class="muted">(14 matches)</span></td>${ticketFooter}</tr></tfoot></table>`;
+    <tfoot>${models.every((m) => m.ticket) ? "" : `<tr><td colspan="${confModel ? 9 : 8}">Hit rate${hasWomen ? " · men's" : ""} <span class="muted">(${hasWomen ? "M and O matches" : "played matches"})</span></td>${footer}</tr>${womenFooter}`}
+      <tr><td colspan="${confModel ? 9 : 8}">Hits <span class="muted">(of the played matches; 14 on the ticket)</span></td>${ticketFooter}</tr></tfoot></table>`;
 }
 
 /** Legend under the prediction tables. */
@@ -470,9 +443,9 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
   reduced ticket (v3+v2F·R): the same budget, which may also go to an official reduction (fewer columns
   covering more matches; R marks its matches; its hits are those of the best column);
-  the chance of each prize before the matchday is under each ticket banner. Big-win ticket (v3+v2F·B): the
-  doubles and triples (at most 50 €) with the best chance of a prize of 10,000 € or more; its banner
-  shows what can happen with it (chance of each payout range), so the decision is yours. Euros of played matchdays use the real prizes of
+  the chance of each prize before the matchday is under each ticket banner. 1,000 € ticket (v3+v2F·B): the
+  doubles and triples (at most 50 €) with the best chance of a prize of 1,000 € or more. The traffic
+  lights of every ticket are in the recommendations table. Euros of played matchdays use the real prizes of
   the official draw when it is saved in data/lae (otherwise an estimate).`;
 
 
@@ -528,4 +501,51 @@ function ligaFDataTable(data) {
       <td class="num">${d.tickets ?? 0}</td><td class="num">${d.with_picks ?? 0}</td><td class="num">${pct(d.H, 1)}</td>
       <td class="num">${pct(d.D, 1)}</td><td class="num">${pct(d.A, 1)}</td>
       <td class="num">${d.goals == null ? "–" : d.goals.toFixed(2)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+
+/**
+ * Recommendations table: one traffic light per ticket and measure, with the chance of this
+ * matchday, how it ranks among the past official tickets and a plain explanation.
+ */
+function recommendationsTable(rows, models) {
+  if (!rows?.length) return '<p class="empty">No traffic lights: the past tickets are needed (invoke backtest.run) and a full ticket.</p>';
+  const name = (key) => {
+    const m = models.find((x) => x.key === key);
+    return m ? modelLabel(m) : esc(key);
+  };
+  const words = {
+    green: ["●", "Good matchday", (s) => `easier than in ${Math.min(9, Math.floor(s.percentile / 10))} of every 10 past matchdays`],
+    amber: ["◐", "Normal matchday", () => "like most past matchdays"],
+    red: ["✕", "Bad matchday", (s) => `harder than in ${Math.min(9, Math.floor((100 - s.percentile) / 10))} of every 10 past matchdays`],
+  };
+  const body = rows.map((r) => {
+    const [icon, label, text] = words[r.signal.level];
+    return `<tr><td>${name(r.key)}</td><td>${esc(r.measure)}${r.primary ? "" : ' <span class="muted">(also)</span>'}</td>
+      <td class="num strong">${chanceText(r.value)}</td>
+      <td class="muted">usually ${chanceText(r.signal.low)} to ${chanceText(r.signal.high)}</td>
+      <td><span class="signal signal-${r.signal.level}" style="display:inline-flex;padding:2px 8px;margin:0">
+        <span class="signal-dot">${icon}</span><strong style="display:inline">${label}</strong></span></td>
+      <td>${esc(text(r.signal))}</td></tr>`;
+  }).join("");
+  // The two lights of the ·B ticket often disagree: say what kind of matchday it is
+  const big = rows.filter((r) => r.key === "v3b");
+  const prize = big.find((r) => r.primary)?.signal.level;
+  const hits = big.find((r) => !r.primary)?.signal.level;
+  let summary = "";
+  if (prize && hits && prize !== hits) {
+    summary = hits === "green" || prize === "red"
+      ? "Matchday of favourites: many hits are likely, but prizes will be small (many other winners)."
+      : "Open matchday: many hits are unlikely, but a prize, when it comes, can be larger (few other winners).";
+  }
+  // Only the table scrolls sideways: the notes below stay clear of its scroll bar
+  return `<div class="scroll" style="padding-bottom:12px"><table><thead><tr><th>Ticket</th><th>Chance of</th>
+      <th class="num">This matchday</th><th>Typical range</th><th>Light</th><th>In plain words</th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+    ${summary ? `<p style="margin:12px 0 0"><strong>${esc(summary)}</strong></p>` : ""}
+    <p class="meta" style="margin:6px 0 0;font-size:11px">Rule: each ticket's planned chance is ranked among the same chance of the
+      past official tickets planned the same way (414 draws since 2015-16): green at or above the 75th percentile, red at or
+      below the 25th, amber in between; the typical range goes from the 25th to the 75th percentile.</p>
+    <p style="margin:4px 0 8px;font-size:12px;font-weight:600;color:var(--critical)">⚠ No traffic light makes the quiniela
+      profitable: they only compare matchdays with each other. Every ticket loses money on average.</p>`;
 }

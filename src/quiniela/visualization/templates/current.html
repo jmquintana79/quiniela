@@ -9,6 +9,7 @@
 <body>
 <main>
   <div id="deadline"></div>
+  <div id="ticket-notice"></div>
   <header>
     <h1 id="title">Current matchday</h1>
     <span class="meta" id="meta"></span>
@@ -18,6 +19,12 @@
     <div id="status"></div>
     <div id="fixtures"></div>
     <div id="banners" style="margin-bottom:8px" data-toc="Tickets and prize chances"></div>
+    <div class="card" id="recommendations-card" data-toc="Recommendations" style="margin-bottom:16px">
+      <h2>Recommendations</h2>
+      <p class="meta" style="margin:0 0 10px">Is this a good matchday for each ticket? Its chance this matchday against the
+        past official tickets: green good, amber normal, red bad.</p>
+      <div id="recommendations"></div>
+    </div>
     <div class="card" id="matches-card" data-toc="Matches and predictions">
       <h2 id="matches-title">Matches</h2>
       <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
@@ -148,10 +155,9 @@
   }
 
   $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only v3, the Liga F models (v1F, v2F) and the tickets (v3+v2F·D, v3+v2F·R, v3+v2F·B) are shown here; every model is in season.html." +
-    " Liga F matches (F) are predicted by <strong>v1F</strong>, the public's picks, and <strong>v2F</strong>, pi-ratings of the Liga F results (ESPN) (the women's league has its own models and evaluation);" +
-    " the v3 column shows v2F there (v1F where v2F has no prediction) and the public's picks on other competitions, and the tickets use v3 on the men's matches and v2F on the Liga F ones." +
-    " The footer gives the hit rates apart: men's (M and O matches) and Liga F.";
+    "<br>Only the v3+v2F tickets are shown here: the single ticket (one sign per match), the direct (·D), the reduced (·R) and the big-win (·B) one." +
+    " They use v3 on the La Liga / Segunda matches, <strong>v2F</strong> (pi-ratings of the Liga F results) on the Liga F ones (v1F, the public's picks, without it)" +
+    " and the public's picks on the other competitions (hover a sign for its source). The models themselves are compared in evaluation.html.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;
     $("meta").textContent = DATA.jornada ? "Official ticket · current season"
@@ -178,6 +184,10 @@
     segmented($("league-switch"), codes.map((c) => DATA.leagues[c] ?? c), 0, showStandings);
     showStandings(0);
   }
+  if (DATA.ticket_notice) {
+    $("ticket-notice").innerHTML = `<div class="banner" style="border-color:var(--critical);margin-bottom:12px"><strong style="color:var(--critical)">Next ticket missing</strong>${esc(DATA.ticket_notice)}</div>`;
+  }
+  $("recommendations").innerHTML = recommendationsTable(DATA.recommendations, DATA.models);
   tableOfContents();
 </script>
 </body>

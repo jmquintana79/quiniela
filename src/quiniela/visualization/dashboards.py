@@ -272,12 +272,12 @@ REDUCED_SPEC = {
 MONEY_KEY = "v3b"
 MONEY_SPEC = {
     "key": MONEY_KEY,
-    "name": "Big-win ticket",
+    "name": "1,000 € ticket",
     "version": "v3+v2F·B",
     "reference": False,
     "description": "v3 on the men's matches and v2F on the Liga F ones, plus the doubles and "
     "triples (at most 50 EUR) with the best chance "
-    "of a prize of 10,000 EUR or more: many hits and few other winners. It loses money on "
+    "of a prize of 1,000 EUR or more: many hits and few other winners. It loses money on "
     "average; its banner shows what can happen. Outside the ticket, the v3 sign.",
     "ticket": True,
 }
@@ -304,7 +304,7 @@ def percentile_signal(
     other: every one loses money on average.
 
     Args:
-        value: The ticket's planned chance (e.g. of 10,000 EUR or more).
+        value: The ticket's planned chance (e.g. of 1,000 EUR or more).
         history: Money backtest rows (``quiniela.evaluation.money``).
         strategy: Strategy of the past tickets (``v3d``, ``v3r``, ``v3b``).
         column: Their planned chance (``p_big``, ``p_hits``).
@@ -337,7 +337,7 @@ def percentile_signal(
 
 
 def big_win_signal(chance: float | None, history: pd.DataFrame) -> dict[str, Any] | None:
-    """Traffic light of the v3+v2F·B big-win ticket by its chance of 10,000 EUR or more."""
+    """Traffic light of the v3+v2F·B ticket by its chance of a prize of 1,000 EUR or more."""
     return percentile_signal(chance, history, "v3b", "p_big")
 
 
@@ -445,6 +445,73 @@ def _liga_f_picks(liga_f: pd.DataFrame | None) -> dict[tuple[str, int, int], np.
     return out
 
 
+# The single-column v3+v2F ticket: one sign per match (0.75 EUR)
+SINGLE_KEY = "v3s"
+SINGLE_SPEC = {
+    "key": SINGLE_KEY,
+    "name": "Single ticket",
+    "version": "v3+v2F",
+    "reference": False,
+    "description": "One sign per match, the most likely one: v3 on the men's matches, v2F on "
+    "the Liga F ones (v1F without it) and the public's picks elsewhere. One bet, 0.75 EUR.",
+    "ticket": True,
+}
+
+# The v3+v2F tickets of the official ticket views, cheapest first
+TICKET_KEYS = [SINGLE_KEY, PLANNED_KEY, REDUCED_KEY, MONEY_KEY]
+
+
+def _ticket_outcome(
+    plan: Any, results: list[str | None], draw: dict[str, Any] | None, pleno: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Hits, category and real prize of a planned ticket on an official ticket.
+
+    Args:
+        plan: The ticket (``quiniela.prediction.planner.TicketPlan``).
+        results: Real result of each of the 14 matches (``None`` if not played).
+        draw: The official draw (winners, takings, jackpot), when saved.
+        pleno: The Pleno al 15 match (its ``pleno_pick`` and ``score``), if any.
+
+    Returns:
+        ``played`` (matches with a result), ``hits`` (of the best column),
+        ``category``, ``cost`` and ``payout`` (``None`` until every match is
+        played and the draw is saved).
+    """
+    from quiniela.data.prizes import BET_PRICE
+    from quiniela.prediction.money import CATEGORY_HITS, prize_payout
+    from quiniela.prediction.ticket import prize_category
+
+    played = sum(result is not None for result in results)
+    hits = plan.hits(results)
+    complete = played == len(results)
+    out: dict[str, Any] = {
+        "played": played,
+        "hits": int(hits),
+        "category": prize_category(int(hits)) if complete else None,
+        "cost": round(BET_PRICE * plan.bets, 2),
+        "payout": None,
+    }
+    if complete and draw is not None:
+        winners = {k: float(draw.get(f"winners_{k}") or 0) for k in CATEGORY_HITS}
+        pleno_hit = False
+        if pleno and pleno.get("pleno_pick") and pleno.get("score"):
+            goals = [
+                ["0", "1", "2"][int(g)] if int(g) < 3 else "M"
+                for g in str(pleno["score"]).split("-")
+            ]
+            pleno_hit = goals == list(pleno["pleno_pick"])
+        payout, _ = prize_payout(
+            plan.columns(results),
+            winners,
+            float(draw.get("takings") or 0),
+            float(draw.get("jackpot") or 0),
+            float(draw.get("winners_special") or 0),
+            pleno_hit,
+        )
+        out["payout"] = round(float(payout), 2)
+    return out
+
+
 def _season_tickets(
     current: pd.DataFrame,
     predictions: dict[str, pd.DataFrame],
@@ -465,7 +532,7 @@ def _season_tickets(
     """
     from quiniela.data.prizes import official_tickets
     from quiniela.prediction.money import plan_big_win
-    from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket
+    from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket, single_plan
     from quiniela.prediction.reduced import plan_reduced
     from quiniela.prediction.registry import WOMEN_PLANNER_MODEL
 
@@ -481,6 +548,11 @@ def _season_tickets(
     shares = current["FTR"].value_counts(normalize=True)
     prior = np.array([float(shares.get(o, 1 / 3)) for o in ("H", "D", "A")])
     jackpots = dict(zip(prizes.draws["draw_id"], prizes.draws["jackpot"].fillna(0), strict=True))
+    draws_by_id = {row["draw_id"]: row for row in prizes.draws.to_dict(orient="records")}
+    from quiniela.evaluation.money import RECOMMEND_HITS, load_money
+
+    # Past official tickets of the euro backtest: what the traffic lights rank against
+    money_results = load_money()
     # v1F: the public's picks of the Liga F matches, for the tickets whose page was saved
     women_picks = _liga_f_picks(liga_f)
     # v2F: the pi-ratings pick of each Liga F match (from the Liga F block of the page)
@@ -548,15 +620,42 @@ def _season_tickets(
             simulations=3000,
             rng=np.random.default_rng([MONEY_SEED, number]),
         )
+        plan_s = single_plan(probs_array)
         first14 = [m for m in ticket["matches"] if m["position"] <= 14]
-        for match, planned_picks, reduced_picks, money_picks in zip(
-            first14, plan_d.picks, plan_r.picks, plan_b.plan.picks, strict=True
+        for match, single_picks, planned_picks, reduced_picks, money_picks in zip(
+            first14, plan_s.picks, plan_d.picks, plan_r.picks, plan_b.plan.picks, strict=True
         ):
+            match["picks"][SINGLE_KEY] = single_picks
             match["picks"][PLANNED_KEY] = planned_picks
             match["picks"][REDUCED_KEY] = reduced_picks
             match["picks"][MONEY_KEY] = money_picks
         results = [m.get("sign") if isinstance(m.get("sign"), str) else None for m in first14]
+        # What each v3+v2F ticket got on the real ticket: hits of the played matches,
+        # category and the real prize of the draw (its winners and takings)
+        draw = draws_by_id.get(ticket["draw_id"])
+        pleno = next((m for m in ticket["matches"] if m["position"] == 15), None)
+        ticket["outcomes"] = {
+            ticket_key: _ticket_outcome(plan, results, draw, pleno)
+            for ticket_key, plan in (
+                (SINGLE_KEY, plan_s),
+                (PLANNED_KEY, plan_d),
+                (REDUCED_KEY, plan_r),
+                (MONEY_KEY, plan_b.plan),
+            )
+        }
+        # The traffic light each ticket had before the jornada (its target's chance ranked
+        # among the past official tickets): the "Rec." column of season.html
+        # (not "key": that is the planner model of the whole function)
+        for ticket_key, value, strategy, column in (
+            (SINGLE_KEY, plan_s.at_least(RECOMMEND_HITS), "single", "p_hits"),
+            (PLANNED_KEY, plan_d.at_least(RECOMMEND_HITS), "v3d", "p_hits"),
+            (REDUCED_KEY, plan_r.at_least(RECOMMEND_HITS), "v3r", "p_hits"),
+            (MONEY_KEY, plan_b.chance, "v3b", "p_big"),
+        ):
+            signal = percentile_signal(value, money_results, strategy, column)
+            ticket["outcomes"][ticket_key]["signal"] = signal["level"] if signal else None
         ticket["plans"] = {
+            SINGLE_KEY: {"doubles": 0, "triples": 0, "bets": 1},
             PLANNED_KEY: {
                 "doubles": plan_d.doubles,
                 "triples": plan_d.triples,
@@ -689,13 +788,14 @@ def _current_season(current: pd.DataFrame) -> str | None:
 
 
 def _ticket_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Columns of the official ticket tables: the models, v1F for the Liga F, then the tickets."""
-    from quiniela.prediction.registry import WOMEN_MODELS
+    """Columns of the official ticket views: the v3+v2F tickets only (single, ·D, ·R, ·B).
 
-    women = _model_specs(list(WOMEN_MODELS))
-    plain = [m for m in models if not m.get("ticket") and not m.get("women")]
-    tickets = [m for m in models if m.get("ticket")]
-    return plain + women + tickets
+    The season and current pages are about the tickets that can be played; the
+    models are compared in the evaluation page.
+    """
+    available = {m["key"] for m in models}
+    singles = [SINGLE_SPEC] if PLANNED_KEY in available else []
+    return singles + [m for m in models if m.get("ticket")]
 
 
 def liga_f_payload(
@@ -1198,6 +1298,83 @@ def current_matchday_index(matchdays: list[dict[str, Any]]) -> int | None:
     return pending[0] if pending else len(matchdays) - 1
 
 
+def _recommendations(
+    summary: dict[str, Any], money_results: pd.DataFrame | None
+) -> list[dict[str, Any]]:
+    """Traffic lights of the v3+v2F tickets of a matchday, for the recommendations table.
+
+    Each ticket is ranked by the planned chance of its target among the past
+    official tickets planned the same way (``percentile_signal``): 12 or more
+    hits (``RECOMMEND_HITS``) for the single, direct and reduced tickets; a prize of
+    ``BIG_WIN_THRESHOLD`` or more, and 13 or more hits, for the ·B ticket.
+
+    Args:
+        summary: Per-model summary of the matchday (``season_payload``).
+        money_results: Money backtest (the past tickets).
+
+    Returns:
+        One row per ticket and measure: ``key``, ``measure``, ``value`` (the
+        chance this matchday), ``primary`` (the ticket's target) and ``signal``.
+    """
+    from quiniela.evaluation.money import RECOMMEND_HITS
+    from quiniela.prediction.money import BIG_WIN_THRESHOLD
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    if money_results is None or money_results.empty:
+        return []
+    rows = []
+
+    def add(
+        key: str, measure: str, value: float | None, strategy: str, column: str, primary: bool
+    ) -> None:
+        signal = percentile_signal(value, money_results, strategy, column)
+        if value is not None and signal is not None:
+            rows.append(
+                {
+                    "key": key,
+                    "measure": measure,
+                    "value": value,
+                    "primary": primary,
+                    "signal": signal,
+                }
+            )
+
+    for key, strategy in ((PLANNER_MODEL, "single"), (PLANNED_KEY, "v3d"), (REDUCED_KEY, "v3r")):
+        odds = (summary.get(key) or {}).get("odds") or {}
+        hits = str(RECOMMEND_HITS)
+        add(key, f"{hits}+ hits", odds.get(hits), strategy, "p_hits", True)
+    money = (summary.get(MONEY_KEY) or {}).get("money")
+    if money is not None:
+        add(
+            MONEY_KEY,
+            f"{BIG_WIN_THRESHOLD:,.0f} € or more",
+            money.get("chance"),
+            "v3b",
+            "p_big",
+            True,
+        )
+        add(MONEY_KEY, "13+ hits", money.get("chance_13"), "v3b", "p_hits", False)
+    return rows
+
+
+def _current_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Columns of ``current.html``: the v3+v2F tickets only.
+
+    The v3 column is the single ticket (one sign per match: v3 on the men's
+    matches, v2F on the Liga F ones, the public's picks elsewhere); the models
+    themselves are compared in the evaluation page.
+    """
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    out = []
+    for model in models:
+        if model["key"] == PLANNER_MODEL:
+            out.append({**SINGLE_SPEC, "key": PLANNER_MODEL})
+        elif model.get("ticket"):
+            out.append(model)
+    return out
+
+
 def current_payload(
     current: pd.DataFrame | None = None,
     predictions: dict[str, pd.DataFrame] | None = None,
@@ -1285,6 +1462,8 @@ def current_payload(
             reduced_summary["odds"].get("11"), money_results, "v3r", "p_hits"
         )
 
+    recommendations = _recommendations(summary, money_results)
+
     standings_by_league: dict[str, list[dict[str, Any]]] = {}
     odds_downloaded = None
     for code in LEAGUE_NAMES:
@@ -1298,14 +1477,13 @@ def current_payload(
             stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
             odds_downloaded = max(odds_downloaded or stamp, stamp)
 
-    from quiniela.prediction.registry import WOMEN_MODELS
-
-    # Only v3 and the tickets built on it (v3+v2F·D, v3+v2F·R, v3+v2F·B): v1, v2 and v3+v2F·D stay in the season page
-    from quiniela.prediction.planner import PLANNER_MODEL
-
-    shown = (PLANNER_MODEL, *WOMEN_MODELS, PLANNED_KEY, REDUCED_KEY, MONEY_KEY)
+    # Only the v3+v2F tickets (single, ·D, ·R, ·B): the models are compared in evaluation.html
     return {
-        "models": [m for m in season["models"] if m["key"] in shown],
+        "models": _current_models(season["models"]),
+        # When the next ticket is missing: what to do (the page shows it on top)
+        "ticket_notice": ticket_notice(),
+        # One traffic light per ticket and measure, for the recommendations table
+        "recommendations": recommendations,
         "leagues": season["leagues"],
         "categories": _category_legend(),
         "confidence_model": season["confidence_model"],
@@ -1899,6 +2077,45 @@ RETIRED_DASHBOARDS = ["predictions.html"]
 UPCOMING_DAYS = 4
 
 
+def _draw_saved(prizes: Any, ticket: Any) -> bool:
+    """Whether the official draw of a saved next ticket is already saved (its results are in)."""
+    from quiniela.data.women import ticket_season
+
+    if (
+        prizes is None
+        or prizes.draws.empty
+        or ticket.closes > pd.Timestamp.now(tz=ticket.closes.tz)
+    ):
+        return False
+    draws = prizes.draws
+    season = ticket_season(ticket.closes)
+    return bool(((draws["season"] == season) & (draws["jornada"] == ticket.jornada)).any())
+
+
+def ticket_notice(now: pd.Timestamp | None = None) -> str | None:
+    """Warning for ``current.html`` when the next official ticket is not saved.
+
+    Args:
+        now: Reference time. Defaults to now.
+
+    Returns:
+        The message, or ``None`` when the saved ticket is still open.
+    """
+    from quiniela.data.prizes import load_upcoming
+
+    ticket = load_upcoming()
+    if ticket is None:
+        return "No official ticket saved yet: run invoke update and click the Quiniela bookmark on the betting page it opens."
+    now = pd.Timestamp.now(tz=ticket.closes.tz) if now is None else now
+    if ticket.closes >= now:
+        return None
+    return (
+        f"The next official ticket is not saved: the saved one (jornada {ticket.jornada}) closed. "
+        "Run invoke update and click the Quiniela bookmark on the betting page it opens (allow the "
+        "download if the browser asks)."
+    )
+
+
 def _upcoming_view(
     prizes: Any, now: pd.Timestamp | None = None
 ) -> tuple[Any, dict[str, Any], dict[str, Any]] | None:
@@ -1912,6 +2129,10 @@ def _upcoming_view(
     now = pd.Timestamp.now(tz=ticket.closes.tz) if now is None else now
     if now > ticket.closes + pd.Timedelta(days=UPCOMING_DAYS):
         logger.info("Saved ticket of jornada %d is past; using football-data", ticket.jornada)
+        return None
+    if _draw_saved(prizes, ticket):
+        # Its results are in: the jornada is over, and the next ticket is what matters
+        logger.info("The draw of jornada %d is saved: its ticket is not current", ticket.jornada)
         return None
     matches, predictions, info = predict_upcoming(ticket)
     return ticket, season_payload(matches, predictions, prizes=prizes), info

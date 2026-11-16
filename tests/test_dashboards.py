@@ -604,3 +604,83 @@ def test_liga_f_payload_scores_v1f_apart() -> None:
     newest = payload["matches"][0]
     assert newest["jornada"] == 21 and newest["public_picks"] == "H" and newest["FTR"] is None
     assert dashboards.liga_f_payload(None)["matches"] == []
+
+
+def test_ticket_outcome_scores_the_real_ticket() -> None:
+    import numpy as np
+
+    from quiniela.prediction.planner import single_plan
+
+    probs = np.tile([0.5, 0.3, 0.2], (14, 1))
+    plan = single_plan(probs)
+    results = ["H"] * 11 + ["D", "A", None]
+    pending = dashboards._ticket_outcome(plan, results, None, None)
+    assert (pending["played"], pending["hits"], pending["category"], pending["payout"]) == (
+        13,
+        11,
+        None,
+        None,
+    )
+    draw = {
+        "takings": 3_000_000.0,
+        "jackpot": 0.0,
+        "winners_special": 0.0,
+        "winners_14": 0.0,
+        "winners_13": 10.0,
+        "winners_12": 100.0,
+        "winners_11": 1000.0,
+        "winners_10": 10000.0,
+    }
+    done = dashboards._ticket_outcome(plan, [*results[:13], "H"], draw, None)
+    # 12 hits: 3rd category, a share of the 12-hit pool with the real winners
+    assert done["hits"] == 12 and done["category"] is not None
+    assert done["payout"] == pytest.approx(0.075 * 3_000_000 / 101, abs=0.01)
+    assert done["cost"] == 0.75
+
+
+def test_current_models_are_the_tickets_only() -> None:
+    models = [
+        {"key": "dixon_coles", "name": "Dixon-Coles", "version": "v2"},
+        {"key": "market_blend", "name": "DC + Market", "version": "v3"},
+        {"key": "public_picks", "name": "Public picks", "version": "v1F", "women": True},
+        dashboards.PLANNED_SPEC,
+    ]
+    shown = dashboards._current_models(models)
+    assert [m["key"] for m in shown] == ["market_blend", dashboards.PLANNED_KEY]
+    assert shown[0]["version"] == "v3+v2F" and shown[0]["ticket"]
+
+
+def test_ticket_notice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from quiniela.data import prizes
+    from tests.test_prizes import _upcoming_file
+
+    _upcoming_file(tmp_path)  # closes 14/11/2026 at 14:00
+    monkeypatch.setattr(prizes, "LAE_DIR", tmp_path)
+    monkeypatch.setattr(prizes.load_upcoming, "__defaults__", (tmp_path,))
+    before = pd.Timestamp("2026-11-13 12:00", tz="Europe/Madrid")
+    after = pd.Timestamp("2026-11-16 12:00", tz="Europe/Madrid")
+    assert dashboards.ticket_notice(before) is None
+    notice = dashboards.ticket_notice(after)
+    assert notice is not None and "jornada 21" in notice
+
+
+def test_recommendations_rank_every_ticket() -> None:
+    rows = []
+    for strategy in ("single", "v3d", "v3r", "v3b"):
+        for i in range(100):
+            rows.append({"strategy": strategy, "p_hits": i / 100, "p_big": i / 1000})
+    history = pd.DataFrame(rows)
+    summary = {
+        "market_blend": {"odds": {"12": 0.9}},
+        dashboards.PLANNED_KEY: {"odds": {"12": 0.5}},
+        dashboards.REDUCED_KEY: {"odds": {"12": 0.1}},
+        dashboards.MONEY_KEY: {"money": {"chance": 0.09, "chance_13": 0.05}},
+    }
+    out = dashboards._recommendations(summary, history)
+    levels = {(r["key"], r["measure"]): r["signal"]["level"] for r in out}
+    assert levels[("market_blend", "12+ hits")] == "green"
+    assert levels[(dashboards.PLANNED_KEY, "12+ hits")] == "amber"
+    assert levels[(dashboards.REDUCED_KEY, "12+ hits")] == "red"
+    assert levels[(dashboards.MONEY_KEY, "1,000 € or more")] == "green"
+    assert levels[(dashboards.MONEY_KEY, "13+ hits")] == "red"
+    assert dashboards._recommendations(summary, pd.DataFrame()) == []

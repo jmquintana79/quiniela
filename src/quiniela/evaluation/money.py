@@ -14,8 +14,8 @@ Segunda matches (``quiniela.data.prizes``), the ticket is played with:
   the Pleno al 15 too), only when its expected net prize is positive;
 - ``v3e_always``: the full planner's ticket every draw, to measure what
   choosing the draws adds;
-- ``v3b`` (v3+v2F·B): the big-win mode, every draw: at most 50 EUR, the ticket
-  with the best chance of a prize of 10,000 EUR or more.
+- ``v3b`` (v3+v2F·B): the 1,000 EUR ticket, every draw: at most 50 EUR, the
+  ticket with the best chance of a prize of ``BIG_WIN_THRESHOLD`` (1,000 EUR) or more.
 
 The other ticket matches (other competitions, women's league) get the league
 shares of 1, X and 2 as probabilities and the home sign. Payouts use the real
@@ -57,8 +57,12 @@ MONEY_STRATEGIES: dict[str, str] = {
     "v3e": "v3+v2F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
     "v3e_full": "v3+v2F·E counting 14 hits and the Pleno al 15 too, only when it pays",
     "v3e_always": "The full v3+v2F·E ticket every draw, worth it or not",
-    "v3b": "v3+v2F·B big win: best chance of 10,000+ EUR within 50 EUR, every draw",
+    "v3b": "v3+v2F·B: best chance of 1,000+ EUR within 50 EUR, every draw",
 }
+
+# Hits whose planned chance ranks the single, direct and reduced tickets in the traffic
+# lights (12 or more: the 11-hit prize is small); the planners still aim at 11+
+RECOMMEND_HITS = 12
 
 MONEY_COLUMNS = [
     "season",
@@ -178,8 +182,14 @@ def _season_money(
             "v3d": (plan_d, nan, nan, True, nan),
             "v3r": (plan_r, nan, nan, True, nan),
         }
-        # Planned chance of many hits: 11+ for v3+v2F·D and v3+v2F·R (their target), 13+ for v3+v2F·B
-        p_hits = {"v3d": plan_d.at_least(11), "v3r": plan_r.at_least(11)}
+        # Planned chance of many hits, what the traffic lights rank: RECOMMEND_HITS (12) or more
+        # for the single ticket, v3+v2F·D and v3+v2F·R, 13+ for v3+v2F·B
+        single = plans["single"][0]
+        p_hits = {
+            "single": single.at_least(RECOMMEND_HITS),
+            "v3d": plan_d.at_least(RECOMMEND_HITS),
+            "v3r": plan_r.at_least(RECOMMEND_HITS),
+        }
         signs = [OUTCOMES[r] for r in results]
         args = (probs, crowd, model, float(draw["expected_bets"]), float(draw["jackpot"] or 0))
         prudent = money.plan_money(*args, max_bets=max_bets, rng=rng)
@@ -339,7 +349,7 @@ def summarize_money(results: pd.DataFrame, by: list[str] | None = None) -> pd.Da
         row["roi"] = row["net"] / row["cost"] if row["cost"] else float("nan")  # type: ignore[operator]
         row["winning"] = int((played["net"] > 0).sum())
         row["best_payout"] = float(played["payout"].max()) if len(played) else 0.0
-        # Prizes of 10,000 EUR or more: how many came, and how many the plans expected
+        # Prizes of BIG_WIN_THRESHOLD or more: how many came, and how many the plans expected
         row["big_wins"] = int((played["payout"] >= money.BIG_WIN_THRESHOLD).sum())
         row["expected_big_wins"] = (
             float(played["p_big"].sum())

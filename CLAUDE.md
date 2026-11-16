@@ -11,8 +11,9 @@ model is evaluated with a walk-forward backtest against the betting market.
 
 - Package: `src/quiniela/` · tasks: `tasks/` (invoke) · tests: `tests/` (pytest).
 - Python `~3.11`, Poetry 1.8, virtual environment in `.venv` (`source .venv/bin/activate`).
-- Data (`data/`), dashboards (`dashboards/`) and API docs (`docs/api/`) are generated and
-  not versioned.
+- Data (`data/`) and API docs (`docs/api/`) are generated and not versioned. The dashboards
+  (`dashboards/`) are generated and versioned, except `historical.html` (too heavy) and
+  `bookmarklet.html`: commit them after rebuilding when the user asks for a commit.
 
 ## Working with the user
 

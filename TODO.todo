@@ -87,8 +87,18 @@ Tareas:
   ✔ v2F: pi-ratings con los resultados de ESPN, backtest semanal (59,2 % de acierto,
     log-loss 0,896 en 802 partidos) y comparación con v1F en los partidos comunes.
   ✔ Los boletos planifican los partidos de la Liga F con v2F (v3+v2F·D/R/B/E, v0.12.0).
+  ✔ Solo cuentan como Liga F los partidos enlazados con ESPN (la Champions femenina
+    y otras competiciones van como "otras").
+  ✔ season.html por boletos oficiales con los cuatro boletos v3+v2F (aciertos, categoría
+    y premio real); current.html solo con los boletos y aviso de boleto que falta.
   ☐ Revisar la comparación v1F vs v2F cuando tenga suficientes partidos, por si el
-    público resultara mejor.
+    público resultara mejor (jornada 21: 4 partidos, empate a 2 aciertos).
+  ✔ ·B apunta a 1.000 € o más (antes 10.000 €); semáforos en una tabla de
+    recomendaciones en current.html; columna Rec. sí/no en season.html.
+  ☐ Elegir el boleto v3+v2F con el que apostar (el más competitivo) cuando haya
+    suficientes boletos oficiales.
+  ☐ Probar las reducciones oficiales como candidatas del boleto ·B (con 1.000 € a
+    menudo basta un 13).
   ☐ Variante de v2F con tiros a puerta (ESPN los da por partido en summary?event=<id>,
     una petición por partido, con caché): pi-ratings aprendiendo de la diferencia de
     tiros a puerta o de una mezcla de goles y tiros; compararla con v2F. NO

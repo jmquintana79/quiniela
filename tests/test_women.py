@@ -25,7 +25,8 @@ def test_archive_and_history(tmp_path: Path) -> None:
     lae = _lae(tmp_path)
     archived = women.archive_upcoming(lae, lae / "public")
     assert archived is not None and archived.name == "2026-27_j21.json"
-    history = women.liga_f_history(lae, lae / "public")
+    # Without ESPN data every women's match of the tickets counts
+    history = women.liga_f_history(lae, lae / "public", espn_dir=None)
     # The played Liga F match of jornada 4 and the pending one of jornada 21 (with picks)
     assert history["jornada"].tolist() == [4, 21]
     played, pending = history.iloc[0], history.iloc[1]
@@ -97,3 +98,33 @@ def test_results_backtest_walks_forward() -> None:
     assert scores["pi_ratings_f"]["log_loss"] < scores["liga_f_shares"]["log_loss"]
     # Without v1F inputs there is no common comparison
     assert summary["common"] == {}
+
+
+def test_history_keeps_only_the_liga_f(tmp_path: Path) -> None:
+    from quiniela.io.espn import COLUMNS
+
+    lae = _lae(tmp_path)
+    espn = pd.DataFrame(
+        [
+            [
+                "LIGAF",
+                "2026-27",
+                "2026-09-06 Alavés-Eibar",
+                pd.Timestamp("2026-09-06 12:00"),
+                "Alavés",
+                "Eibar",
+                1.0,
+                1.0,
+                "D",
+                "STATUS_FULL_TIME",
+                "1",
+            ]
+        ],
+        columns=COLUMNS,
+    )
+    (tmp_path / "espn").mkdir()
+    espn.to_parquet(tmp_path / "espn" / "2026-27.parquet")
+    history = women.liga_f_history(lae, lae / "public", espn_dir=tmp_path / "espn")
+    # Jornada 21's women's match has no ESPN Liga F fixture: another competition, left out
+    assert history["jornada"].tolist() == [4]
+    assert history["espn_game"].tolist() == ["2026-09-06 Alavés-Eibar"]

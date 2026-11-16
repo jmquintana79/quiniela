@@ -8,6 +8,48 @@ several model versions (all following the scikit-learn API), evaluates them on p
 with a walk-forward backtest against the betting market, and shows everything in HTML
 dashboards. See [Predictive models](#predictive-models) and [Releases](#releases).
 
+## Contents
+
+- [Data source](#data-source)
+  - [Official draws: real tickets, winners and prizes](#official-draws-real-tickets-winners-and-prizes)
+- [Setup](#setup)
+- [Usage](#usage)
+  - [Update everything (recommended)](#update-everything-recommended)
+  - [Download data](#download-data)
+  - [Predictions](#predictions)
+  - [Backtest](#backtest)
+  - [Dashboards](#dashboards)
+  - [Command line](#command-line)
+- [Evaluation](#evaluation)
+  - [The market reference](#the-market-reference)
+  - [Metrics](#metrics)
+  - [Hit rate by result](#hit-rate-by-result)
+  - [Macro-F1 and contingency tables](#macro-f1-and-contingency-tables)
+  - [X picks](#x-picks)
+  - [Confidence of a prediction](#confidence-of-a-prediction)
+- [Predictive models](#predictive-models)
+  - [v1 · Head-to-head benchmark (`head_to_head`)](#v1--head-to-head-benchmark-head_to_head)
+  - [v2 · Dixon-Coles (`dixon_coles`)](#v2--dixon-coles-dixon_coles)
+  - [v3 · Dixon-Coles + market (`market_blend`)](#v3--dixon-coles--market-market_blend)
+  - [v4 · Pi-ratings (`pi_ratings`)](#v4--pi-ratings-pi_ratings)
+  - [Consensus of the models (tested, not used)](#consensus-of-the-models-tested-not-used)
+  - [v3+v2F·D · Direct ticket (`planner`)](#v3v2fd--direct-ticket-planner)
+  - [v3+v2F·R · Reduced ticket (`reduced`)](#v3v2fr--reduced-ticket-reduced)
+  - [v3+v2F·E and v3+v2F·B · Money tickets (`money`)](#v3v2fe-and-v3v2fb--money-tickets-money)
+  - [Next steps](#next-steps)
+- [Liga F (women's league)](#liga-f-womens-league)
+  - [Data](#data)
+  - [v1F · Public picks (`public_picks`)](#v1f--public-picks-public_picks)
+  - [v2F · Pi-ratings (`pi_ratings_f`)](#v2f--pi-ratings-pi_ratings_f)
+  - [Evaluation (`quiniela.evaluation.women`)](#evaluation-quinielaevaluationwomen)
+- [Releases](#releases)
+- [Project structure](#project-structure)
+- [Notes on the data](#notes-on-the-data)
+- [Development](#development)
+  - [API documentation](#api-documentation)
+  - [Commits](#commits)
+- [Roadmap](#roadmap)
+
 ## Data source
 
 Match data comes from [football-data.co.uk](https://www.football-data.co.uk), downloaded
@@ -225,79 +267,64 @@ Five dashboards, each answering one question:
 
 | Dashboard | Question | Content |
 |---|---|---|
-| `current.html` | What happens this week? | Current matchday (with confidence, prize chances, the v3+v2F·D and v3+v2F·R tickets and the v3+v2F·B big-win ticket) and standings. |
-| `season.html` | How are the models doing this season? | Every matchday of the current season. |
+| `current.html` | What do I play this week? | The next official ticket with the four v3+v2F tickets (single, ·D, ·R, ·B), their prize chances and prices, and the standings. |
+| `season.html` | How did the tickets do this season? | Season totals of the models, and every official ticket of the season with the hits and real prize of each v3+v2F ticket. |
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers, tickets with doubles and triples and real tickets in euros. |
 | `prizes.html` | What did each draw pay? | Every official draw since 2010-11: jackpot, winners and prize per winner of each category. |
 
-**In every dashboard**, a **table of contents** after the header links to each section, and the
-models' figures (metrics, hits, hit rates) come **twice, apart**: one block for the **men's
-leagues** (La Liga and Segunda, the v1-v4 models) and one for the **Liga F** (the v1F and v2F
-models and their reference), each with the history it has (see [Liga F](#liga-f-womens-league)):
+**In every dashboard** a **table of contents** after the header links to each section. Two
+kinds of page, two kinds of figures:
+
+- **`current.html` and `season.html` are about the tickets you can play**: the four **v3+v2F
+  tickets** (single, ·D, ·R, ·B) on the **real official tickets**, with their hits on the
+  matches played so far and, once the draw is saved, their real prize. The models do not appear
+  there as columns.
+- **`evaluation.html` and `historical.html` are about the models**, on every result available,
+  with the **men's leagues** (La Liga and Segunda, v1-v4) and the **Liga F** (v1F, v2F and their
+  reference, see [Liga F](#liga-f-womens-league)) apart.
 
 | Dashboard | Men's leagues | Liga F |
 |---|---|---|
-| `current.html` | Footer hit rate of the men's matches (and other competitions) | **Public picks v1F** and **Pi-ratings v2F** columns and their own footer hit rate |
-| `season.html` | Season totals and matchdays | Season block: v1F, v2F and reference hits, every Liga F ticket match with the v1F and v2F picks |
-| `evaluation.html` | Metrics, hit rate by result, contingency tables, confidence, calibration | The same tables for v1F, v2F and the reference, **v1F against v2F** on the common matches, the data by season and every ticket match |
+| `evaluation.html` | Metrics, hit rate by result, contingency tables, confidence, calibration | The same tables for v1F, v2F and the reference, **v1F against v2F** on the common matches, the data by season and every Liga F ticket match |
 | `historical.html` | Outcomes, standings and results | Outcomes and goals by season (ESPN) and every Liga F ticket match |
+| `season.html` | Season totals of every model (tiles) | Season totals of v1F, v2F and the reference (tiles) |
 
-The tickets (v3+v2F·D, ·R, ·B) mix both leagues and have their own block.
+The **v3+v2F tickets** use v3 on the La Liga / Segunda matches, v2F on the Liga F ones (v1F, the
+public's picks, where v2F has none) and the public's picks on the other competitions, women's
+ones included (on past tickets, whose public picks were not saved, the shares of 1, X and 2):
 
-- `dashboards/current.html`: the **current matchday**. When the next official ticket is saved
-  (`data/lae/upcoming.json`, see [the next ticket](#official-draws-real-tickets-winners-and-prizes))
-  and its sales closed less than four days ago, the current matchday is **that ticket**, in its
-  official order: the sales deadline (Madrid time, in large type) at the very top, its La Liga and
-  Segunda matches predicted by every model (trained on all played matches; the other matches,
-  women's league or national teams, have no prediction and count with the league shares of 1,
-  X and 2 for doubles and triples), no colours until there are results, and a notice saying
-  whether **football-data's fixtures are available**: until they are (Friday afternoon for
-  weekend matches), there are no odds and v3 predicts with Dixon-Coles only. Otherwise (no saved
-  ticket, or an old one) the current matchday comes from the football-data matches. The
-  official ticket also shows its **Pleno al 15**: one pick of the goals categories (0, 1, 2, M)
-  of each team, the same on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets: Dixon-Coles' most likely pair when it is
-  a La Liga / Segunda match, otherwise the categories the public marks most. The v3+v2F·D, v3+v2F·R and v3+v2F·B
-  banners give the **price of their ticket** (0.75 € × 2^doubles × 3^triples bets, or the bets
-  of the reduction times its direct doubles and triples for v3+v2F·R), the
-  table's footer gives every model's hits on the 14 ticket matches, and under the Pleno al 15 a
-  table gives the price of each ticket (14 matches and the Pleno, which adds no bets). Before the
-  draw, Loterías does not publish the date of the women's and other matches (only football-data
-  has the La Liga / Segunda kick-offs), so they show none until the draw is saved. Without a
-  saved ticket, the current matchday comes from the football-data matches: its
-  matches (kick-off, teams, result when played) with one column per model in registry order. The **market** reference is not
-  shown here: v3 follows the odds closely, so it would repeat v3's signs; it stays in
-  `evaluation.html`, where it is the benchmark. Each cell shows only the predicted sign, green with ✓ when right and red
-  with ✗ when wrong, so the table has room for more models; hovering it shows the probability
-  (and, for models that predict goals, the exact score and Pleno al 15 picks). The footer gives
-  each model's hit rate on the played
-  matches. A **Confidence** column shows how predictable each match is according to v3 (the
-  probability of its sign, green high, amber medium, red low; the margin over the second sign
-  on hover), and the table can be sorted in ticket order or **most predictable first**. The
-  **Direct ticket v3+v2F·D** column shows the v3 signs with the doubles (`1X`) and triples (`1X2`)
-  chosen by the [ticket planner](#v3v2fd--direct-ticket-planner), the **Reduced ticket v3+v2F·R**
-  column the same budget with an [official reduction](#v3v2fr--reduced-ticket-reduced) (its matches
-  marked R), side by side, and the **Big-win ticket v3+v2F·B**
-  column the **big-win ticket** of [v3+v2F·E and v3+v2F·B](#v3v2fe-and-v3v2fb--money-tickets-money) (only with the LAE draws
-  saved). Above the table, a status banner (upcoming, in progress or completed) and the
-  14-match quiniela ticket outcome of each model, with the **chance of each prize before the
-  matchday** (10+ to 14 hits); the v3+v2F·B banner adds a **chart of what can happen with its ticket**
-  (chance of each payout range, from nothing back to 100,000 € or more), its cost, the chance of
-  10,000 € or more and how much comes back on average, so the decision to play is yours; once the
-  matchday is played, the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B banners give the **euros spent and won** (real prizes of
-  the official draw when its ticket matches ours, otherwise an estimate with the prize model).
-  Below, the standings of each league with
-  recent form. The current matchday is the first one with matches still to play; when every
-  published match has been played (e.g. during an international break, before the source
-  publishes the next fixtures) the last one is shown and marked as completed. A note says when
-  the odds used by v3 were downloaded (they keep moving until kick-off).
-- `dashboards/season.html`: the **current season**: totals per model and for the v3+v2F·D, v3+v2F·R and
-  v3+v2F·B tickets (hit rate, prize tickets and, for v3, v3+v2F·D, v3+v2F·R and v3+v2F·B, euros spent and won; without
-  the market), a table of every matchday with each model's hits and quiniela outcome (and, for
-  v3, v3+v2F·D, v3+v2F·R and v3+v2F·B, the prize won in euros and the ticket's cost), and the detail of any matchday (same table as `current.html`). The ticket is approximated with the
-  matchday's La Liga matches followed by Segunda matches, up to 14 (14 hits 1st, 13 2nd,
-  12 3rd, 11 4th, 10 5th category; the Pleno al 15 is not simulated). Models that predict
-  goals show their exact score and Pleno al 15 picks in the tooltip.
+| Ticket | Key | Marks | Cost |
+|---|---|---|---|
+| **Single ticket v3+v2F** | `v3s` | the most likely sign of each match | 1 bet, 0.75 € |
+| **Direct ticket v3+v2F·D** | `v3d` | doubles and triples for the best chance of 11+ hits | up to 48 bets |
+| **Reduced ticket v3+v2F·R** | `v3r` | the same, also with an official reduction | up to 48 bets |
+| **1,000 € ticket v3+v2F·B** | `v3b` | the best chance of a prize of 1,000 € or more | up to 50 € |
+
+- `dashboards/current.html`: the **next official ticket** (`data/lae/upcoming.json`, see
+  [the next ticket](#official-draws-real-tickets-winners-and-prizes)) in its official order, from
+  the time it is saved until its draw is saved (or four days after its deadline): the sales
+  deadline in large type, a notice saying whether **football-data's fixtures are available** (until
+  they are there are no odds and v3 predicts with Dixon-Coles only), the four v3+v2F tickets side
+  by side (each sign on hover: its probability and source, v3, v2F, v1F or the public's picks; R
+  marks the matches of the reduction), a **Confidence** column (the probability of the single
+  ticket's sign) and ticket or most-predictable-first order, the **hits of each ticket on the
+  played matches** in the footer, the **Pleno al 15** pick (Dixon-Coles' goals categories for a La
+  Liga / Segunda match, the categories the public marks most otherwise) and the **price of each
+  ticket**. Above the table, each ticket's banner (its price, the **chance of each prize before the
+  matchday**, for v3+v2F·B the chance of 1,000 € or more and the money back on average; once
+  played, the euros spent and won) and the **recommendations table** with every traffic light. When the saved ticket is over (its draw saved, or closed) and the
+  next one is not saved, a red **"Next ticket missing"** notice says to run `invoke update` and
+  click the Quiniela bookmark, and the page falls back to the football-data matchday. Below, the
+  standings of each league with recent form.
+- `dashboards/season.html`: the **current season**. On top, the season totals of every model
+  (men's leagues) and of the Liga F models (tiles). Then **one row per official ticket** of the
+  season (jornada, date, and its M · F · O matches), with each v3+v2F ticket's
+  (·D, ·R and ·B; the single one only in the ticket of a jornada) **recommendation before the
+  jornada** (Rec. yes/no: its green light), **hits on the real 14 matches** (of those played; the reduced ticket counts its best column), its category and
+  its **real prize** (the winners and takings of the draw, the Pleno al 15 when its pick is right)
+  and cost, plus the season's totals (prizes, won, net) in the footer. **Clicking a jornada opens
+  its ticket**: its 15 matches and what each v3+v2F ticket marked, with the hits and price of each.
 - `dashboards/historical.html`: home win, draw and away win shares and goals per match for
   every season, plus the final standings and results of the selected season (filterable by
   team), each match with its category and whether it was on an official ticket; and the
@@ -341,7 +368,8 @@ model predicts: the public's picks of past tickets were not saved), the Pleno al
 (Dixon-Coles) and each ticket's hits and price.
 
 All are self-contained HTML files (data embedded, no external libraries) that open with a
-double click, also offline. New models appear as new columns automatically.
+double click, also offline. They are **versioned in git** (rebuild and commit them to publish a new
+state), except `historical.html` (several MB) and the bookmark installer `bookmarklet.html`. New models appear as new columns automatically.
 
 Standings are computed from the results: 2 points per win before 1995-96 and 3 points
 afterwards. Head-to-head tiebreakers and point deductions are not applied, so a position can
@@ -590,7 +618,7 @@ so new models and new tickets can be added independently. A ticket mixes both le
 |---|---|---|---|---|---|---|
 | Direct doubles and triples, best chance of 11+ hits within 48 bets | **·D** | `planner` | **v3+v2F·D** | v3+v1F·D | v3·D | v4, v4D |
 | The same budget, also with the official reductions | **·R** | `reduced` | **v3+v2F·R** | v3+v1F·R | v3·R | v4R |
-| Big win: best chance of 10,000 € or more within 50 € | **·B** | `money` | **v3+v2F·B** | v3+v1F·B | v3·B | v5 (big-win mode) |
+| Big win: best chance of a prize of 1,000 € or more within 50 € (10,000 € until v0.12) | **·B** | `money` | **v3+v2F·B** | v3+v1F·B | v3·B | v5 (big-win mode) |
 | Best expected prize in euros, played only when it pays (backtest only) | **·E** | `money` | **v3+v2F·E** | v3+v1F·E | v3·E | v5 (prudent) |
 
 The tickets plan on v3's probabilities (`PLANNER_MODEL`) for the men's matches and on v2F's
@@ -1206,10 +1234,12 @@ draws in euros:
 - **More money back, still a loss.** On the real draws v3+v2F·R gets back 49% of what it spends
   against 35% for v3+v2F·D, and it got the only 14 of the backtest (a draw of favourites, so small).
   It still loses half of the money: the quiniela keeps 45% of the takings.
-- **Why not in v3+v2F·B.** The big-win ticket looks for prizes of 10,000 € or more, which come almost
-  only from 14 hits (a 13 pays less than about 9,200 € in three draws out of four, see
-  `prizes.html`), and with the same bets a direct ticket concentrates more chance on the 14
-  (and pays the chained 13s and 12s that come with it). v3+v2F·B stays direct.
+- **Why not in v3+v2F·B.** When the ·B ticket looked for prizes of 10,000 € or more, they came
+  almost only from 14 hits (a 13 pays less than about 9,200 € in three draws out of four, see
+  `prizes.html`), and with the same bets a direct ticket concentrates more chance on the 14 (and
+  pays the chained 13s and 12s that come with it), so v3+v2F·B stayed direct. Since it aims at
+  1,000 € (v0.13), a 13 is often enough, so reductions are worth testing for it again (see the
+  [Roadmap](#roadmap)).
 
 ### v3+v2F·E and v3+v2F·B · Money tickets (`money`)
 
@@ -1311,7 +1341,7 @@ bets (average of the last five draws) and the announced jackpot.
 | **v3+v2F·E (prudent): only when 10-13 hits pay** | **0** | 0 € | 0 € | **0 €** | – | – | – |
 | v3+v2F·E counting 14 hits and the Pleno al 15 | 143 | 3,921 € | 1,579 € | -2,342 € | 40% | 227 € | 2 / 7 / 13 / 25 |
 | Full v3+v2F·E ticket every draw | 414 | 9,908 € | 4,160 € | -5,748 € | 42% | 1,213 € | 3 / 16 / 37 / 66 |
-| v3+v2F·B big win: best chance of 10,000+ € within 50 €, every draw | 414 | 19,865 € | 7,278 € | -12,587 € | 37% | 791 € | 6 / 21 / 46 / 74 |
+| v3+v2F·B: best chance of 1,000+ € within 50 €, every draw | 414 | 19,857 € | 6,907 € | -12,950 € | 35% | 497 € | 5 / 25 / 53 / 70 |
 
 *Return: euros won per euro spent; the quiniela gives back 55% on average to all players. Only
 v3+v2F·R got 14 hits, once in 414 draws (2018-19, jornada 34, a draw of favourites: 862 € with all
@@ -1337,14 +1367,14 @@ its columns).*
   these same draws (e.g. 8 draws with a 122% return), but choosing a rule on the data that
   grades it would overfit; they are not used.
 
-**Big-win mode** (`plan_big_win`, v3+v2F·B, the ticket in the dashboards). The prudent v3+v2F·E answers
+**Big-win mode** (`plan_big_win`, v3+v2F·B, the **1,000 € ticket** of the dashboards). The prudent v3+v2F·E answers
 "is it worth it on average?" (never). But a quiniela player usually looks for something else:
 **a large prize at once**, accepting to lose on average. That needs many hits (13 or 14) **and**
 few other winners (results the public did not expect), and both are in one number, the chance
 of a prize of at least $X$ within a weekly budget:
 
 ```math
-\max_{\text{ticket}} \; P(\text{payout} \ge X), \qquad 0.75 \cdot 2^d 3^t \le 50 \text{ €}, \quad X = 10{,}000 \text{ €}
+\max_{\text{ticket}} \; P(\text{payout} \ge X), \qquad 0.75 \cdot 2^d 3^t \le 50 \text{ €}, \quad X = 1{,}000 \text{ €}
 ```
 
 - **14 hits and the Pleno al 15**: their probability is exact, $\prod_i q_i$ (the coverage of
@@ -1358,27 +1388,40 @@ of a prize of at least $X$ within a weekly budget:
 P_k = \Phi\left(\frac{\log(c_k\, s_k\, 0.75\, B / X) - \log B - a_k - b_k S}{\sigma_k}\right)
 ```
 
-The ticket is chosen on one set of simulations and valued on another. The dashboards do not
-give a verdict: they show **what can happen** with the ticket, the chance of each payout range
-(nothing back, less than the cost, up to 1,000 €, 1,000-10,000 €, 10,000-100,000 €, more), with
-the chance of $X$ or more, of 13+ and 14 hits, and how much comes back on average.
+The ticket is chosen on one set of simulations and valued on another. $X$ is
+`BIG_WIN_THRESHOLD`: **1,000 €** since v0.13 (10,000 € before). The banner shows the chance of
+$X$ or more and how much comes back on average; its traffic lights are in the recommendations
+table (below).
 
-Backtest (last row of the table above): with 48 € a draw it almost always plays 6 doubles
-(64 bets). Its plans gave a prize of 10,000 € or more a **0.06% chance per draw (about once
-every 1,700 draws)**, 0.25 expected in the 414 draws; none came, as expected. It gets back
-37% of the money, with six 13-hit tickets in 11 seasons (the best one 791 €, the 13-hit prizes
-of those draws being small). A large prize with 50 € a week is a matter of decades.
+**Why 1,000 €.** With 10,000 € the plans gave it a 0.06% chance per draw (once every 1,700
+draws, 0.25 expected in the 414 draws): far too rare to ever be checked. With 1,000 € the
+backtest (last row of the table above; it still plays 6 doubles, 64 bets, in 412 of 414 draws)
+gives a **0.34% chance per draw (about once every 290 draws), 1.4 expected in the 414 draws**;
+none came (the best prize was 497 €, with five 13-hit tickets whose prizes were small), which
+is not unusual with 1.4 expected (a 24% chance of none). It gets back 35% of the money. A prize
+of 1,000 € with 48 € a week is still a matter of years, and the check grows with every draw.
 
-**Traffic lights: is this a good matchday to play?** Under the v3+v2F·D, v3+v2F·R and v3+v2F·B tickets,
-`current.html` shows a traffic light (green *recommended to play*, amber *undetermined*, red
-*not recommended*, each with its icon and label) for four planned chances of the tickets:
+**Traffic lights: is this a good matchday to play?** `current.html` gathers them in a
+**recommendations table**, right before the matches: one row per ticket and planned chance, with
+the chance of this matchday, its typical range (25th to 75th percentile of the past tickets), the
+light (green *good matchday*, amber *normal*, red *bad*, with its icon) and a plain explanation
+("easier than in 8 of every 10 past matchdays"):
 
 | Ticket | Chance ranked | Past tickets compared |
 |---|---|---|
-| v3+v2F·B (big win) | of a prize of 10,000 € or more | the big-win tickets of the 414 past official draws |
-| v3+v2F·B (big win) | of 13 or more hits | the same |
-| v3+v2F·D | of 11 or more hits (its target) | the v3+v2F·D tickets of the same draws |
-| v3+v2F·R | of 11 or more hits (its target) | the v3+v2F·R tickets of the same draws |
+| Single ticket v3+v2F | of 12 or more hits | the single tickets of the 414 past official draws |
+| v3+v2F·D | of 12 or more hits | the v3+v2F·D tickets of the same draws |
+| v3+v2F·R | of 12 or more hits | the v3+v2F·R tickets of the same draws |
+| v3+v2F·B | of a prize of 1,000 € or more (its target) | the v3+v2F·B tickets of the same draws |
+| v3+v2F·B | of 13 or more hits (also) | the same |
+
+The single, direct and reduced tickets are ranked by **12 or more hits** (`RECOMMEND_HITS`: the
+11-hit prize is small), although ·D and ·R still place their doubles and triples for the best
+chance of 11 or more.
+
+`season.html` shows, for every official ticket of the season, whether each ticket's light was
+green before the jornada (**Rec.** yes: green; no: amber or red) next to its hits and prize, and
+how many times it was green in the footer, so the recommendation itself can be judged.
 
 The rule is a percentile: the ticket's chance $c$ is ranked among the chances $c_j$ the same
 strategy had in the $n$ past real tickets of the money backtest,
@@ -1389,11 +1432,12 @@ strategy had in the $n$ past real tickets of the money backtest,
 ```
 
 The two v3+v2F·B lights often disagree, and that is the point: a matchday of clear favourites gives
-many hits (green on 13+ hits) but small prizes (red on 10,000 €), while open matches or a jackpot
-give the opposite. Both together say which kind of matchday it is: a likely but small prize, or
-a rare but large one. **No traffic light makes the quiniela profitable**: they only compare
-matchdays with each other, and every ticket loses money on average; the dashboard says so in
-red under the lights, with the rule in small print.
+many hits (green on 13+ hits) but small prizes (red on 1,000 €), while open matches or a jackpot
+give the opposite. When they disagree, a line under the table says which kind of matchday it is
+("Matchday of favourites: many hits are likely, but prizes will be small", or "Open matchday").
+**No traffic light makes the quiniela profitable**: they only compare matchdays with each other,
+and every ticket loses money on average; the dashboard says so in red under the table, with the
+rule in small print.
 
 ### Next steps
 
@@ -1442,8 +1486,12 @@ no Liga F; FootyStats is paid.
   `data/lae/public/<season>_j<jornada>.json`;
 - each ticket match is **linked to its ESPN match** (same teams within four days), through an
   alias table for the names that differ (`At. Madrid (f)` → Atlético Madrid, `Madrid (f)` →
-  Madrid CFF, `Tenerife (f)` → Granadilla Tenerife / Tenerife...): 58 of the 60 ticket matches
-  are linked; the other two were women's matches of another competition (Las Planas).
+  Madrid CFF, `Tenerife (f)` → Granadilla Tenerife / Tenerife...). **Only the linked matches are
+  Liga F**: a women's match of another competition (the Champions League, cups, Primera
+  Federación) has no ESPN Liga F match and counts as an *other competition* (its category stays F,
+  women's): the public's picks on the tickets, out of the Liga F history and evaluation. Of the 68
+  women's ticket matches so far, 58 are Liga F; the others are the 8 women's Champions League
+  matches of jornada 22 of 2026-27 and two Primera Federación ones (Las Planas).
 
 Everything is joined in `data/women/liga_f.parquet`. Running `invoke update` **every week**
 before the deadline (and clicking the bookmark when it opens the betting page) builds the v1F
@@ -1515,6 +1563,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.13.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets **v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B** (v3+v2F·E in the backtest), market reference | **Liga F only for ESPN Liga F matches**: other women's competitions on the tickets (the Champions League of jornada 22) are *other competitions*. `season.html` rebuilt: the season tiles, then one row per **official ticket** with the hits, category and **real prize** of the four v3+v2F tickets (new **single ticket v3+v2F**, one sign per match) a **Rec.** yes/no column per ticket, between its hits and prize (its light before the jornada) and the ticket of any jornada on click. The ·B ticket aims at **1,000 € or more** (`BIG_WIN_THRESHOLD`, was 10,000 €), named **1,000 € ticket v3+v2F·B**; euro backtest re-run. `current.html` shows only the v3+v2F tickets, with every traffic light in a **recommendations table** (12+ hits for the single, ·D and ·R tickets) (plain explanations, a summary when the two ·B lights disagree) and no payout chart, drops a saved ticket once its draw is saved and warns in red when the next ticket is missing. Standings: *Last 5 league matches* instead of *Form*. README contents index; the dashboards are versioned except `historical.html`. |
 | [`v0.12.1`](https://github.com/jmquintana79/quiniela/releases/tag/v0.12.1) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | Fix: a next ticket without any La Liga / Segunda match (jornada 22 of 2026-27: national teams and the women's Champions League) made `invoke update` crash, because v3 was left with only the public's picks and their probabilities as objects; they stay numeric now. |
 | [`v0.12.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.12.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and **v2F pi-ratings (Liga F)**, tickets **v3+v2F·D, v3+v2F·R and v3+v2F·B** (v3+v2F·E in the backtest), market reference | The tickets plan the Liga F matches with **v2F** (pi-ratings of the ESPN results) instead of v1F (the public's picks), which stays their fallback where v2F has no prediction: **v3+v2F·D, ·R, ·B, ·E**. The v3 column shows v2F on the Liga F matches of the next ticket, and the season's official tickets are planned with it. |
 | [`v0.11.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.11.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and **v2F pi-ratings (Liga F)**, tickets v3+v1F·D, v3+v1F·R and v3+v1F·B (v3+v1F·E in the backtest), market reference | **Liga F results from ESPN** (every match since 2022-23, fixtures included, downloaded by `invoke update` into `data/women/espn/`), linked to the women's matches of the official tickets through a team alias table. New model **v2F**: the pi-ratings on the Liga F, evaluated walk-forward week by week on 802 matches (59.2% hit rate and log-loss 0.896 against 42.1% and 1.059 for the result-shares reference). Dashboards: v2F column on the next ticket and the official tickets, v1F-against-v2F comparison on the common ticket matches, Liga F data by season from ESPN. |
@@ -1541,7 +1590,7 @@ version in `pyproject.toml`:
 ## Project structure
 
 ```text
-├── dashboards/              # generated HTML dashboards (not versioned)
+├── dashboards/              # generated HTML dashboards (versioned, except historical.html: too heavy)
 ├── data/                    # downloaded data (not versioned)
 │   ├── historical/<code>/<season>.parquet   # e.g. SP1/2015-16.parquet
 │   ├── current/<code>/results.parquet       # season in progress: played matches
@@ -1664,6 +1713,9 @@ Other ideas:
   on target of each team in every Liga F match (`summary?event=<id>`, one request per match, so
   they would be cached like the scoreboard): the pi-ratings could learn from the shots-on-target
   difference, or from a mix of goals and shots, and be compared with v2F walk-forward.
+- **v3+v2F·B with reductions.** At 1,000 € a 13 is often enough, so the official reductions
+  (more matches covered, 13 guaranteed when the covered signs are right) may now beat the direct
+  ticket for the ·B target; test them as candidates, as in v3+v2F·R.
 - **Liga F: check the switch to v2F.** The tickets plan the Liga F matches with v2F since
   v0.12.0; once the v1F-against-v2F comparison on the ticket matches has enough matches, go back
   to the public if it turns out better.

@@ -143,7 +143,7 @@
       (prudent) plays only when the expected prize from 10 to 13 hits is above the cost; the full
       version also counts 14 hits and the Pleno al 15, rare but large prizes that a few hundred
       draws cannot confirm: read its net result together with the number of 13 and 14-hit tickets.
-      The big-win mode plays every draw (at most 50 €) for the best chance of 10,000 € or more; it is
+      The ·B ticket plays every draw (at most 50 €) for the best chance of 1,000 € or more; it is
       judged by how many such prizes came against how many its plans expected.
     </p>
     <div class="scroll" id="money"></div>
@@ -309,7 +309,7 @@
     const eur = (v) => `${v.toLocaleString("en-GB", { maximumFractionDigits: 0 })} €`;
     return `<table><thead><tr><th>Strategy</th><th class="num">Draws played</th><th class="num">Spent</th>
         <th class="num">Won</th><th class="num">Net</th><th class="num">Return</th><th class="num">Winning draws</th>
-        <th class="num">Best prize</th><th class="num" data-tip="Draws that paid 10,000 € or more (expected by the big-win plans in brackets)">10,000+ €</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
+        <th class="num">Best prize</th><th class="num" data-tip="Draws that paid 1,000 € or more (expected by the ·B plans in brackets)">1,000+ €</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
       <tbody>${rows.map((r) => `<tr>
         <td data-tip="${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}</td>
         <td class="num">${r.played} <span class="muted">/ ${r.draws}</span></td>

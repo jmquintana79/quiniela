@@ -20,47 +20,29 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Season so far">
     <h2>Liga F · Season so far</h2>
-    <p class="meta" style="margin:0 0 10px">The women's matches of this season's official tickets, apart from the men's
-      models. <strong>v1F</strong> (public picks) is scored on the matches whose betting page was saved; the reference, the
-      result shares of the earlier Liga F matches, on every played match.</p>
+    <p class="meta" style="margin:0 0 10px">The Liga F matches of this season, apart from the men's models.
+      <strong>v2F</strong> (pi-ratings) and the reference (result shares of the earlier matches) on every Liga F match;
+      <strong>v1F</strong> (public picks) on the ticket matches whose betting page was saved.</p>
     <div class="tiles" id="women-totals"></div>
-    <div class="scroll" id="women-matches" style="margin-top:12px"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Matchdays">
-    <h2>Men's leagues · Matchdays</h2>
-    <div class="scroll" id="overview"></div>
-    <p class="meta" style="margin:10px 0 0">Click a matchday to open it below. The current matchday is
-      also in <a href="current.html">current.html</a>. Prize: euros won by the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B
-      tickets with the real prizes of the official draw (* estimated with the prize model when the draw is
-      not saved), and the cost of the ticket below; the 10-hit prize is not paid when it falls under 1.50 €.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Jornadas: the v3+v2F tickets">
+    <h2>Jornadas · the v3+v2F tickets on the official tickets</h2>
+    <p class="meta" style="margin:0 0 10px">One row per official quiniela ticket of the season (Loterías y Apuestas del
+      Estado), with what each v3+v2F ticket got on its <strong>real 14 matches</strong>: v3 on the La Liga / Segunda
+      matches, v2F on the Liga F ones (v1F without it) and the shares of 1, X and 2 on the other competitions.
+      Hits: of the matches played so far (the reduced ticket counts its best column). Rec.: whether the traffic light
+      recommended the ticket before the jornada (yes: green, as in current.html; no: amber or red). Prize: euros with the real
+      winners and takings of the draw (the Pleno al 15 counts when its pick is right), and the cost below.
+      Click a jornada to see its ticket.</p>
+    <div class="scroll" id="jornadas"></div>
   </section>
 
-  <div class="filters">
-    <label>Matchday <select id="matchday"></select></label>
-    <span class="meta" id="matchday-dates"></span>
-  </div>
-
-  <section style="margin-bottom:8px" id="banners"></section>
-
-  <section class="card" style="margin-bottom:16px" data-toc="Official tickets">
-    <h2 id="ticket-title">Official tickets</h2>
-    <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
-    <p class="meta" style="margin:0 0 10px">Every official ticket of the season saved from Loterías y Apuestas del Estado,
-      with all its matches and what every model marked: v1 to v4 their sign on the La Liga / Segunda
-      matches, v1F (public picks) on the Liga F matches whose betting page was saved and v2F (pi-ratings) on every Liga F match, v3+v2F·D, v3+v2F·R and
-      v3+v2F·B their doubles and triples on the 14 matches (v3+v2F·R may play an official reduction: R marks its
-      matches) with the v3 probabilities on the men's matches, v2F's on the Liga F matches (v1F's without it) and the league
-      shares of 1, X and 2 elsewhere, and the Pleno al 15 pick (Dixon-Coles' goals categories)
-      when it is a La Liga / Segunda match. ✓ hit · ✗ miss. The footer gives the hits and the price of each ticket.</p>
+  <section class="card" data-toc="Ticket of a jornada">
+    <h2 id="ticket-title">Ticket</h2>
+    <p class="meta" style="margin:0 0 10px">The 15 matches of the selected ticket and what each v3+v2F ticket marked
+      (✓ hit · ✗ miss; R: in the official reduction). The footer gives the hits and the price of each ticket.</p>
     <div class="scroll" id="ticket"></div>
-  </section>
-
-  <section class="card" data-toc="Matchday detail">
-    <h2 id="matches-title">Matches</h2>
-    <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
-    <div class="scroll" id="matches"></div>
-    <p class="meta" style="margin:10px 0 0" id="legend"></p>
   </section>
 </main>
 
@@ -69,18 +51,16 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const models = DATA.models;
-  let selected = DATA.matchdays.length - 1;
-  const SORTS = ["ticket", "confidence"];
-  let sort = "ticket";
-
-  function showMatches() {
-    $("matches").innerHTML = matchdayTable(DATA.matchdays[selected], models, DATA.leagues,
-      DATA.confidence_model, DATA.confidence_tiers, sort, DATA.categories);
-  }
+  const tickets = DATA.tickets || [];
+  const ticketModels = DATA.ticket_models || [];
+  // The jornadas table leaves the single ticket out (it is still in the ticket of a jornada)
+  const tableModels = ticketModels.filter((m) => m.key !== "v3s");
+  let selected = tickets.length - 1;
 
   function totalsTiles() {
-    if (!models.length) return '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
-    return models.map((m) => {
+    const shown = models.filter((m) => !m.women);
+    if (!shown.length) return '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+    return shown.map((m) => {
       const t = DATA.totals[m.key];
       return `<div class="tile" data-tip="${esc(m.description)}">
         <div class="label">${modelLabel(m)}</div>
@@ -92,68 +72,11 @@
     }).join("");
   }
 
-  // Euros are only computed for the tickets that are actually bought: v3, v3+v2F·D, v3+v2F·R and v3+v2F·B
-  const PRIZE_KEYS = ["market_blend", "v3d", "v3r", "v3b"];
-
-  /** Prize won in euros, with the cost of the ticket below it. */
-  function prizeCell(e) {
-    if (!e) return '<td class="num muted">–</td>';
-    const mark = e.source === "draw" ? "" : " *";
-    return `<td class="num"><span style="${e.payout > 0 ? "font-weight:600" : ""}">${eur(e.payout)}${mark}</span>` +
-      `<br><span class="muted" style="font-size:11px">cost ${eur(e.cost)}</span></td>`;
-  }
-
-  function overviewTable() {
-    return `<table><thead><tr>
-        <th class="num">#</th><th>Dates</th><th class="num">Played</th>
-        ${models.map((m) => `<th class="num">${modelLabel(m)}</th><th>Quiniela</th>${PRIZE_KEYS.includes(m.key) ? '<th class="num">Prize</th>' : ""}`).join("")}
-      </tr></thead><tbody>${DATA.matchdays.map((md, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
-        <td class="num">${md.number}</td>
-        <td class="muted">${fmtDate(md.start)} – ${fmtDate(md.end)}</td>
-        <td class="num">${md.played}/${md.matches.length}</td>
-        ${models.map((m) => {
-          const s = md.summary[m.key];
-          const played = s.hits + s.misses;
-          return `<td class="num">${played ? `${s.hits}/${played}` : "–"}</td><td>${prizeBadge(s)}</td>${PRIZE_KEYS.includes(m.key) ? prizeCell(s.euros) : ""}`;
-        }).join("")}
-      </tr>`).join("")}</tbody></table>`;
-  }
-
-  function select(i) {
-    selected = i;
-    const md = DATA.matchdays[i];
-    $("matchday").value = i;
-    $("matchday-dates").textContent = `${fmtDate(md.start)} – ${fmtDate(md.end)}`;
-    $("matches-title").textContent = `Matchday ${md.number}`;
-    $("banners").innerHTML = quinielaBanners(md, models);
-    showMatches();
-    $("overview").innerHTML = overviewTable();
-    $("overview").querySelectorAll("tr.clickable").forEach((row) =>
-      row.addEventListener("click", () => select(Number(row.dataset.i))));
-  }
-
-  $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories);
-
-  // Official tickets of the season (every match: men's, women's and other competitions)
-  function showTicket(i) {
-    const t = (DATA.tickets || [])[i];
-    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, DATA.ticket_models || models) + categoryLegend(DATA.categories);
-    $("ticket-title").textContent = t ? `Official ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Official tickets";
-  }
-  if ((DATA.tickets || []).length) {
-    $("ticket-select").innerHTML = DATA.tickets.map((t, i) => `<option value="${i}">${t.jornada} · ${fmtDate(t.date)}</option>`).join("");
-    $("ticket-select").value = DATA.tickets.length - 1;
-    $("ticket-select").addEventListener("change", (e) => showTicket(Number(e.target.value)));
-    showTicket(DATA.tickets.length - 1);
-  } else {
-    $("ticket").innerHTML = '<p class="empty">No official tickets of this season saved in data/lae.</p>';
-  }
-  $("totals").innerHTML = totalsTiles();
-  // Liga F: v1F and the reference on this season's women's matches
-  const liga = DATA.liga_f;
-  if (liga) {
+  function womenTiles() {
+    const liga = DATA.liga_f;
+    if (!liga) return '<p class="empty">No Liga F history saved yet. Run <code>invoke update</code>.</p>';
     const rows = liga.results?.all || {};
-    $("women-totals").innerHTML = (liga.models || []).map((m) => {
+    return (liga.models || []).map((m) => {
       const r = rows[m.key];
       return `<div class="tile" data-tip="${esc(m.description)}">
         <div class="label">${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span></div>
@@ -161,21 +84,73 @@
         <div class="detail">${r ? `${Math.round(r.hit_rate * r.matches)} hits of ${r.matches} played matches` : "No played match with its data yet"}</div>
       </div>`;
     }).join("");
-    $("women-matches").innerHTML = ligaFMatchesTable(liga.matches);
-  } else {
-    $("women-totals").innerHTML = '<p class="empty">No Liga F history saved yet. Run <code>invoke update</code>.</p>';
   }
+
+  /** Whether the traffic light recommended playing the ticket before the jornada (green). */
+  function recCell(o) {
+    const level = o?.signal;
+    if (!level) return '<td class="num muted">–</td>';
+    const tip = { green: "Good matchday for this ticket (green light)", amber: "Normal matchday (amber light)", red: "Bad matchday (red light)" }[level];
+    const color = { green: "var(--good)", amber: "var(--warning)", red: "var(--critical)" }[level];
+    return `<td class="num" data-tip="${tip}"><strong style="color:${color}">${level === "green" ? "yes" : "no"}</strong></td>`;
+  }
+
+  /** One ticket's outcome on an official ticket: hits of the played matches and its category. */
+  function outcomeCell(o, rec = "") {
+    if (!o) return `<td class="num muted">–</td>${rec}<td class="num muted">–</td>`;
+    const hits = `<span class="strong">${o.hits}/${o.played}</span>`;
+    const badge = o.played < 14 ? '<span class="badge">In progress</span>'
+      : o.category ? `<span class="badge prize">${esc(o.category)}</span>` : '<span class="muted">No prize</span>';
+    const prize = o.payout == null ? '<span class="muted">–</span>'
+      : `<span style="${o.payout > 0 ? "font-weight:600" : ""}">${eur(o.payout)}</span>`;
+    return `<td class="num">${hits}<br>${badge}</td>${rec}` +
+      `<td class="num">${prize}<br><span class="muted" style="font-size:11px">cost ${eur(o.cost)}</span></td>`;
+  }
+
+  function jornadasTable() {
+    if (!tickets.length) return '<p class="empty">No official tickets of this season saved in data/lae.</p>';
+    const count = (t, cat) => t.matches.filter((m) => m.position <= 14 && m.category === cat).length;
+    const totals = Object.fromEntries(tableModels.map((m) => [m.key, { cost: 0, payout: 0, prizes: 0, done: 0, yes: 0 }]));
+    tickets.forEach((t) => tableModels.forEach((m) => {
+      const o = t.outcomes?.[m.key];
+      if (!o || o.played < 14) return;
+      const s = totals[m.key];
+      s.done += 1; s.cost += o.cost; s.payout += o.payout ?? 0; s.prizes += o.category ? 1 : 0;
+      s.yes += o.signal === "green" ? 1 : 0;
+    }));
+    const head = `<tr><th class="num">Jornada</th><th>Date</th><th class="num" data-tip="Men's La Liga / Segunda · women's · other competitions">M · F · O</th>
+      ${tableModels.map((m) => `<th class="num" colspan="3" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}</tr>
+      <tr><th></th><th></th><th></th>${tableModels.map(() => '<th class="num">Hits</th><th class="num" data-tip="Recommended to play before the jornada: green traffic light (as in current.html)">Rec.</th><th class="num">Prize</th>').join("")}</tr>`;
+    const body = tickets.map((t, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
+        <td class="num strong">${t.jornada}</td><td class="muted">${fmtDate(t.date)}</td>
+        <td class="num muted">${count(t, "M")} · ${count(t, "F")} · ${count(t, "O") + count(t, "U")}</td>
+        ${tableModels.map((m) => outcomeCell(t.outcomes?.[m.key], recCell(t.outcomes?.[m.key]))).join("")}</tr>`).reverse().join("");
+    const foot = `<tr><td colspan="3">Season <span class="muted">(complete tickets)</span></td>${tableModels.map((m) => {
+      const s = totals[m.key];
+      const net = s.payout - s.cost;
+      return `<td class="num"><span class="strong">${s.prizes}/${s.done}</span><br><span class="muted">prizes</span></td>` +
+        `<td class="num"><span class="strong">${s.yes}</span><br><span class="muted">yes</span></td>` +
+        `<td class="num">${eur(s.payout)}<br><span class="muted" style="font-size:11px">net ${net >= 0 ? "+" : ""}${eur(net)}</span></td>`;
+    }).join("")}</tr>`;
+    return `<table><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+  }
+
+  function select(i) {
+    selected = i;
+    const t = tickets[i];
+    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, ticketModels) + categoryLegend(DATA.categories);
+    $("ticket-title").textContent = t ? `Ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Ticket";
+    $("jornadas").innerHTML = jornadasTable();
+    $("jornadas").querySelectorAll("tr.clickable").forEach((row) =>
+      row.addEventListener("click", () => select(Number(row.dataset.i))));
+  }
+
+  $("totals").innerHTML = totalsTiles();
+  $("women-totals").innerHTML = womenTiles();
+  $("meta").textContent = tickets.length ? `${tickets.length} official tickets` : "No official tickets saved yet.";
+  if (tickets.length) select(selected);
+  else $("jornadas").innerHTML = jornadasTable();
   tableOfContents();
-  if (DATA.matchdays.length && models.length) {
-    $("meta").textContent = `${DATA.matchdays.length} matchdays`;
-    $("matchday").innerHTML = DATA.matchdays.map((md, i) =>
-      `<option value="${i}">${md.number}</option>`).join("");
-    $("matchday").addEventListener("change", (e) => select(Number(e.target.value)));
-    segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
-    select(selected);
-  } else {
-    $("meta").textContent = "No current season data or predictions. Run invoke update first.";
-  }
 </script>
 </body>
 </html>

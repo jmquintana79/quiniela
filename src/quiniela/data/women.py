@@ -270,7 +270,12 @@ def liga_f_history(
     )
     from quiniela.io.espn import load_liga_f_matches
 
-    out = link_espn(out, load_liga_f_matches(espn_dir) if espn_dir is not None else pd.DataFrame())
+    espn = load_liga_f_matches(espn_dir) if espn_dir is not None else pd.DataFrame()
+    out = link_espn(out, espn)
+    if not espn.empty:
+        # Only the Liga F: other women's competitions on the tickets (the Champions League,
+        # cups, Primera Federación) have no ESPN Liga F match and are left out
+        out = out[out["espn_game"].notna()]
     out = out.reindex(columns=LIGA_F_COLUMNS)
     return out.sort_values(["date", "position"]).reset_index(drop=True)
 

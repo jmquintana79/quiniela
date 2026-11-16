@@ -54,7 +54,7 @@ chosen on one set of simulations and valued on another. The ·E ticket recommend
 only when that value is above the cost.
 
 **Big-win mode** (``plan_big_win``). Instead of the expected prize, the
-chance of a large prize (10,000 EUR or more by default) within a weekly budget
+chance of a prize of at least ``BIG_WIN_THRESHOLD`` (1,000 EUR) within a weekly budget
 (50 EUR): many hits and few other winners at once. It accepts losing on
 average for that chance, and shows the whole payout distribution.
 
@@ -104,9 +104,10 @@ PLENO_HIT_RATE = 0.145
 # 10 to 13-hit prizes alone never paid the cost of a ticket in 11 seasons
 PRUDENT_TOP_WEIGHT = 0.0
 
-# Big-win mode: at most 50 EUR a matchday (66 bets) and a prize of 10,000 EUR or more
+# Big-win mode (the ·B ticket): at most 50 EUR a matchday (66 bets) and a prize of
+# 1,000 EUR or more (10,000 EUR until v0.12: almost never reached, so it could not be checked)
 BIG_WIN_MAX_COST = 50.0
-BIG_WIN_THRESHOLD = 10_000.0
+BIG_WIN_THRESHOLD = 1_000.0
 BIG_WIN_SIMULATIONS = 8000
 
 # Payout ranges of the big-win distribution (EUR); the first two depend on the cost
