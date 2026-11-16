@@ -388,10 +388,11 @@ def predict_upcoming(
             predictions["pi_ratings_f"] = pi_rows
     # The Liga F model of the tickets (v2F); v1F (the public) where it has no prediction
     planner_women = pi_rows if WOMEN_PLANNER_MODEL == "pi_ratings_f" else pd.DataFrame()
-    fill = pd.concat(
-        [planner_women, public[~public["game"].isin(planner_women.get("game", []))]],
-        ignore_index=True,
-    )
+    # Empty frames are left out: concatenating them would turn the probabilities into objects
+    parts = [planner_women, public[~public["game"].isin(planner_women.get("game", []))]]
+    parts = [part for part in parts if not part.empty]
+    fill = pd.concat(parts, ignore_index=True) if parts else public.iloc[:0]
+    fill = fill.astype({column: float for column in ("p_H", "p_D", "p_A")})
     if PLANNER_MODEL in predictions:
         # The ticket of v3 + v2F: Dixon-Coles + market where there is data, v2F on the
         # Liga F matches (v1F without it) and the public's picks on the other competitions

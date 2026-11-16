@@ -223,3 +223,41 @@ def test_pleno_pick_from_the_public(tmp_path: Path) -> None:
     assert (pleno["home"], pleno["away"], pleno["category"]) == ("España", "Inglaterra", "O")
     assert (pleno["pick_home"], pleno["pick_away"], pleno["source"]) == ("2", "1", "public")
     assert pleno["result"] is None
+
+
+def test_predict_upcoming_without_men_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from quiniela.data.prizes import UPCOMING_FILE, load_upcoming
+    from quiniela.io import espn
+
+    # A ticket of national teams and women's European cup matches only (jornada 22 of 2026-27)
+    monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: pd.DataFrame(columns=espn.COLUMNS))
+    matches = [
+        {
+            "position": 1,
+            "home": "Gales (M)",
+            "away": "Portugal (M)",
+            "public": {"1": 21, "X": 18, "2": 61},
+        },
+        {
+            "position": 2,
+            "home": "Chelsea (F)",
+            "away": "PSG (F)",
+            "public": {"1": 49, "X": 24, "2": 27},
+        },
+    ]
+    content = {"jornada": 22, "closes": "17/11/2026 - 20:45", "matches": matches}
+    (tmp_path / UPCOMING_FILE).write_text(json.dumps(content))
+    current = make_matches([("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]).assign(
+        season="2026-27"
+    )
+    _, predictions, _ = pipeline.predict_upcoming(
+        load_upcoming(tmp_path), history=current.iloc[:0], current=current
+    )
+    # Only the public's picks, but still numeric probabilities (pandas refuses objects later)
+    v3 = predictions["market_blend"]
+    assert len(v3) == 2 and v3[["p_H", "p_D", "p_A"]].dtypes.eq(float).all()
+    assert v3.set_index("home_team").loc["Gales", "prediction"] == "A"

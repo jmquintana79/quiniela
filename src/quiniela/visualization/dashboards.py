@@ -910,7 +910,7 @@ def season_payload(
         prob = pd.Series(np.nan, index=aligned.index)
         for outcome in ("H", "D", "A"):
             chosen = (signs == outcome).to_numpy()
-            prob[chosen] = aligned.loc[chosen, f"p_{outcome}"]
+            prob[chosen] = aligned.loc[chosen, f"p_{outcome}"].astype(float)
         matches[f"{key}_prob"] = prob.round(4).to_numpy()
         # Confidence (probability of the predicted sign) and margin over the second sign,
         # recomputed from the probabilities so older prediction files work too
