@@ -89,8 +89,15 @@ function ticketPick(picks, result, reduced = false) {
     (reduced ? '<sup class="muted" data-tip="In the reduction (not every combination is played)">R</sup>' : "");
   if (!result) return `<span class="pick pending ${picks.length > 1 ? "multi" : ""}">${label}</span>`;
   const hit = picks.includes(result);
+  if (hit && reduced) {
+    // Covered by the reduction, but not every combination is played: the best column may miss it
+    return `<span class="pick covered ${picks.length > 1 ? "multi" : ""}" data-tip="${COVERED_TIP}">${label} ✓</span>`;
+  }
   return `<span class="pick ${hit ? "hit" : "miss"} ${picks.length > 1 ? "multi" : ""}">${label} ${hit ? "✓" : "✗"}</span>`;
 }
+
+/** Tooltip of a reduced match whose result was covered (grey, not green). */
+const COVERED_TIP = "Covered by the reduction: not every combination is played, so the best column can still miss one of the R matches (the footer gives the hits of the best column)";
 
 /**
  * An official quiniela ticket: its 15 matches in order with category, result
@@ -231,6 +238,9 @@ function pickCell(match, key) {
     : `Predicted ${label} (${pct(prob, 1)})${conf}${extra}${source}`;
   if (!match.FTR) return `<span class="pick pending ${kind ? "multi" : ""}" data-tip="${tip}">${label}${mark}</span>`;
   const hit = sign.includes(match.FTR);
+  if (hit && match[`${key}_source`] === "reduced") {
+    return `<span class="pick covered ${kind ? "multi" : ""}" data-tip="${tip} · ${COVERED_TIP}">${label}${mark} ✓</span>`;
+  }
   return `<span class="pick ${hit ? "hit" : "miss"} ${kind ? "multi" : ""}" data-tip="${tip} · ${hit ? "hit" : "miss"}">` +
     `${label}${mark} ${hit ? "✓" : "✗"}</span>`;
 }
@@ -437,7 +447,7 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   ticket the match was on (Q and its jornada). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
   Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
-  probability): ✓ hit · ✗ miss · outline: pending · – no prediction. The market reference (bookmakers'
+  probability): ✓ hit · ✗ miss · grey ✓: an R match of the reduction whose result was covered (the best column can still miss it) · outline: pending · – no prediction. The market reference (bookmakers'
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
   (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v2F·D): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;

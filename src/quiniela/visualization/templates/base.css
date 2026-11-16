@@ -159,6 +159,8 @@ tr.clickable { cursor: pointer; }
 }
 .pick.hit { background: var(--good); color: #fff; }
 .pick.miss { background: var(--critical); color: #fff; }
+/* A reduced match whose result was covered: neutral, the best column may still miss it */
+.pick.covered { background: var(--neutral); color: #fff; }
 .pick.pending { border-color: var(--border); color: var(--text-secondary); }
 tfoot td { font-weight: 600; border-top: 1px solid var(--grid); border-bottom: 0; }
 
