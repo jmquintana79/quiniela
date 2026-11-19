@@ -50,7 +50,9 @@ FIRST_SEASON: dict[str, int] = {
 # Month in which a new season starts to be considered the current one
 SEASON_START_MONTH = 7
 
-FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
+# football-data.co.uk moved to the bare domain (November 2026): "www." answers with a redirect
+FOOTBALL_DATA_URL = "https://football-data.co.uk"
+FIXTURES_URL = f"{FOOTBALL_DATA_URL}/fixtures.csv"
 REQUEST_TIMEOUT = 30  # seconds
 
 # Same column names soccerdata uses for the results files
@@ -122,9 +124,32 @@ def _parse_csv(raw_data: IO[bytes], lkey: str, skey: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(text), header=None, skiprows=1, names=names)
 
 
+def _plain_session(
+    self: sd.MatchHistory, headers: dict[str, str] | None = None
+) -> requests.Session:
+    """HTTP session for soccerdata's MatchHistory: plain ``requests`` instead of ``tls_requests``.
+
+    Since football-data.co.uk redirects ``www.`` to the bare domain, soccerdata's
+    browser-impersonating client loops through redirects (and gets a 503 from the
+    bare domain), while a plain client downloads the files. ``read_games`` only
+    needs ``get``, ``raise_for_status`` and ``content``, which both offer.
+
+    Args:
+        self: The reader (unused).
+        headers: soccerdata's headers (unused: they impersonate a browser).
+
+    Returns:
+        A new session.
+    """
+    return requests.Session()
+
+
 _register_leagues()
-# MatchHistory.read_games() looks the parser up at call time, so this replaces it
+# MatchHistory.read_games() looks the parser and the base URL up at call time, and the
+# reader builds its session on creation, so these replace them
 sd_match_history._parse_csv = _parse_csv
+sd_match_history.MATCH_HISTORY_API = FOOTBALL_DATA_URL
+sd.MatchHistory._init_session = _plain_session
 
 
 def current_season(today: date | None = None) -> int:
