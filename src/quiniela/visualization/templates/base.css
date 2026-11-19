@@ -173,6 +173,9 @@ tfoot td { font-weight: 600; border-top: 1px solid var(--grid); border-bottom: 0
 .banner.prize { border-left-color: var(--good); }
 .banner.no_prize { border-left-color: var(--critical); }
 .banner.pending { border-left-color: var(--accent); }
+/* Caution: a prediction is shown but without part of its information (e.g. the market odds) */
+.banner.warning { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+.banner.warning strong { color: var(--warning); }
 .badge {
   display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px;
   border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap;

@@ -96,7 +96,8 @@
         `Odds for all ${f.ours} La Liga / Segunda matches of the ticket: v3 predicts with the market.</div>`;
     }
     const part = f.odds ? `Odds for ${f.odds} of the ${f.ours} La Liga / Segunda matches` : `Not published yet for the ${f.ours} La Liga / Segunda matches of the ticket`;
-    return `<div class="banner pending"><strong>football-data fixtures: ${f.odds ? "partly available" : "not available yet"}</strong>` +
+    // Amber: there is still a prediction, but v3 does not use the market on those matches
+    return `<div class="banner warning"><strong>⚠ football-data fixtures: ${f.odds ? "partly available" : "not available yet"}</strong>` +
       `${part}. Until they are, v3 predicts with Dixon-Coles only (the same as v2). football-data adds the odds of ` +
       `weekend matches on Friday afternoon and of midweek ones on Tuesday afternoon: run <code>invoke update</code> then.</div>`;
   }
