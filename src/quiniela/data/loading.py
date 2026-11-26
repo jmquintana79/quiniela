@@ -71,6 +71,9 @@ def _read_matches(path: Path, league: str) -> pd.DataFrame:
         if column not in df.columns:
             df[column] = pd.NA
     df["league"] = league
+    # An empty fixtures file (no Spanish match listed that week) keeps its dates as text,
+    # which would turn the whole concatenated column into objects
+    df["date"] = pd.to_datetime(df["date"])
     df["season"] = df["season"].astype(str).map(season_label)
     odds = [column for column in ODDS_COLUMNS if column in df.columns]
     return df[MATCH_COLUMNS + odds]

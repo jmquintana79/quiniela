@@ -85,6 +85,28 @@ def test_current_drops_fixtures_already_played(tmp_path: Path) -> None:
     assert matches.loc[0, "FTHG"] == 1  # the played version is kept
 
 
+def test_current_keeps_datetimes_with_empty_fixtures(tmp_path: Path) -> None:
+    _write(tmp_path / "SP1" / "results.parquet", [("2026-11-08", "A", "B", 1, 0)])
+    # A week with no Spanish fixture listed: an empty file whose dates are text
+    empty = pd.DataFrame(
+        {
+            "league": pd.Series([], dtype=str),
+            "season": pd.Series([], dtype=str),
+            "game": pd.Series([], dtype=str),
+            "date": pd.Series([], dtype=str),
+            "home_team": pd.Series([], dtype=str),
+            "away_team": pd.Series([], dtype=str),
+        }
+    ).set_index(["league", "season", "game"])
+    path = tmp_path / "SP1" / "fixtures.parquet"
+    empty.to_parquet(path)
+
+    matches = loading.load_current(tmp_path)
+
+    assert pd.api.types.is_datetime64_any_dtype(matches["date"])
+    assert len(matches) == 1
+
+
 def test_pending_fixtures() -> None:
     fixtures = pd.DataFrame({"home_team": ["A", "C"], "away_team": ["B", "D"]})
     results = pd.DataFrame({"home_team": ["A", "B"], "away_team": ["B", "A"]})

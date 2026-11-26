@@ -307,8 +307,10 @@ def _read_fixtures(leagues: dict[str, str]) -> pd.DataFrame:
     codes_to_league = {code: league for league, code in leagues.items()}
     fixtures = fixtures[fixtures["Div"].isin(codes_to_league)].rename(columns=FIXTURE_COLUMNS)
     if fixtures.empty:
-        # Keep the same index so callers can filter it like a non-empty result
-        return fixtures.assign(season="", game="").set_index(["league", "season", "game"])
+        # Keep the same index and a datetime date so callers can use it like a non-empty result
+        return fixtures.assign(date=pd.to_datetime(fixtures["date"]), season="", game="").set_index(
+            ["league", "season", "game"]
+        )
 
     fixtures["time"] = fixtures["time"].fillna("12:00")
     fixtures["date"] = pd.to_datetime(
