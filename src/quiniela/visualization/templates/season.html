@@ -100,7 +100,8 @@
   /** One ticket's outcome on an official ticket: hits of the played matches and its category. */
   function outcomeCell(o, rec = "") {
     if (!o) return `<td class="num muted">–</td>${rec}<td class="num muted">–</td>`;
-    const hits = `<span class="strong">${o.hits}/${o.played}</span>`;
+    const share = o.played ? ` <span class="muted">(${pct(o.hits / o.played, 1)})</span>` : "";
+    const hits = `<span class="strong">${o.hits}/${o.played}</span>${share}`;
     const badge = o.played < 14 ? '<span class="badge">In progress</span>'
       : o.category ? `<span class="badge prize">${esc(o.category)}</span>` : '<span class="muted">No prize</span>';
     const prize = o.payout == null ? '<span class="muted">–</span>'
@@ -122,7 +123,7 @@
     }));
     const head = `<tr><th class="num">Jornada</th><th>Date</th><th class="num" data-tip="Men's La Liga / Segunda · women's · other competitions">M · F · O</th>
       ${tableModels.map((m) => `<th class="num" colspan="3" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}</tr>
-      <tr><th></th><th></th><th></th>${tableModels.map(() => '<th class="num">Hits</th><th class="num" data-tip="Recommended to play before the jornada: green traffic light (as in current.html)">Rec.</th><th class="num">Prize</th>').join("")}</tr>`;
+      <tr><th></th><th></th><th></th>${tableModels.map(() => '<th class="num" data-tip="Hits of the played matches and their share">Hits (%)</th><th class="num" data-tip="Recommended to play before the jornada: green traffic light (as in current.html)">Rec.</th><th class="num">Prize</th>').join("")}</tr>`;
     const body = tickets.map((t, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
         <td class="num strong">${t.jornada}</td><td class="muted">${fmtDate(t.date)}</td>
         <td class="num muted">${count(t, "M")} · ${count(t, "F")} · ${count(t, "O") + count(t, "U")}</td>

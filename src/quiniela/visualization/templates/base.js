@@ -14,6 +14,8 @@ function pct(value, digits = 0) {
 
 /** Format "YYYY-MM-DD HH:MM" as a short date (and time when requested). */
 function fmtDate(value, withTime = false) {
+  // A missing date must not break the table it is in
+  if (!value) return "–";
   const d = new Date(value.replace(" ", "T"));
   const date = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
   return withTime ? `${date} ${value.slice(11, 16)}` : date;

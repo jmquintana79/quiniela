@@ -471,6 +471,12 @@ def official_tickets(draws: pd.DataFrame, matched: pd.DataFrame) -> dict[str, li
         football-data match).
     """
     dates = dict(zip(draws["draw_id"], draws["date"], strict=True))
+    if "draw_date" in matched.columns:
+        # A draw still being played has no scrutiny yet, so load_draws leaves it out: its
+        # date comes from the ticket itself
+        for draw_id, day in matched.groupby("draw_id")["draw_date"].first().items():
+            if pd.isna(dates.get(draw_id)):
+                dates[draw_id] = day
     out: dict[str, list[dict[str, Any]]] = {}
     ordered = matched.assign(_date=matched["draw_id"].map(dates)).sort_values(["_date", "position"])
     for (draw_id, season), rows in ordered.groupby(["draw_id", "season"], sort=False):

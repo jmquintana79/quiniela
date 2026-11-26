@@ -205,3 +205,6 @@ def test_ticket_flags_and_official_tickets(lae_dir: Path, matches: pd.DataFrame)
     assert categories == {1: "M", 2: "M", 3: "O", 4: "F", 15: "M"}
     first = ticket["matches"][0]
     assert (first["home"], first["sign"], first["score"]) == ("Ath Madrid", "D", "1-1")
+    # A draw still being played (no scrutiny, so not in load_draws) keeps the ticket's date
+    pending = prizes.official_tickets(prizes.load_draws(lae_dir).iloc[0:0], matched)
+    assert pending["2025-26"][0]["date"] == "2025-10-05"
