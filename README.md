@@ -1328,8 +1328,10 @@ compare with past tickets estimated from the market. On the ticket of jornada 25
 
 **Expected prize of a ticket.** 4,000 sets of results are simulated from the v3 probabilities
 (the other ticket matches get the league shares of 1, X and 2). Each one gives the hits of every
-column, its surprise $S$ (from the market probabilities, the stand-in for the public) and so the
-prizes. A ticket with $d$ doubles and $t$ triples has $2^d 3^t$ columns, and lower categories
+column and the other winners of every category, and so the prizes: from its surprise $S$ (the
+market probabilities standing in for the public) with the market model, or from the public's
+real shares of each simulated result with `PublicPrizeModel` (v3+v2F·B, when the ticket has
+them, see above). A ticket with $d$ doubles and $t$ triples has $2^d 3^t$ columns, and lower categories
 also pay: if $h$ singles and $d_h$ doubles are right, the number of columns with $h + j$ hits
 is the coefficient of $x^j$ in
 
@@ -1467,6 +1469,13 @@ strategy had in the $n$ past real tickets of the money backtest,
 \text{percentile} = \frac{100}{n} \, \#\{j : c_j < c\}, \qquad
 \text{green} \ge 75, \quad \text{red} \le 25, \quad \text{amber in between}
 ```
+
+The past chances $c_j$ of v3+v2F·B come from the euro backtest, which counts the winners with
+the market model (there are no public shares before 2026-27), while the chance of a ticket with
+the public's shares (the next ticket, the archived ones) counts them with `PublicPrizeModel`. Its
+1,000 € light therefore compares two slightly different estimates; the page says which winners
+were used ("Winners estimated from the public's real picks..."). The lights on hits do not
+depend on the winners.
 
 The two v3+v2F·B lights often disagree, and that is the point: a matchday of clear favourites gives
 many hits (green on 13+ hits) but small prizes (red on 1,000 €), while open matches or a jackpot
