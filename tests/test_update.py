@@ -44,6 +44,9 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
     monkeypatch.setattr(update.lae, "fetch_lae", lambda interactive: ([], []))
     monkeypatch.setattr(update.espn, "update_liga_f", lambda today: [])
     monkeypatch.setattr(
+        update.international, "download_results", lambda: Path("national/results.csv")
+    )
+    monkeypatch.setattr(
         update.dashboards,
         "build_dashboards",
         lambda: recorded.append(("dashboards", None)) or [Path("a.html")],
@@ -168,6 +171,24 @@ def test_no_matches_to_predict(
     report = update.run_update(today=TODAY, historical_dir=tmp_path)
 
     assert report.warnings == ["Predictions skipped: No current season data"]
+    assert calls[-1] == ("dashboards", None)
+
+
+def test_national_download_error_is_a_warning(
+    tmp_path: Path, calls: list[tuple[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _touch_seasons(tmp_path, "SP1", range(1993, 2026))
+    _touch_seasons(tmp_path, "SP2", range(1996, 2026))
+
+    def offline() -> Path:
+        raise OSError("no network")
+
+    monkeypatch.setattr(update.international, "download_results", offline)
+
+    report = update.run_update(today=TODAY, historical_dir=tmp_path)
+
+    assert report.national == []
+    assert report.warnings == ["National-team results not downloaded (no network)."]
     assert calls[-1] == ("dashboards", None)
 
 

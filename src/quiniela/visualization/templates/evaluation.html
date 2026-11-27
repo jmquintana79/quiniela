@@ -93,6 +93,30 @@
     <div class="scroll" id="women-matches"></div>
   </section>
 
+  <h2 class="group" id="national">National teams (men's)</h2>
+  <p class="meta" style="margin:-4px 0 12px">Evaluated apart, on every men's international since 2010 (martj42's results
+    since 1872) and on the national-team matches of the official tickets. <strong>v1N</strong> rates every team with the World
+    Football Elo system match by match and maps the Elo difference to 1X2 with an ordered logistic regression, refitted every
+    year on the earlier ones. References: the <strong>result shares</strong> of the earlier years and the <strong>public's
+    picks</strong> (what the tickets used until v0.19), only on the tickets whose betting page was saved. No season filter.</p>
+
+  <section class="card" style="margin-bottom:16px" data-toc="National teams · Metrics">
+    <h2>National teams · Metrics</h2>
+    <div class="scroll" id="national-metrics"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="National teams · By year">
+    <h2>National teams · Hit rate and log-loss by year</h2>
+    <p class="meta" style="margin:0 0 10px">Every international of the year, predicted with the ratings before each match.</p>
+    <div class="scroll" id="national-years"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="National teams · Contingency tables">
+    <h2>National teams · Contingency tables on the official tickets</h2>
+    <p class="meta" style="margin:0 0 10px">Rows: the <strong>observed</strong> result; columns: the <strong>predicted</strong> sign.</p>
+    <div class="grid two" id="national-contingency"></div>
+  </section>
+
   <h2 class="group">Tickets (v3 on the men's matches + v3F on the Liga F ones)</h2>
 
   <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
@@ -434,6 +458,38 @@
     $("women-matches").innerHTML = ligaFMatchesTable((liga.matches || []).filter((m) => state.season === "all" || m.season === state.season));
   }
 
+  /** National-team tables: v1N and its references on every international and on the tickets. */
+  function nationalTables() {
+    const nat = DATA.national || {};
+    const scopes = nat.scopes || {};
+    const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`;
+    const names = { all: "Every international from 2010", tickets: "Official tickets", public: "Tickets with public picks" };
+    const columns = Object.keys(names).flatMap((s) => (nat.models || []).filter((m) => scopes[s]?.[m.key]).map((m) => [s, m]));
+    if (!columns.length) {
+      $("national-metrics").innerHTML = '<p class="empty">No national-team results yet. Run <code>invoke update</code>.</p>';
+      $("national-years").innerHTML = $("national-contingency").innerHTML = "";
+      return;
+    }
+    const groups = Object.keys(names).map((s) => [s, columns.filter(([c]) => c === s).length]).filter(([, n]) => n);
+    const head = `<tr><th></th>${groups.map(([s, n]) => `<th class="num" colspan="${n}">${names[s]}</th>`).join("")}</tr>
+      <tr><th>Metric</th>${columns.map(([, m]) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
+    const metrics = DATA.metrics.filter((metric) => columns.some(([s, m]) => scopes[s][m.key][metric.key] != null));
+    $("national-metrics").innerHTML = `<table><thead>${head}</thead><tbody>${metrics.map((metric) =>
+      `<tr><td data-tip="${esc(metric.description)}">${esc(metric.label)}</td>${columns.map(([s, m]) =>
+        `<td class="num">${fmt(scopes[s][m.key][metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const years = Object.keys(nat.by_year || {}).sort().reverse();
+    const yearModels = (nat.models || []).filter((m) => years.some((y) => nat.by_year[y][m.key]));
+    $("national-years").innerHTML = `<table><thead><tr><th>Year</th><th class="num">Matches</th>${yearModels.map((m) =>
+      `<th class="num">${label(m)}<br><span class="muted">hits · log-loss</span></th>`).join("")}</tr></thead><tbody>${years.map((y) => {
+        const row = nat.by_year[y];
+        const n = Object.values(row)[0]?.matches;
+        return `<tr><td class="strong">${y}</td><td class="num">${n ?? "–"}</td>${yearModels.map((m) => row[m.key]
+          ? `<td class="num">${fmt(row[m.key].hit_rate, "pct")} · ${fmt(row[m.key].log_loss, "num")}</td>` : '<td class="num muted">–</td>').join("")}</tr>`;
+      }).join("")}</tbody></table>`;
+    $("national-contingency").innerHTML = (nat.models || []).filter((m) => scopes.tickets?.[m.key]?.contingency)
+      .map((m) => contingencyCard(label(m), scopes.tickets[m.key].contingency, SIGNS, (i, j) => i === j)).join("");
+  }
+
   function render() {
     const seasonLabel = state.season === "all" ? "all seasons" : state.season;
     $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
@@ -445,6 +501,7 @@
     $("ticket-contingency").innerHTML = ticketContingencyTables();
     $("metrics").innerHTML = metricsTable();
     womenTables();
+    nationalTables();
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();
     $("money").innerHTML = moneyTable();

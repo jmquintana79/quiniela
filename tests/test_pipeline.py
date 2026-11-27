@@ -156,6 +156,7 @@ def test_predict_upcoming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
         "odds": 0,
         "results": 0,
         "public": 1,
+        "national": 0,
     }
     assert not matches["_kickoff_known"].any()
     # Only the La Liga / Segunda match is predicted; the market has no odds
@@ -237,8 +238,14 @@ def test_predict_upcoming_without_men_matches(
     from quiniela.data.prizes import UPCOMING_FILE, load_upcoming
     from quiniela.io import espn
 
-    # A ticket of national teams and women's European cup matches only (jornada 22 of 2026-27)
+    from quiniela.io import international
+
+    # A ticket of national teams and women's European cup matches only (jornada 22 of 2026-27);
+    # without national-team results v1N cannot predict and the public's picks stay
     monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: pd.DataFrame(columns=espn.COLUMNS))
+    monkeypatch.setattr(
+        international, "load_results", lambda *_: pd.DataFrame(columns=international.COLUMNS)
+    )
     matches = [
         {
             "position": 1,
@@ -307,3 +314,48 @@ def test_pleno_pick_from_the_market(tmp_path: Path) -> None:
     # Against the public's picks: the best-value pair and how much it is marked
     value = pleno["value"]
     assert value is not None and value["ratio"] >= 1 and 0 < value["public"] < 1
+
+
+def test_predict_upcoming_national_teams_with_v1n(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from quiniela.data.prizes import UPCOMING_FILE, load_upcoming
+    from quiniela.io import espn, international
+    from tests.helpers import make_matches
+    from tests.test_national import _internationals
+
+    monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: pd.DataFrame(columns=espn.COLUMNS))
+    monkeypatch.setattr(international, "load_results", lambda *_: _internationals())
+    matches = [
+        {
+            "position": 1,
+            "home": "Gales (M)",
+            "away": "España (M)",
+            "public": {"1": 50, "X": 30, "2": 20},
+        },
+        {
+            "position": 2,
+            "home": "Chelsea (F)",
+            "away": "PSG (F)",
+            "public": {"1": 49, "X": 24, "2": 27},
+        },
+    ]
+    content = {"jornada": 22, "closes": "17/11/2026 - 20:45", "matches": matches}
+    (tmp_path / UPCOMING_FILE).write_text(json.dumps(content))
+    current = make_matches([("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]).assign(
+        season="2026-27"
+    )
+    _, predictions, info = pipeline.predict_upcoming(
+        load_upcoming(tmp_path), history=current.iloc[:0], current=current
+    )
+    assert (info["national"], info["public"]) == (1, 1)
+    # v1N on the national-team match (Spain far stronger than Wales); without ESPN data the
+    # women's match counts as Liga F and gets v1F (the public's picks)
+    v1n = predictions["elo_national"]
+    assert v1n["home_team"].tolist() == ["Gales"] and v1n["source"].eq("v1N").all()
+    v3 = predictions["market_blend"].set_index("home_team")
+    assert v3.loc["Gales", "source"] == "v1N" and v3.loc["Gales", "prediction"] == "A"
+    assert v3.loc["Chelsea", "source"] == "v1F"
+    assert v3[["p_H", "p_D", "p_A"]].dtypes.eq(float).all()

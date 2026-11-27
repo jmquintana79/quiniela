@@ -45,7 +45,11 @@ model is evaluated with a walk-forward backtest against the betting market.
   ESPN, `quiniela.io.espn`; v3F the same learned from goals and shots on target,
   `quiniela.prediction.pi_ratings_shots_f`; all in `WOMEN_MODELS`), with
   their own history (`quiniela.data.women`: `data/women/liga_f.parquet` and the archived
-  next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). The **Pleno
+  next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). The **national
+  teams** have their own counter with an N: v1N World Football Elo of every international since
+  1872 (`quiniela.prediction.elo_national`, `NATIONAL_MODELS`, data from martj42 in
+  `quiniela.io.international`, ticket matches in `quiniela.data.national`, evaluation in
+  `quiniela.evaluation.national`). The **Pleno
   al 15** has its own counter with a P: v1P Dixon-Coles' most likely goals categories, v2P the
   market's (`quiniela.prediction.pleno`, the tickets' pick since v0.19). Every
   dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`
@@ -54,7 +58,8 @@ model is evaluated with a walk-forward backtest against the betting market.
   doubles and triples (`quiniela.prediction.planner`; **·D2** the same with 2 bets), **·R** with the official reductions
   (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
   (`quiniela.prediction.money`). They use `PLANNER_MODEL` (v3) on the men's matches and
-  `WOMEN_PLANNER_MODEL` (v3F, with v1F as fallback) on the Liga F ones: v3+v3F·D, ·D2, ·R, ·B and
+  `WOMEN_PLANNER_MODEL` (v3F, with v1F as fallback) on the Liga F ones and
+  `NATIONAL_PLANNER_MODEL` (v1N, since v0.20) on the national-team ones: v3+v3F·D, ·D2, ·R, ·B and
   ·E (v3+v2F·D... in v0.12-v0.17, v3+v1F·D... in v0.10-v0.11, v3·D... in v0.9,
   v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d2`, `v3d`, `v3r`,
   `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`

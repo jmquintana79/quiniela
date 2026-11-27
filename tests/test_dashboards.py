@@ -783,3 +783,26 @@ def test_upcoming_draw_reads_the_recommendations() -> None:
     assert draw["p_big_v3b"] == pytest.approx(0.004) and draw["light_v3b"] == "green"
     assert draw["verdict"] == "big" and draw["matched"] == 14
     assert draw["differentiation"] == pytest.approx(14 * np.log(0.5 / 0.6), abs=1e-4)
+
+
+def test_national_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.test_national import _internationals
+
+    monkeypatch.setattr("quiniela.data.prizes.load_tickets", lambda *_: pd.DataFrame())
+    payload = dashboards.national_payload(_internationals())
+    assert [m["key"] for m in payload["models"]] == [
+        "elo_national",
+        "national_shares",
+        "national_public",
+    ]
+    elo = payload["scopes"]["all"]["elo_national"]
+    assert elo["matches"] > 0 and 0 < elo["hit_rate"] < 1 and len(elo["contingency"]) == 3
+    assert payload["scopes"]["tickets"] == {} and set(payload["by_year"]) == {
+        "2010",
+        "2011",
+        "2012",
+    }
+    json.dumps(payload)
+    # Without results the page shows an empty block
+    empty = dashboards.national_payload(_internationals().iloc[:0])
+    assert empty["scopes"] == {} and len(empty["models"]) == 3

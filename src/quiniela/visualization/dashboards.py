@@ -24,6 +24,7 @@ Dashboards:
 import json
 import logging
 from datetime import datetime
+import functools
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -569,9 +570,10 @@ def _season_tickets(
     Liga F matches and v1F (the
     public's picks) on the Liga F matches whose betting page was archived;
     v3+v3F·D, v3+v3F·R and v3+v3F·B plan their doubles and triples on the 14
-    matches with the v3 probabilities, v3F's on the Liga F matches (v1F's without it) and the
-    league shares of 1, X and 2 elsewhere; the Pleno al 15 gets Dixon-Coles'
-    goals categories when it is a La Liga / Segunda match.
+    matches with the v3 probabilities, v3F's on the Liga F matches (v1F's without it),
+    v1N's on the national-team matches and the league shares of 1, X and 2
+    elsewhere; the Pleno al 15 gets the market's goals categories (v2P), or
+    Dixon-Coles' (v1P) without odds, when it is a La Liga / Segunda match.
     """
     from quiniela.data.prizes import official_tickets
     from quiniela.data.women import load_public_shares
@@ -630,6 +632,8 @@ def _season_tickets(
     women_models: dict[tuple[str, int, int], dict[str, Any]] = {
         (m["season"], m["jornada"], m["position"]): m for m in (liga or {}).get("matches", [])
     }
+    # v1N: the walk-forward Elo probabilities of the national-team matches of the tickets
+    national = _national_ticket_probs()
     for number, ticket in enumerate(tickets):
         probs, crowd = [], []
         for match in ticket["matches"]:
@@ -670,6 +674,11 @@ def _season_tickets(
             if liga_match.get(planner_probs) is not None:
                 # The tickets plan the Liga F matches with their Liga F model (v3F)
                 row = np.array(liga_match[planner_probs], dtype=float)
+            elo = national.get((season, int(ticket["jornada"]), int(match["position"])))
+            if elo is not None:
+                # National-team match: v1N marks it, and the tickets plan it with v1N
+                match["picks"]["elo_national"] = OUTCOMES_HDA[int(np.argmax(elo))]
+                row = elo
             market = stored.get("market")
             public = (
                 market.loc[index, ["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
@@ -772,6 +781,35 @@ def _season_tickets(
             },
         }
     return tickets
+
+
+@functools.lru_cache(maxsize=1)
+def _national_ticket_probs() -> dict[tuple[str, int, int], np.ndarray]:
+    """v1N walk-forward probabilities of every national-team match of the official tickets.
+
+    Returns:
+        ``(season, jornada, position)`` -> probabilities of 1, X and 2 (in the
+        ticket's order of the teams); empty without the international results.
+    """
+    from quiniela.data.national import ticket_national
+    from quiniela.data.prizes import load_tickets
+    from quiniela.evaluation.national import ELO_KEY, national_backtest, ticket_predictions
+    from quiniela.io.international import load_results
+
+    try:
+        results = load_results()
+        tickets = load_tickets()
+    except (OSError, ValueError) as error:
+        logger.warning("No national-team results for the tickets: %s", error)
+        return {}
+    if results.empty or tickets.empty:
+        return {}
+    rows = ticket_predictions(ticket_national(tickets, results), national_backtest(results))
+    rows = rows[rows["model"] == ELO_KEY]
+    return {
+        (str(r.season), int(r.jornada), int(r.position)): np.array([r.p_H, r.p_D, r.p_A])
+        for r in rows.itertuples()
+    }
 
 
 def _fill_unpredicted(ticket: pd.DataFrame, key: str) -> pd.DataFrame:
@@ -2010,6 +2048,62 @@ def _ticket_contingency(money_results: pd.DataFrame) -> dict[str, Any]:
     return out
 
 
+def national_payload(results: pd.DataFrame | None = None) -> dict[str, Any]:
+    """National-team block of the evaluation dashboard: v1N and its references.
+
+    Args:
+        results: International results. Defaults to the downloaded ones.
+
+    Returns:
+        ``models`` (v1N, the result shares and the public's picks), ``scopes``
+        (``all``: every international from 2010; ``tickets``: the ticket
+        matches; ``public``: the ticket matches with public picks), each keyed
+        by model with its metrics and contingency table, and ``by_year``.
+    """
+    from quiniela.data.national import ticket_national
+    from quiniela.data.prizes import load_tickets
+    from quiniela.data.women import load_public_shares
+    from quiniela.evaluation.national import (
+        REFERENCE_SPECS,
+        national_backtest,
+        summarize_national,
+        ticket_predictions,
+    )
+    from quiniela.io.international import load_results
+    from quiniela.prediction.registry import NATIONAL_MODELS
+
+    models = [
+        {
+            "key": key,
+            "name": spec.name,
+            "version": spec.version,
+            "reference": spec.reference,
+            "description": spec.description,
+        }
+        for key, spec in NATIONAL_MODELS.items()
+    ] + REFERENCE_SPECS
+    try:
+        results = load_results() if results is None else results
+        tickets = load_tickets()
+    except (OSError, ValueError) as error:
+        logger.warning("No national-team evaluation: %s", error)
+        return {"models": models, "scopes": {}, "by_year": {}}
+    if results.empty:
+        return {"models": models, "scopes": {}, "by_year": {}}
+    backtest = national_backtest(results)
+    rows = ticket_predictions(
+        ticket_national(tickets, results) if not tickets.empty else pd.DataFrame(),
+        backtest,
+        load_public_shares(),
+    )
+    summary = summarize_national(backtest, rows)
+    scopes = {
+        scope: {key: _clean(values) for key, values in summary[scope].items()}
+        for scope in ("all", "tickets", "public")
+    }
+    return {"models": models, "scopes": scopes, "by_year": summary["by_year"]}
+
+
 def evaluation_payload(
     backtest: pd.DataFrame | None = None,
     tickets: pd.DataFrame | None = None,
@@ -2050,6 +2144,7 @@ def evaluation_payload(
             "seasons": [],
             "results": {},
             "liga_f": liga_f_payload(liga_f),
+            "national": national_payload(),
         }
     tickets = load_tickets() if tickets is None else tickets
     if money_results is None:
@@ -2105,6 +2200,8 @@ def evaluation_payload(
         "ticket_contingency": ticket_contingency,
         # Liga F, apart from the men's models: v1F and the result-shares reference
         "liga_f": liga_f_payload(liga_f),
+        # National teams, apart too: v1N (Elo) against the result shares and the public
+        "national": national_payload(),
         "calibration": calibration,
         "confidence": _confidence_tables(backtest),
         "tickets": _ticket_tables(tickets),

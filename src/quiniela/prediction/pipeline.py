@@ -27,7 +27,7 @@ from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
 from quiniela.prediction.planner import PLANNER_MODEL
-from quiniela.prediction.registry import MODELS, WOMEN_PLANNER_MODEL
+from quiniela.prediction.registry import MODELS, NATIONAL_PLANNER_MODEL, WOMEN_PLANNER_MODEL
 
 # The Liga F model of the public's picks (v1F)
 PUBLIC_PICKS_MODEL = "public_picks"
@@ -282,9 +282,9 @@ def predict_upcoming(
     football-data publishes the fixtures and their odds. Its La Liga and
     Segunda matches are predicted with every model trained on all played
     matches; without odds the market reference has no prediction and v3 is
-    Dixon-Coles alone. Matches of other competitions (women's league, national
-    teams) get no prediction; for doubles and triples they count with the
-    league shares of 1, X and 2.
+    Dixon-Coles alone. The Liga F matches get the Liga F models (v3F for the
+    tickets, ``WOMEN_PLANNER_MODEL``) and the national-team matches v1N
+    (``NATIONAL_PLANNER_MODEL``); the other competitions get the public's picks.
 
     Args:
         upcoming: The next ticket (``quiniela.data.prizes.load_upcoming``).
@@ -297,7 +297,8 @@ def predict_upcoming(
         ``SP2``, ``WOMEN`` or ``OTHER``; results when football-data has them),
         the predictions of every model for the La Liga / Segunda ones, and
         ``info`` with how many are ``ours``, have a football-data ``fixture``,
-        ``odds`` and ``results``, how many use the ``public``'s picks, and the
+        ``odds`` and ``results``, how many use the ``public``'s picks and how
+        many are ``national``-team matches predicted by v1N, and the
         ``pleno`` al 15 pick (``_pleno_pick``).
     """
     from quiniela.data.prizes import team_names, translate_team
@@ -364,12 +365,17 @@ def predict_upcoming(
     known_date = matches["date"].notna()
     matches["date"] = pd.to_datetime(matches["date"]).fillna(closes)
     matches["_kickoff_known"] = known_date
-    matches["game"] = matches["game"].fillna(
-        matches["date"].dt.strftime("%Y-%m-%d")
-        + " "
-        + matches["home_team"]
-        + "-"
-        + matches["away_team"]
+    # Without any football-data fixture the column is all NaN (float): text from here on
+    matches["game"] = (
+        matches["game"]
+        .astype(object)
+        .fillna(
+            matches["date"].dt.strftime("%Y-%m-%d")
+            + " "
+            + matches["home_team"]
+            + "-"
+            + matches["away_team"]
+        )
     )
     # League shares of 1, X and 2: the probabilities of matches no model predicts
     shares = played["FTR"].value_counts(normalize=True)
@@ -399,16 +405,22 @@ def predict_upcoming(
             rows = _women_results_predictions(upcoming, women_matches, closes, women_key)
             if not rows.empty:
                 predictions[women_key] = rows
+    # National-team matches: v1N, the Elo of every international (the public without it)
+    national = _national_predictions(upcoming, matches[matches["league"] == OTHER_LEAGUE], closes)
+    if not national.empty:
+        predictions[NATIONAL_PLANNER_MODEL] = national
     # The Liga F model of the tickets (v3F); v1F (the public) where it has no prediction
     planner_women = predictions.get(WOMEN_PLANNER_MODEL, pd.DataFrame())
+    modelled = [*planner_women.get("game", []), *national.get("game", [])]
     # Empty frames are left out: concatenating them would turn the probabilities into objects
-    parts = [planner_women, public[~public["game"].isin(planner_women.get("game", []))]]
+    parts = [planner_women, national, public[~public["game"].isin(modelled)]]
     parts = [part for part in parts if not part.empty]
     fill = pd.concat(parts, ignore_index=True) if parts else public.iloc[:0]
     fill = fill.astype({column: float for column in ("p_H", "p_D", "p_A")})
     if PLANNER_MODEL in predictions:
         # The ticket of v3 + v3F: Dixon-Coles + market where there is data, v3F on the
-        # Liga F matches (v1F without it) and the public's picks on the other competitions
+        # Liga F matches (v1F without it), v1N on the national teams and the public's
+        # picks on the other competitions
         model_rows = predictions[PLANNER_MODEL].assign(source="model")
         predictions[PLANNER_MODEL] = pd.concat([model_rows, fill], ignore_index=True)
     elif not fill.empty:
@@ -418,7 +430,8 @@ def predict_upcoming(
         "fixtures": int(matches.loc[ours, "_fixture"].sum()),
         "odds": with_odds,
         "results": int(matches["FTR"].notna().sum()),
-        "public": len(public),
+        "public": len(public) - len(national),
+        "national": len(national),
         "pleno": _pleno_pick(upcoming, names, league_of, pending, recent, played, closes),
     }
     return matches.drop(columns=["_fixture"]), predictions, info
@@ -633,12 +646,71 @@ def _women_results_predictions(
     return out.reindex(columns=PREDICTION_COLUMNS).assign(source=WOMEN_MODELS[key].version)
 
 
+def _national_predictions(
+    upcoming: "UpcomingTicket", matches: pd.DataFrame, closes: pd.Timestamp
+) -> pd.DataFrame:
+    """v1N predictions of the ticket's national-team matches.
+
+    The model is trained on the internationals played before the sales
+    deadline, so a match keeps its pre-match prediction once played. The
+    home team of the ticket plays at home unless the results file already has
+    the match at a neutral ground (it only does once it is played: before,
+    the home advantage is assumed, as in most qualifiers and friendlies).
+
+    Args:
+        upcoming: The next ticket (LAE team names by position).
+        matches: The ticket matches no men's or Liga F model predicts
+            (``official_position``, ``game``...).
+        closes: Sales deadline.
+
+    Returns:
+        Predictions with ``PREDICTION_COLUMNS`` and ``source`` = ``"v1N"``;
+        empty without national-team matches or results.
+    """
+    from quiniela.data.national import MATCH_DAYS, national_team
+    from quiniela.evaluation.national import national_model
+    from quiniela.io.international import load_results
+    from quiniela.prediction.registry import NATIONAL_MODELS
+
+    empty = pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
+    lae = upcoming.matches.set_index("position")
+    rows = matches.assign(
+        _home=[national_team(lae.loc[int(p), "lae_home"]) for p in matches["official_position"]],
+        _away=[national_team(lae.loc[int(p), "lae_away"]) for p in matches["official_position"]],
+    ).dropna(subset=["_home", "_away"])
+    if rows.empty:
+        return empty
+    results = load_results()
+    model = national_model(results, before=closes - pd.Timedelta(days=MATCH_DAYS))
+    if model is None:
+        return empty
+    near = results[(results["date"] - closes).abs() <= pd.Timedelta(days=MATCH_DAYS)]
+    neutral = []
+    for home, away in zip(rows["_home"], rows["_away"], strict=True):
+        found = near[(near["home_team"] == home) & (near["away_team"] == away)]
+        neutral.append(bool(found["neutral"].iloc[0]) if not found.empty else False)
+    target = pd.DataFrame(
+        {"home_team": rows["_home"], "away_team": rows["_away"], "neutral": neutral}
+    )
+    probs = model.predict_proba(target)
+    out = rows.assign(
+        p_H=probs[:, 0],
+        p_D=probs[:, 1],
+        p_A=probs[:, 2],
+        prediction=np.array(OUTCOMES)[probs.argmax(axis=1)],
+    )
+    out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
+    out = out.reindex(columns=PREDICTION_COLUMNS)
+    return out.assign(source=NATIONAL_MODELS[NATIONAL_PLANNER_MODEL].version)
+
+
 def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:
     """v3 predictions of the ticket matches without data, from the public's picks.
 
-    Women's league and national-team matches have no model; the share of
-    bettors marking each sign ("Pronósticos más apostados") is the best
-    estimate available, normalised to probabilities.
+    The matches of other competitions (cups) have no model, and the Liga F
+    and national-team ones fall back on them when their model cannot predict;
+    the share of bettors marking each sign ("Pronósticos más apostados") is
+    the best estimate available, normalised to probabilities.
 
     Args:
         upcoming: The next ticket, with the public's shares.

@@ -70,6 +70,17 @@ football-data.co.uk's [notes](https://www.football-data.co.uk/notes.txt).
 The current season file is updated by the source about twice a week, and the upcoming
 fixtures (the next matchday to predict) are published with their odds.
 
+### National teams: every international since 1872
+
+The national-team matches of the tickets (qualifiers, Nations League, friendlies, the Euro and the
+World Cup) are modelled with the results of
+[martj42/international_results](https://github.com/martj42/international_results): every men's
+full international since 1872 with its date, score, tournament and whether the ground was
+neutral, updated within days of every international window. It is one CSV file of a few
+megabytes, downloaded whole by every `invoke update` into `data/national/results.csv`
+([`quiniela/io/international.py`](src/quiniela/io/international.py)). See
+[National teams](#national-teams-mens).
+
 ### Official draws: real tickets, winners and prizes
 
 The real quiniela tickets, takings, winners and prize of every category come from the results
@@ -173,10 +184,11 @@ It runs, in order ([`quiniela/update.py`](src/quiniela/update.py)):
 | 1. Missing seasons | Downloads every completed season (per league) that is not in `data/historical/`. Covers the change of season (the season that just ended joins the history), a first installation and gaps. | Seasons already downloaded are skipped; soccerdata also caches their raw files. |
 | 2. Current season | Downloads the results played so far and the upcoming fixtures. | Always downloaded: the source does not tell whether its files changed (a few small CSV files). |
 | 3. Liga F | Downloads the missing completed Liga F seasons and refreshes the current one (results and fixtures) from ESPN ([Liga F](#liga-f-womens-league)). A failure is a warning. | Completed seasons are skipped; months are cached in `data/cache/espn/`. |
+| 3b. National teams | Downloads the whole file of international results ([national teams](#national-teams-mens)). A failure is a warning and the saved file stays. | One small file. |
 | 4. LAE | When the next ticket or a played draw is missing, opens the LAE pages in your browser; one click on the Quiniela bookmark saves each one ([official draws](#official-draws-real-tickets-winners-and-prizes)). | Only what is missing; `--no-browser` only warns. |
 | 5. Predictions | Predicts every matchday of the current season with every model, walk-forward. Covers skipped weeks and replaces last season's predictions when a new one starts. | Local data only, a few seconds. |
 | 6. Backtest | Only with `--backtest`: every model over past seasons, plus the real tickets in euros when the LAE draws are saved (about ten minutes). | Not run by default. |
-| 7. Dashboards | Rebuilds the five dashboards, with the Liga F history and evaluation (v2F and v3F walk-forward, about a minute). | Local data only. |
+| 7. Dashboards | Rebuilds the five dashboards, with the Liga F history and evaluation (v2F and v3F walk-forward, about a minute) and the national-team evaluation (v1N, a few seconds). | Local data only. |
 
 Special cases:
 
@@ -668,7 +680,9 @@ compared side by side.
 
 **Notation: model · ticket.** Men's models are numbered (v1, v2, v3, v4...) and **Liga F
 (women's league) models have their own counter with an F** (v1F, v2F...), with their own data and
-evaluation (see [Liga F](#liga-f-womens-league)). The ways of playing the probabilities on the
+evaluation (see [Liga F](#liga-f-womens-league)), and so do the **national-team models, with an
+N** (v1N, see [National teams](#national-teams-mens)) and the Pleno al 15 picks, with a P (v1P,
+v2P). The ways of playing the probabilities on the
 quiniela ticket are not models but decision layers, written as the models they use plus a letter,
 so new models and new tickets can be added independently. A ticket mixes both leagues, so it uses
 **v3 on the men's matches and v3F on the Liga F ones**:
@@ -683,8 +697,9 @@ so new models and new tickets can be added independently. A ticket mixes both le
 
 The tickets plan on v3's probabilities (`PLANNER_MODEL`) for the men's matches and on v3F's
 (`WOMEN_PLANNER_MODEL`, the pi-ratings of the Liga F goals and shots on target) for the Liga F
-ones, with v1F (the public's picks) where v3F has no prediction; the other competitions (national
-teams, cups) use the public's picks, and every match without them the shares of 1, X and 2. From
+ones, with v1F (the public's picks) where v3F has no prediction; the national-team matches use v1N
+(`NATIONAL_PLANNER_MODEL`, since v0.20; the public's picks before), the other competitions (cups)
+the public's picks, and every match without them the shares of 1, X and 2. From
 v0.12.0 to v0.17.0 the Liga F matches used v2F (v3+v2F·D...), until v0.11.0 v1F (v3+v1F·D...).
 Release notes keep the names of their time.
 
@@ -1756,6 +1771,77 @@ overall metric (hit rate, log-loss, Brier, RPS) and out of sample, and the switc
   are only 8 common matches yet (62.5% for the three). The **v1F against v2F and v3F** table
   will tell, as it grows, whether the public would be better.
 
+## National teams (men's)
+
+The quiniela fills the tickets of the international windows with national-team matches: 946 of
+the matches of the official tickets since 2010-11 are between two men's senior national teams,
+840 of them found in the international results (14 of the 14 matches of jornada 10 of 2026-27,
+for example). Until v0.19 they were planned with the public's picks; since v0.20 with **v1N**,
+evaluated apart from the men's and Liga F models (`quiniela.evaluation.national`).
+
+**Names.** LAE writes the countries in Spanish, sometimes with a men's mark (`Inglaterra`,
+`Rep. Checa`, `Gales (m)`); `quiniela.data.national.LAE_NAMES` translates them to the names of the
+results file. Women's and under-21 teams (`España Fem`, `Italia S21`) are left out: the file only
+has the men's senior teams. A ticket match is linked to its result by the pair of teams, in either
+order (LAE sometimes lists the away team first at a neutral ground), within four days of the
+kick-off.
+
+### v1N · National-team Elo (`elo_national`)
+
+[`quiniela/prediction/elo_national.py`](src/quiniela/prediction/elo_national.py), registered in
+`NATIONAL_MODELS`. The ratings follow the
+[World Football Elo](https://www.eloratings.net/about) system, computed on every international
+since 1872. Every team starts at 1500 and, after each match,
+
+```math
+R' = R + K \, G \, (W - W_e), \qquad W_e = \frac{1}{1 + 10^{-(R - R_{opp} + H)/400}}
+```
+
+with $W$ = 1, 0.5 or 0 (win, draw, loss), $H$ = 100 points for the home team (0 at a neutral
+ground), $K$ by tournament (60 the World Cup, 50 the continental championships, 40 the qualifiers
+and the Nations Leagues, 30 other tournaments, 20 friendlies) and $G$ by the goal difference $N$
+(1 for $N \le 1$, 1.5 for 2, $(11 + N)/8$ for 3 or more). The Elo difference before the match,
+$d = (R_h - R_a)/400$, and whether the home team plays at home, $h$, give the 1X2 probabilities
+through an ordered logistic regression fitted on the last 12 years:
+
+```math
+P(1) = \sigma(\beta d + \gamma h - c_1), \qquad P(1 \text{ or } X) = \sigma(\beta d + \gamma h - c_2), \qquad c_2 < c_1
+```
+
+(today $\beta = 2.07$, $\gamma = 0.44$). The home advantage is in $\gamma$ for the probabilities
+and in $H$ for the updates. On the next ticket the match is assumed at the home team's ground
+(qualifiers and friendlies; the results file only says it once the match is played).
+
+**Evaluation** (`quiniela.evaluation.national`): every international from 2010, each one with the
+ratings before it and the regression refitted every year on the earlier ones; the same
+predictions on the ticket matches, in the ticket's order of the teams. The references are the
+result shares of the earlier years (always the home win) and the public's picks (only the 7
+national-team matches of the archived tickets so far):
+
+| | v1N, every international from 2010 | Result shares | v1N, ticket matches | Result shares, tickets |
+|---|---|---|---|---|
+| Matches | 16,512 | 16,512 | 840 | 840 |
+| Hit rate | **59.4%** | 47.8% | **60.2%** | 43.2% |
+| Log-loss | **0.8853** | 1.0504 | **0.8738** | 1.0745 |
+| Brier | **0.5210** | 0.6334 | **0.5127** | 0.6513 |
+| RPS | **0.1743** | 0.2280 | **0.1704** | 0.2362 |
+
+On the 7 matches with public picks, v1N and the public get the same 5 right, with a log-loss of
+0.8007 against 0.8533 for the public.
+
+**Observations.**
+
+- **National-team matches are more predictable than club matches**: 60% against 50% for v3 on La
+  Liga and Segunda. The tickets mix very unequal teams (Spain-Georgia, England-Andorra), and the Elo
+  differences between national teams are large.
+- **v1N never marks a draw** (23% of the matches), like the other models.
+- **On the tickets of this season**, planning the national-team matches with v1N instead of the
+  public's picks gave 4 more hits to the single ticket on jornada 10 (14 national-team matches: 8
+  against 4) and to v3+v3F·B (11 against 7, 58.50 € instead of nothing), and 3 more to v3+v3F·R on
+  jornada 22 (12 against 9).
+- The euro backtest does not change: it only plays the draws with 10 or more La Liga / Segunda
+  matches, and those have few national-team matches (the other ones keep the league shares there).
+
 ## Releases
 
 Each model version is released with a git tag in commitizen's `v<version>` format, using the
@@ -1763,6 +1849,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.20.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.20.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), **v1N national-team Elo**, Pleno al 15 v1P (Dixon-Coles) and v2P (market), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **National-team model v1N** (`quiniela.prediction.elo_national`, its own N counter): World Football Elo of every men's international since 1872 (martj42's results, downloaded by `invoke update`, `quiniela.io.international`), mapped to 1X2 by an ordered logistic regression. 59.4% of hits and a log-loss of 0.885 on 16,512 internationals from 2010 (47.8% and 1.050 for the result shares); 60.2% and 0.874 on the 840 national-team matches of the official tickets. The tickets plan the national-team matches with it (`NATIONAL_PLANNER_MODEL`; the public's picks before), and `evaluation.html` has a national-team block. LAE names translated in `quiniela.data.national`. |
 | [`v0.19.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.19.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), Pleno al 15 v1P (Dixon-Coles) and **v2P (market)**, tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **The Pleno al 15 from the market (v2P)**, `quiniela.prediction.pleno`: expected goals fitted to the 1X2 and over / under 2.5 odds, Poisson with the Dixon-Coles correction ($\rho = -0.05$), the most likely pair of goals categories. It hits 15.5% of the Plenos against 14.5% for v1P on 9,241 matches (better in all 11 seasons) and is the tickets' pick (v1P without odds). The next ticket also shows its probability and the best-value pick against the public. The over / under odds are now kept in the match table. |
 | [`v0.18.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.18.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **The tickets plan the Liga F matches with v3F** (`WOMEN_PLANNER_MODEL`, v2F until v0.17.0): it beats v2F on every overall metric (59.8% against 59.3%, log-loss 0.8961 against 0.8984 on 815 matches) and out of sample. The tickets are renamed v3+v3F (·D2, ·D, ·R, ·B, ·E; v3+v2F from v0.12.0 to v0.17.0). The next ticket gets the v2F and v3F predictions of its Liga F matches, and the season tickets show both picks. |
 | [`v0.17.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.17.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and **v3F pi-ratings with shots on target** (Liga F), tickets v3+v2F (single), v3+v2F·D2, v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New Liga F model v3F** (`pi_ratings_shots_f`): the v2F pi-ratings learned from 75% goal difference and 25% shots-on-target difference on the goal scale. The weight was chosen on 2023-24 and 2024-25 and tested on 2025-26 and 2026-27 (log-loss 0.9047 against 0.9096 for v2F); on the 815 Liga F matches since 2023-24 it gets 59.8% right (log-loss 0.8961) against 59.3% (0.8984). Shown in `evaluation.html` and the Liga F match tables; the tickets still plan with v2F. The ESPN loader now keeps the shots and shots on target of every match (`HS`, `AS`, `HST`, `AST`). |
@@ -1915,10 +2002,7 @@ publishes Pinnacle, and the spread did not improve v3 in a screening test).
    real picks), once there are enough archived jornadas to judge it. Done: the small ticket
    v3+v3F·D2 and a verdict per matchday (`metrics.html`); pending: review the verdict with new
    jornadas ("play v3+v3F·B" is not backed by the backtest).
-3. **National-team Elo** for the national-team matches of the tickets, played today with the
-   public's picks: eloratings.net (yearly files with every match and both Elo ratings),
-   `martj42/international_results` and ESPN.
-4. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
+3. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
    the European leagues of football-data, linked by ESPN's European cup matches (Champions League
    since at least 2006). Matching team names between sources is the main cost.
 
@@ -1931,3 +2015,6 @@ Other ideas:
   v0.18 (v2F before); once the comparison with v1F on the ticket matches has enough matches, go
   back to the public if it turns out better.
 - **v4 instead of Dixon-Coles** in v3 when the odds are missing.
+- **National teams: check v1N against the public** as the archived tickets with national-team
+  matches grow (7 matches so far), and whether the neutral grounds of the final tournaments
+  (Euro 2028, World Cup 2030) need to be known before the match.

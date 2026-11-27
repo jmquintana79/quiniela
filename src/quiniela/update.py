@@ -14,6 +14,9 @@ running anything). In order:
 3. **Liga F** (``quiniela.io.espn``): the missing completed seasons and the
    current one (results and fixtures) from ESPN; a failure is a warning, the
    men's data goes on.
+   The **national-team results** (``quiniela.io.international``: every men's
+   international since 1872, one small file) are downloaded whole too, with
+   the same rule.
 4. **Loterías y Apuestas del Estado** (``quiniela.io.lae``): when the next
    ticket or a played draw is missing, the LAE pages open in your browser and
    one click on the Quiniela bookmark saves each one (LAE answers browsers
@@ -44,7 +47,7 @@ from pathlib import Path
 
 from quiniela.config import HISTORICAL_DIR
 from quiniela.evaluation import backtest, money
-from quiniela.io import download, espn, lae
+from quiniela.io import download, espn, international, lae
 from quiniela.prediction import pipeline
 from quiniela.visualization import dashboards
 
@@ -62,6 +65,7 @@ class UpdateReport:
         historical: Season files downloaded into the history.
         current: Current-season files downloaded.
         women: Liga F season files downloaded from ESPN.
+        national: National-team results file downloaded.
         lae: LAE files saved (next ticket, draws) from the browser downloads.
         predictions: Prediction files written (one per model).
         backtest: Backtest file written, if the backtest was run.
@@ -72,6 +76,7 @@ class UpdateReport:
     historical: list[Path] = field(default_factory=list)
     current: list[Path] = field(default_factory=list)
     women: list[Path] = field(default_factory=list)
+    national: list[Path] = field(default_factory=list)
     lae: list[Path] = field(default_factory=list)
     predictions: list[Path] = field(default_factory=list)
     backtest: Path | None = None
@@ -84,6 +89,7 @@ class UpdateReport:
             f"Historical seasons downloaded: {len(self.historical)} files",
             f"Current season downloaded: {len(self.current)} files",
             f"Liga F seasons downloaded: {len(self.women)} files",
+            f"National-team results downloaded: {len(self.national)} files",
             f"LAE files saved: {len(self.lae)}",
             f"Predictions: {len(self.predictions)} models",
             f"Backtest: {'updated' if self.backtest else 'not run'}",
@@ -178,6 +184,11 @@ def run_update(
         report.women = espn.update_liga_f(today)
     except Exception as error:  # noqa: BLE001 - any network or format error is a warning
         report.warnings.append(f"Liga F not downloaded from ESPN ({error}).")
+    # National-team results (v1N); the saved file stays if the download fails
+    try:
+        report.national = [international.download_results()]
+    except Exception as error:  # noqa: BLE001 - any network or format error is a warning
+        report.warnings.append(f"National-team results not downloaded ({error}).")
 
     # 4. Next ticket and draws from LAE (one click per page in the browser)
     report.lae, lae_missing = lae.fetch_lae(interactive=browser)

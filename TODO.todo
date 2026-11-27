@@ -7,7 +7,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
      por jornada.
   4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; planifica los boletos desde v0.18.0).
   5. Pleno al 15: marcador según el mercado y diferenciación con el público (hecho en v0.19.0).
-  6. Elo de selecciones para los partidos "otros".
+  6. Elo de selecciones para los partidos "otros" (HECHO, v1N).
   7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
   8. Pendientes menores (al final).
 (Pinnacle y la dispersión entre casas en v3: descartados el 2026-11-27, ver
@@ -251,7 +251,7 @@ Tareas:
     del Pleno se archivan con cada upcoming.json).
 
 
-6. Elo de selecciones (partidos "otros") · PRIORIDAD MEDIA
+6. Elo de selecciones (partidos "otros") · HECHO (seguimiento)
 ==============================================================================
 Idea:
   Los partidos de selecciones van hoy con los porcentajes del público.
@@ -266,10 +266,28 @@ Idea:
   - Sin cuotas históricas gratuitas (ver DISCARDED.todo).
 
 Tareas:
-  ☐ Descarga histórica y semanal (eloratings.net o Elo propio con martj42 + ESPN).
-  ☐ Equivalencias de nombres con LAE.
-  ☐ Modelo (Elo → 1X2 con regresión ordinal) y evaluación en los partidos de
-    selecciones de los boletos reales desde 2010.
+  ✔ Descarga histórica y semanal: Elo propio sobre martj42 (todo desde 1872, un CSV
+    que invoke update descarga entero en data/national/results.csv,
+    quiniela.io.international). eloratings.net no hace falta.
+  ✔ Equivalencias de nombres con LAE (quiniela.data.national.LAE_NAMES; fuera las
+    femeninas y las sub-21).
+  ✔ Modelo v1N (quiniela.prediction.elo_national): World Football Elo (K por torneo,
+    factor de goles, 100 puntos de campo) → 1X2 con regresión logística ordinal de los
+    últimos 12 años. Evaluación (quiniela.evaluation.national, evaluation.html):
+    - Todos los partidos internacionales desde 2010 (16.512): 59,4 % de aciertos,
+      log-loss 0,885, frente a 47,8 % y 1,050 de las proporciones de 1, X y 2.
+    - Los 840 partidos de selecciones de los boletos desde 2010-11: 60,2 % y 0,874.
+    - Los 7 con porcentajes del público archivados: mismos aciertos (5 de 7) y
+      log-loss 0,80 frente a 0,85 del público.
+  ✔ Los boletos planifican con v1N los partidos de selecciones (current.html y
+    season.html; antes, el público o las proporciones de la liga). Temporada 2026-27:
+    jornada 10 (14 selecciones) sencillo 4 → 8 aciertos, ·B 7 → 11 (58,50 €);
+    jornada 22 ·R 9 → 12.
+  ☐ Seguimiento: v1N frente al público según crezcan los boletos archivados con
+    selecciones, y saber antes del partido si el campo es neutral (fases finales:
+    Eurocopa 2028, Mundial 2030; hoy se supone que juega en casa el local).
+  ☐ Backtest en euros: los partidos de selecciones siguen con las proporciones de la
+    liga (solo juega sorteos con 10+ partidos de Liga / Segunda, efecto pequeño).
 
 
 7. Rating global de clubes (partidos "otros") · PRIORIDAD BAJA

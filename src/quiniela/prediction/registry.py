@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from quiniela.prediction.dixon_coles import DixonColesModel
+from quiniela.prediction.elo_national import NationalEloModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
@@ -143,3 +144,22 @@ WOMEN_MODELS: dict[str, ModelSpec] = {
 # of the ESPN goals and shots on target, since v0.18; v2F until v0.17); v1F (the public's
 # picks) where it has no prediction
 WOMEN_PLANNER_MODEL = "pi_ratings_shots_f"
+
+# National-team models: their own version counter with an "N", trained on every men's
+# international since 1872 (quiniela.io.international) and evaluated apart
+# (quiniela.evaluation.national) on every international since 2010 and on the
+# national-team matches of the official tickets (quiniela.data.national)
+NATIONAL_MODELS: dict[str, ModelSpec] = {
+    "elo_national": ModelSpec(
+        name="Elo",
+        factory=NationalEloModel,
+        description="National teams: World Football Elo ratings of every men's international "
+        "since 1872 (weighted by tournament and goal difference), mapped to 1X2 by an ordered "
+        "logistic regression on the Elo difference and home advantage.",
+        version="v1N",
+    ),
+}
+
+# National-team model whose probabilities the tickets use (since v0.20; the public's picks
+# before, and still where it has no prediction)
+NATIONAL_PLANNER_MODEL = "elo_national"
