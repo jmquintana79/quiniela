@@ -76,3 +76,33 @@ def test_missing_columns() -> None:
         PiRatingsModel().fit(matches.drop(columns=["season"]), matches["FTR"])
     with pytest.raises(TypeError):
         PiRatingsModel().fit(matches.to_numpy(), matches["FTR"])
+
+
+def test_shots_model_learns_from_shots_on_target() -> None:
+    from quiniela.prediction.pi_ratings_shots_f import PiRatingsShotsModel
+    from tests.helpers import make_matches
+
+    # Every match ends 1-1, but the "Strong" team always has many more shots on target
+    rows = []
+    for week in range(30):
+        date = (pd.Timestamp("2023-09-02") + pd.Timedelta(days=7 * week)).strftime("%Y-%m-%d")
+        home, away = ("Strong", "Weak") if week % 2 == 0 else ("Weak", "Strong")
+        rows.append(("LIGAF", date, home, away, 1, 1))
+    matches = make_matches(rows).assign(season="2023-24")
+    strong_home = matches["home_team"] == "Strong"
+    matches["HST"] = np.where(strong_home, 8.0, 2.0)
+    matches["AST"] = np.where(strong_home, 2.0, 8.0)
+    target = matches.iloc[[0]]
+
+    goals_only = PiRatingsModel().fit(matches, matches["FTR"]).expected_goal_difference(target)
+    shots = PiRatingsShotsModel(shots_weight=0.5).fit(matches, matches["FTR"])
+    # Goals alone see two equal teams; the shots on target make "Strong" the better one
+    assert goals_only[0] == pytest.approx(0.0, abs=1e-9)
+    assert shots.expected_goal_difference(target)[0] > 0.1
+    # Goals per shot on target of the training matches: 60 goals / 300 shots
+    assert shots.shots_scale_ == pytest.approx(0.2)
+    # Without shot columns (or weight 0) it is the goals-only model
+    plain = PiRatingsShotsModel().fit(matches.drop(columns=["HST", "AST"]), matches["FTR"])
+    assert plain.expected_goal_difference(target)[0] == pytest.approx(0.0, abs=1e-9)
+    zero = PiRatingsShotsModel(shots_weight=0.0).fit(matches, matches["FTR"])
+    assert zero.expected_goal_difference(target)[0] == pytest.approx(0.0, abs=1e-9)

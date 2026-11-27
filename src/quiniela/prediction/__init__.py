@@ -15,6 +15,7 @@ Submodules:
 - ``confidence``: confidence and margin of a prediction, from its probabilities.
 - ``pi_ratings``: v4, home and away pi-ratings learned from goal differences.
 - ``public_picks``: v1F, the Liga F model (the public's picks).
+- ``pi_ratings_shots_f``: v3F, Liga F pi-ratings learned from goals and shots on target.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``planner``: the ·D ticket (direct doubles and triples of the quiniela ticket).
 - ``reduced``: the ·R ticket (official reductions of the quiniela ticket).
@@ -30,6 +31,7 @@ from quiniela.prediction import (
     market_blend,
     money,
     pi_ratings,
+    pi_ratings_shots_f,
     pipeline,
     planner,
     public_picks,
@@ -64,6 +66,7 @@ __all__ = [
     "market_blend",
     "money",
     "pi_ratings",
+    "pi_ratings_shots_f",
     "pipeline",
     "planner",
     "public_picks",

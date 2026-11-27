@@ -774,14 +774,15 @@ function tableOfContents() {
 function ligaFMatchesTable(matches) {
   if (!matches?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
   return `<table><thead><tr><th>Season</th><th class="num">Jornada</th><th>Date</th><th class="num">Home</th><th>Away</th>
-      <th class="num">Score</th><th class="num">1X2</th><th class="num">Public picks v1F</th><th class="num">Pi-ratings v2F</th></tr></thead>
+      <th class="num">Score</th><th class="num">1X2</th><th class="num">Public picks v1F</th><th class="num">Pi-ratings v2F</th><th class="num">Pi-ratings + shots v3F</th></tr></thead>
     <tbody>${matches.map((m) => {
       const tip = m.p ? `Public: 1 ${pct(m.p[0], 0)} · X ${pct(m.p[1], 0)} · 2 ${pct(m.p[2], 0)}` : "Betting page not saved: no v1F pick";
       return `<tr><td>${esc(m.season)}</td><td class="num">${m.jornada}</td><td class="muted">${m.date ? fmtDate(m.date) : "–"}</td>
         <td class="num strong">${esc(m.home)}</td><td class="strong">${esc(m.away)}</td>
         <td class="num">${m.score ?? "–"}</td><td class="num">${{ H: "1", D: "X", A: "2" }[m.FTR] ?? "–"}</td>
         <td class="num" data-tip="${esc(tip)}">${ticketPick(m.public_picks, m.FTR)}</td>
-        <td class="num" data-tip="${m.pi_ratings_f ? "Pi-ratings of the Liga F results (ESPN), before the match" : "Not a Liga F match in ESPN"}">${ticketPick(m.pi_ratings_f, m.FTR)}</td></tr>`;
+        <td class="num" data-tip="${m.pi_ratings_f ? "Pi-ratings of the Liga F results (ESPN), before the match" : "Not a Liga F match in ESPN"}">${ticketPick(m.pi_ratings_f, m.FTR)}</td>
+        <td class="num" data-tip="${m.pi_ratings_shots_f ? "Pi-ratings learned from goals and shots on target (ESPN), before the match" : "Not a Liga F match in ESPN"}">${ticketPick(m.pi_ratings_shots_f, m.FTR)}</td></tr>`;
     }).join("")}</tbody></table>`;
 }
 

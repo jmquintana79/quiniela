@@ -30,6 +30,9 @@ OUTCOMES = ["H", "D", "A"]
 # Keys of the women's models
 PUBLIC_KEY = "public_picks"
 PI_KEY = "pi_ratings_f"
+SHOTS_KEY = "pi_ratings_shots_f"
+# Liga F models learned from the ESPN results (v2F, v3F...): every one is backtested weekly
+RESULT_KEYS = [key for key in WOMEN_MODELS if key != PUBLIC_KEY]
 
 # Reference of the Liga F evaluation: shares of 1, X and 2 of the earlier matches
 SHARES_KEY = "liga_f_shares"
@@ -77,8 +80,9 @@ def results_backtest(espn: pd.DataFrame) -> pd.DataFrame:
         espn: ESPN Liga F matches (``quiniela.io.espn.load_liga_f_matches``).
 
     Returns:
-        ``PREDICTION_COLUMNS`` for v2F and the result-shares reference, from
-        the second season on (the first one only trains).
+        ``PREDICTION_COLUMNS`` for every model of ``RESULT_KEYS`` (v2F, v3F...)
+        and the result-shares reference, from the second season on (the first
+        one only trains).
     """
     played = espn.dropna(subset=["FTR"]).sort_values("date").reset_index(drop=True)
     if played.empty:
@@ -90,8 +94,9 @@ def results_backtest(espn: pd.DataFrame) -> pd.DataFrame:
         train = played[played["date"] < start]
         if train.empty:
             continue
-        pi = WOMEN_MODELS[PI_KEY].factory().fit(train, train["FTR"])
-        frames.append(_rows(matches, PI_KEY, pi.predict_proba(matches), True))
+        for key in RESULT_KEYS:
+            model = WOMEN_MODELS[key].factory().fit(train, train["FTR"])
+            frames.append(_rows(matches, key, model.predict_proba(matches), True))
         shares = PublicPicksModel().fit(train, train["FTR"])
         frames.append(_rows(matches, SHARES_KEY, shares.predict_proba(matches), True))
     if not frames:
@@ -195,8 +200,10 @@ def summarize_women(predictions: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def upcoming_predictions(espn: pd.DataFrame, before: pd.Timestamp | None = None) -> pd.DataFrame:
-    """v2F predictions of the Liga F matches from a date on, trained on the matches before it.
+def upcoming_predictions(
+    espn: pd.DataFrame, before: pd.Timestamp | None = None, key: str = PI_KEY
+) -> pd.DataFrame:
+    """Predictions of the Liga F matches from a date on, trained on the matches before it.
 
     Args:
         espn: ESPN Liga F matches.
@@ -204,6 +211,7 @@ def upcoming_predictions(espn: pd.DataFrame, before: pd.Timestamp | None = None)
             matches from it on are predicted (e.g. a ticket's sales deadline:
             its matches keep their pre-match prediction once played).
             Defaults to the first match not played yet.
+        key: Results-based model (v2F by default, the tickets' one; v3F...).
 
     Returns:
         The predicted matches with ``p_H``, ``p_D``, ``p_A`` and ``prediction``.
@@ -215,7 +223,7 @@ def upcoming_predictions(espn: pd.DataFrame, before: pd.Timestamp | None = None)
     target = espn[espn["date"] >= before]
     if train.empty or target.empty:
         return target.assign(p_H=np.nan, p_D=np.nan, p_A=np.nan, prediction=None)
-    model = WOMEN_MODELS[PI_KEY].factory().fit(train, train["FTR"])
+    model = WOMEN_MODELS[key].factory().fit(train, train["FTR"])
     probs = model.predict_proba(target)
     return target.assign(
         p_H=probs[:, 0],

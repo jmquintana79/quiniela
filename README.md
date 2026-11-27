@@ -42,6 +42,7 @@ dashboards. See [Predictive models](#predictive-models) and [Releases](#releases
   - [Data](#data)
   - [v1F · Public picks (`public_picks`)](#v1f--public-picks-public_picks)
   - [v2F · Pi-ratings (`pi_ratings_f`)](#v2f--pi-ratings-pi_ratings_f)
+  - [v3F · Pi-ratings with shots on target (`pi_ratings_shots_f`)](#v3f--pi-ratings-with-shots-on-target-pi_ratings_shots_f)
   - [Evaluation (`quiniela.evaluation.women`)](#evaluation-quinielaevaluationwomen)
 - [Releases](#releases)
 - [Project structure](#project-structure)
@@ -1595,8 +1596,9 @@ small requests a season; soccerdata's ESPN reader asks for every match day and h
 cached in `data/cache/espn/` and saved in `data/women/espn/<season>.parquet`. **`invoke update`
 downloads the missing completed seasons and refreshes the current one** every time (a failure
 is a warning; the men's update goes on). It is not an official, documented API and has no
-odds, so everything is kept locally. ESPN also has team statistics per match (shots, shots on
-target, possession...), not used yet (see [Roadmap](#roadmap)).
+odds, so everything is kept locally. The same scoreboard has team statistics per match: the
+shots and shots on target of each team are kept (`HS`, `AS`, `HST`, `AST`, since v0.17) and
+v3F learns from them (see [v3F](#v3f--pi-ratings-with-shots-on-target-pi_ratings_shots_f)).
 
 Other sources checked: StatsBomb's open data has the Liga F of 2023-24 only; FBref, Flashscore and
 Sofascore are behind bot protection or forbid scripts; football-data.co.uk and TheSportsDB have
@@ -1642,9 +1644,44 @@ trained on every Liga F match from ESPN: home and away ratings learned from goal
 mapped to 1X2 by an ordered logistic regression fitted on the Liga F itself. On the next ticket
 it predicts each women's match trained on the matches played before the sales deadline.
 
+### v3F · Pi-ratings with shots on target (`pi_ratings_shots_f`)
+
+[`quiniela/prediction/pi_ratings_shots_f.py`](src/quiniela/prediction/pi_ratings_shots_f.py),
+registered in `WOMEN_MODELS` (since v0.17). With some 240 Liga F matches a season, goals are a
+noisy measure of how a match went; shots on target say more with the same few matches. ESPN's
+monthly scoreboard (already downloaded, `quiniela.io.espn`) has the shots and shots on target of
+each team in every finished Liga F match (`HS`, `AS`, `HST`, `AST`, every one of the 1,055 played
+since 2022-23). v3F is v2F learning from a mix of both, on the goal scale:
+
+```math
+g' = (1 - w)\,(G_h - G_a) + w\,\kappa\,(T_h - T_a), \qquad
+\kappa = \frac{\sum (G_h + G_a)}{\sum (T_h + T_a)}
+```
+
+where $G$ are the goals, $T$ the shots on target and $\kappa$ the goals per shot on target of the
+training matches (about 0.32). Everything else (ratings, learning rules, 1X2 mapping) is v2F's;
+a match without shots on target learns from its goals.
+
+**Weight.** $w$ was chosen among 0, 0.25, 0.5, 0.75 and 1 on the weekly walk-forward log-loss of
+2023-24 and 2024-25, and judged on 2025-26 and 2026-27, not used to choose it:
+
+| $w$ | Log-loss, 2023-24 and 2024-25 (choice) | Log-loss, 2025-26 and 2026-27 (test) | Hit rate (test) |
+|---|---|---|---|
+| 0 (v2F, goals only) | 0.8906 | 0.9096 | 58.2% |
+| **0.25 (v3F)** | **0.8900** | **0.9047** | **59.4%** |
+| 0.5 | 0.8904 | 0.9013 | 60.0% |
+| 1 (shots on target only) | 0.8986 | 0.8983 | 59.1% |
+
+On every Liga F match from 2023-24 (815 matches) v3F gets **59.8%** right with a log-loss of
+**0.8961** (Brier 0.5230, RPS 0.1818) against 59.3% and 0.8984 for v2F: better in 2023-24, 2025-26
+and 2026-27, slightly worse in 2024-25 (0.9537 against 0.9514). A small gain, in the right
+direction, and larger weights did even better on the test seasons; the tickets still plan the
+Liga F matches with v2F (`WOMEN_PLANNER_MODEL`): switching is pending (see the
+[Roadmap](#roadmap)).
+
 ### Evaluation (`quiniela.evaluation.women`)
 
-- **v2F and the reference** (the **result shares** of the earlier matches, always the most
+- **v2F, v3F and the reference** (the **result shares** of the earlier matches, always the most
   frequent result) predict **every Liga F match walk-forward, week by week**, trained on the
   matches played before that week; 2022-23 only trains.
 - **v1F** is scored on the ticket matches whose betting page was saved.
@@ -1687,6 +1724,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.17.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.17.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and **v3F pi-ratings with shots on target** (Liga F), tickets v3+v2F (single), v3+v2F·D2, v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New Liga F model v3F** (`pi_ratings_shots_f`): the v2F pi-ratings learned from 75% goal difference and 25% shots-on-target difference on the goal scale. The weight was chosen on 2023-24 and 2024-25 and tested on 2025-26 and 2026-27 (log-loss 0.9047 against 0.9096 for v2F); on the 815 Liga F matches since 2023-24 it gets 59.8% right (log-loss 0.8961) against 59.3% (0.8984). Shown in `evaluation.html` and the Liga F match tables; the tickets still plan with v2F. The ESPN loader now keeps the shots and shots on target of every match (`HS`, `AS`, `HST`, `AST`). |
 | [`v0.16.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.16.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), **v3+v2F·D2**, v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New small ticket v3+v2F·D2** (`v3d2`): the v3+v2F·D planner with the smallest ticket that can be played, 2 bets (1.50 €), played every matchday with its own traffic light of 12+ hits, in `current.html`, `season.html`, the euro backtest and `metrics.html`. In the euro backtest (414 real tickets) it got back 39% of its cost (one 13, four 12s), 75% on the tickets with its light green, 19% amber and 48% red (much of it luck). A backtest with 2, 4 and 8 bets showed small tickets doing better than large ones on the green matchdays (75%, 55%, 49%). |
 | [`v0.15.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.15.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New `metrics.html` and metrics dataset** (`quiniela.evaluation.ticket_metrics`, `data/metrics/matches.parquet` and `draws.parquet`): every match of every official ticket with what was known before the draw (favourite, openness, strength gap, v3 against the market and the public, best value, bookmaker spread) and every ticket with its jornada metrics (expected hits, differentiation, co-winners of a 14, planned chances), traffic lights, a first verdict (play v3+v2F·B, play small, skip) and KPIs (hits, cost, payout, net), from 2015-16 to the next ticket. The page shows the next ticket, the past ones and which metrics predict the KPIs by quintile (v3 hits 70% of the clearest matches, 36% of the most open; the 12+ chance of v3+v2F·D orders its 12+ tickets, 14% to 2%), plus the Liga F (v2F). The loaders also keep the highest odds (`Max`, `BbMx`). |
 | [`v0.14.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.14.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **v3+v2F·B counts the other winners with the public's real picks** (`PublicPrizeModel`) whenever the ticket has the shares of its 14 matches (the next ticket in `current.html`, the archived ones in `season.html`): the winners of a bet picking at random with those shares (Poisson-binomial), every match counted, the Liga F and other competitions included. On the first archived draws it matched the real winners far better than the market model (jornada 23, 14 hits: 152 real, 150 against 7.8); on the ticket of jornada 25 the chance of 1,000 € or more went from 0.19% to 0.30%. The page says which winners were used; the euro backtest keeps the market model. New `DISCARDED.todo` with the ideas discarded and their reason (Pinnacle apart and the spread between bookmakers in v3, tested and dropped); new roadmap from the brainstorming of 2026-11-27. |
@@ -1836,9 +1874,9 @@ publishes Pinnacle, and the spread did not improve v3 in a screening test).
    real picks), once there are enough archived jornadas to judge it. Done: the small ticket
    v3+v2F·D2 and a verdict per matchday (`metrics.html`); pending: review the verdict with new
    jornadas ("play v3+v2F·B" is not backed by the backtest).
-3. **Liga F: v3F with shots on target.** Pi-ratings learned from a mix of goal and
-   shots-on-target differences. ESPN's monthly scoreboard, already downloaded, has the shots on
-   target of each team (no request per match needed).
+3. **Liga F: plan the tickets with v3F?** v3F (pi-ratings with shots on target, since v0.17)
+   beats v2F by a little (59.8% against 59.3%, log-loss 0.8961 against 0.8984 on 815 matches); the
+   tickets still use v2F. Decide whether to switch `WOMEN_PLANNER_MODEL` after a few more jornadas.
 4. **Pleno al 15 from the market.** The two expected goals fitted to the 1X2 and over/under 2.5
    odds give the probability of each of the 16 Pleno scores; the public's Pleno picks (also in
    `upcoming.json`) allow picking a likely but less popular score. Its own counter (v1P, v2P...).

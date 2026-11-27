@@ -22,6 +22,7 @@ from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
 from quiniela.prediction.market_blend import MarketBlendModel
 from quiniela.prediction.pi_ratings import PiRatingsModel
+from quiniela.prediction.pi_ratings_shots_f import PiRatingsShotsModel
 from quiniela.prediction.public_picks import PublicPicksModel
 
 
@@ -127,6 +128,14 @@ WOMEN_MODELS: dict[str, ModelSpec] = {
         "differences of every Liga F match since 2022-23 (ESPN), mapped to 1X2 by an ordered "
         "logistic regression; the v4 model applied to the women's league.",
         version="v2F",
+    ),
+    "pi_ratings_shots_f": ModelSpec(
+        name="Pi-ratings + shots",
+        factory=PiRatingsShotsModel,
+        description="Liga F: the v2F pi-ratings learned from a mix of the goal difference (75%) "
+        "and the shots-on-target difference on the goal scale (25%) of every Liga F match since "
+        "2022-23 (ESPN): shots on target are a less noisy measure of a match than goals.",
+        version="v3F",
     ),
 }
 

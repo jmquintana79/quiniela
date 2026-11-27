@@ -49,6 +49,29 @@ def test_parse_events() -> None:
     assert espn.parse_events({}, "2026-27").empty
 
 
+def test_parse_events_reads_the_shots() -> None:
+    event = _event("1", "2026-11-08T11:00Z", "Barcelona", "Madrid CFF", (5, 1))
+    stats = {
+        "home": [
+            {"name": "totalShots", "displayValue": "21"},
+            {"name": "shotsOnTarget", "displayValue": "9"},
+        ],
+        "away": [
+            {"name": "totalShots", "displayValue": "6"},
+            {"name": "shotsOnTarget", "displayValue": "x"},
+        ],
+    }
+    for competitor in event["competitions"][0]["competitors"]:
+        competitor["statistics"] = stats[competitor["homeAway"]]
+    pending = _event("2", "2026-11-22T11:00Z", "Sevilla", "Eibar", None)
+    matches = espn.parse_events({"events": [event, pending]}, "2026-27")
+    played = matches.iloc[0]
+    assert (played["HS"], played["AS"], played["HST"]) == (21, 6, 9)
+    # A statistic that is not a number is missing; matches not played have none
+    assert pd.isna(played["AST"])
+    assert matches.iloc[1][["HS", "AS", "HST", "AST"]].isna().all()
+
+
 def test_update_downloads_missing_seasons_and_caches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

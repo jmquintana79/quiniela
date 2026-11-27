@@ -91,9 +91,10 @@ def test_results_backtest_walks_forward() -> None:
     )
     matches = pd.concat([first, second], ignore_index=True)
     predictions = results_backtest(matches)
-    # The first season only trains; v2F and the reference predict the second one
+    # The first season only trains; v2F, v3F and the reference predict the second one
+    # (the simulated matches have no shots: v3F learns from the goals, like v2F)
     assert set(predictions["season"]) == {"2023-24"}
-    assert set(predictions["model"]) == {"pi_ratings_f", "liga_f_shares"}
+    assert set(predictions["model"]) == {"pi_ratings_f", "pi_ratings_shots_f", "liga_f_shares"}
     summary = summarize_women(predictions)
     scores = summary["results"]["all"]
     assert scores["pi_ratings_f"]["log_loss"] < scores["liga_f_shares"]["log_loss"]
@@ -117,6 +118,10 @@ def test_history_keeps_only_the_liga_f(tmp_path: Path) -> None:
                 1.0,
                 1.0,
                 "D",
+                12.0,
+                9.0,
+                5.0,
+                3.0,
                 "STATUS_FULL_TIME",
                 "1",
             ]

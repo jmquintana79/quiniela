@@ -151,6 +151,15 @@ class PiRatingsModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
         ratings[team] = start
         return start
 
+    def _signal(self, X: pd.DataFrame) -> np.ndarray:
+        """Performance the ratings learn from: the goal difference of each match.
+
+        Subclasses may learn from another measure on the same goal scale (v3F:
+        a mix of goals and shots on target).
+        """
+        signal: np.ndarray = X["FTHG"].to_numpy(dtype=float) - X["FTAG"].to_numpy(dtype=float)
+        return signal
+
     def _replay(self, X: pd.DataFrame) -> np.ndarray:
         """Replay the matches in date order; returns the pre-match predicted goal difference."""
         ratings: dict[str, list[float]] = {}
@@ -161,7 +170,7 @@ class PiRatingsModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
         seasons = X["season"].astype(str).to_numpy()[order]
         homes = X["home_team"].to_numpy()[order]
         aways = X["away_team"].to_numpy()[order]
-        goals = (X["FTHG"].to_numpy(dtype=float) - X["FTAG"].to_numpy(dtype=float))[order]
+        goals = self._signal(X)[order]
         lam, gamma, b, c = self.learning_rate, self.catch_up, self.base, self.scale
         predicted = np.empty(len(X))
         for i in range(len(X)):

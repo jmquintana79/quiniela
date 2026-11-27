@@ -605,6 +605,7 @@ def test_liga_f_payload_scores_v1f_apart() -> None:
     assert [m["key"] for m in payload["models"]] == [
         "public_picks",
         "pi_ratings_f",
+        "pi_ratings_shots_f",
         "liga_f_shares",
     ]
     results = payload["results"]["all"]

@@ -5,7 +5,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
   2. Dataset de métricas y KPIs por partido y por jornada, y su página.
   3. Boleto que combina acierto y reparto (dobles, triples y reducciones) y veredicto
      por jornada.
-  4. v3F: Liga F con tiros a puerta.
+  4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; falta decidir si planifica).
   5. Pleno al 15: marcador según el mercado y diferenciación con el público.
   6. Elo de selecciones para los partidos "otros".
   7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
@@ -202,11 +202,16 @@ Tareas:
     y otras competiciones van como "otras").
   ✔ season.html por boletos oficiales con los cuatro boletos v3+v2F (aciertos, categoría
     y premio real); current.html solo con los boletos y aviso de boleto que falta.
-  ☐ v3F: pi-ratings aprendiendo de una mezcla de goles y tiros a puerta,
-    α·Δgoles + (1 − α)·κ·Δtiros a puerta (κ pasa los tiros a escala de goles, α se
-    ajusta en el backtest semanal); compararlo con v2F. Los tiros a puerta vienen
-    en el mismo scoreboard mensual que ya se descarga (statistics de cada
-    competidor: shotsOnTarget, totalShots...): no hace falta summary?event=<id>.
+  ✔ v3F (pi_ratings_shots_f, v0.17.0): pi-ratings aprendiendo de
+    (1 − w)·Δgoles + w·κ·Δtiros a puerta, con w = 0,25 elegido en 2023-24 y 2024-25
+    (log-loss 0,8900 frente a 0,8906 con w = 0) y probado en 2025-26 y 2026-27
+    (0,9047 frente a 0,9096 de v2F; acierto 59,4 % frente a 58,2 %). En los 815
+    partidos desde 2023-24: 59,8 % y 0,8961 frente a 59,3 % y 0,8984 de v2F. ESPN
+    guarda ahora tiros y tiros a puerta (HS, AS, HST, AST) de cada partido, del mismo
+    scoreboard mensual (no hizo falta summary?event=<id>).
+  ☐ Decidir si los boletos planifican la Liga F con v3F (WOMEN_PLANNER_MODEL) tras
+    unas jornadas más; pesos mayores (0,5) fueron aún mejores en las temporadas de
+    prueba, pero no se eligen sobre las mismas temporadas que los juzgan.
   ☐ Revisar la comparación v1F vs v2F cuando tenga suficientes partidos, por si el
     público resultara mejor (jornada 21: 4 partidos, empate a 2 aciertos).
   ✔ ·B apunta a 1.000 € o más (antes 10.000 €); semáforos en una tabla de

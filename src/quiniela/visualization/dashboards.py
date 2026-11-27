@@ -886,11 +886,12 @@ def liga_f_payload(
         ``common_contingency`` (all of them on the ticket matches with public
         picks), keyed by season (``"all"``) and model; ``data`` (per season:
         ESPN matches and results, ticket matches, public picks) and
-        ``matches`` (the ticket matches with the v1F and v2F picks).
+        ``matches`` (the ticket matches with the v1F, v2F and v3F picks).
     """
     from quiniela.evaluation.women import (
         PI_KEY,
         SHARES_SPEC,
+        SHOTS_KEY,
         summarize_women,
         upcoming_predictions,
         women_predictions,
@@ -960,6 +961,12 @@ def liga_f_payload(
             pi_rows.index, pi_rows[["p_H", "p_D", "p_A"]].to_numpy(dtype=float), strict=True
         )
     }
+    # v3F (pi-ratings with shots on target): the same, for comparison next to v2F
+    shots_rows = predictions[predictions["model"] == SHOTS_KEY].set_index("game")
+    if not espn.empty:
+        future = upcoming_predictions(espn, key=SHOTS_KEY).dropna(subset=["prediction"])
+        shots_rows = pd.concat([shots_rows, future.set_index("game")[["prediction"]]])
+    v3f = shots_rows[~shots_rows.index.duplicated(keep="last")]["prediction"].to_dict()
     picks = _liga_f_picks(history)
     matches = []
     for row in history.sort_values(["date", "position"], ascending=[False, True]).itertuples():
@@ -981,6 +988,7 @@ def liga_f_payload(
                     if probs is not None
                     else None,
                     PI_KEY: v2f.get(row.espn_game) if isinstance(row.espn_game, str) else None,
+                    SHOTS_KEY: v3f.get(row.espn_game) if isinstance(row.espn_game, str) else None,
                     "p_v2f": v2f_probs.get(row.espn_game)
                     if isinstance(row.espn_game, str)
                     else None,

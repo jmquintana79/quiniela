@@ -11,7 +11,9 @@ Every month is cached in ``data/cache/espn/`` (completed months are never
 asked again) and every season is saved in ``data/women/espn/<season>.parquet``
 with the same columns as the men's matches: ``league`` (``LIGAF``),
 ``season``, ``game``, ``date``, ``home_team``, ``away_team``, ``FTHG``,
-``FTAG``, ``FTR``, plus ``status`` and ``espn_id``.
+``FTAG``, ``FTR``, the shots and shots on target of each team (``HS``, ``AS``,
+``HST``, ``AST``, as football-data names them; the scoreboard has them for every
+finished match), plus ``status`` and ``espn_id``.
 
 The endpoint is not an official, documented API: it may change without
 notice, so everything downloaded is kept locally.
@@ -58,9 +60,27 @@ COLUMNS = [
     "FTHG",
     "FTAG",
     "FTR",
+    "HS",
+    "AS",
+    "HST",
+    "AST",
     "status",
     "espn_id",
 ]
+
+# Team statistics of the scoreboard kept for every finished match: column -> ESPN name
+STATISTICS = {"S": "totalShots", "ST": "shotsOnTarget"}
+
+
+def _statistic(competitor: dict[str, Any], name: str) -> float | None:
+    """A team statistic of a scoreboard match (``None`` when missing)."""
+    for item in competitor.get("statistics") or []:
+        if item.get("name") == name:
+            try:
+                return float(item.get("displayValue"))
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def season_label(start: int) -> str:
@@ -102,7 +122,7 @@ def parse_events(data: dict[str, Any], season: str) -> pd.DataFrame:
         season: Season label of its matches.
 
     Returns:
-        One row per match with ``COLUMNS`` (scores empty unless finished).
+        One row per match with ``COLUMNS`` (scores and statistics empty unless finished).
     """
     rows = []
     for event in data.get("events", []) or []:
@@ -127,6 +147,13 @@ def parse_events(data: dict[str, Any], season: str) -> pd.DataFrame:
                 "FTHG": home_goals,
                 "FTAG": away_goals,
                 "FTR": result,
+                **{
+                    f"{side[0].upper()}{column}": _statistic(sides[side], name)
+                    if finished
+                    else None
+                    for column, name in STATISTICS.items()
+                    for side in ("home", "away")
+                },
                 "status": status,
                 "espn_id": str(event["id"]),
             }
