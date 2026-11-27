@@ -142,8 +142,44 @@ def _prior(matches: pd.DataFrame) -> np.ndarray:
     return np.array([float(shares.get(o, 1 / 3)) for o in OUTCOMES])
 
 
+def _pleno_picks(
+    backtest: pd.DataFrame, matched: pd.DataFrame, matches: pd.DataFrame
+) -> pd.DataFrame:
+    """Pleno al 15 pick of the 15th match of every ticket: the market's (v2P), else Dixon-Coles'.
+
+    Args:
+        backtest: Walk-forward predictions (Dixon-Coles' ``pleno_home``, ``pleno_away``).
+        matched: Ticket matches linked to football-data.
+        matches: football-data matches with the 1X2 and over / under 2.5 odds.
+
+    Returns:
+        ``league``, ``game``, ``pleno_home``, ``pleno_away`` of the 15th matches.
+    """
+    from quiniela.prediction.pleno import market_pleno
+
+    dixon_coles = backtest[backtest["model"] == "dixon_coles"][
+        ["league", "game", "pleno_home", "pleno_away"]
+    ].drop_duplicates(["league", "game"])
+    fifteenth = (
+        matched.loc[matched["position"] == 15, ["league", "game"]].dropna().drop_duplicates()
+    )
+    rows = fifteenth.merge(matches, on=["league", "game"], how="left").drop_duplicates(
+        ["league", "game"]
+    )
+    market = pd.concat([rows[["league", "game"]], market_pleno(rows)], axis=1)
+    market = market.dropna(subset=["pleno_home"])[["league", "game", "pleno_home", "pleno_away"]]
+    known = set(zip(market["league"], market["game"], strict=True))
+    rest = dixon_coles[
+        [
+            (lg, g) not in known
+            for lg, g in zip(dixon_coles["league"], dixon_coles["game"], strict=True)
+        ]
+    ]
+    return pd.concat([market, rest], ignore_index=True)
+
+
 def _pleno_hit(row: pd.Series, picks: pd.DataFrame) -> bool:
-    """Whether the Dixon-Coles Pleno al 15 pick of the 15th match was right."""
+    """Whether the Pleno al 15 pick of the 15th match (v2P, else v1P) was right."""
     if pd.isna(row.get("game")) or pd.isna(row.get("FTHG")):
         return False
     pick = picks[(picks["league"] == row["league"]) & (picks["game"] == row["game"])]
@@ -295,9 +331,7 @@ def money_backtest(
     info[amounts] = info[amounts].fillna(0)
 
     probs = backtest[backtest["model"] == model_key][["league", "game", "p_H", "p_D", "p_A"]]
-    picks = backtest[backtest["model"] == "dixon_coles"][
-        ["league", "game", "pleno_home", "pleno_away"]
-    ]
+    picks = _pleno_picks(backtest, matched, matches)
     crowd = _match_probabilities(matches)
     playable = matched.merge(probs, on=["league", "game"], how="left").merge(
         crowd, on=["league", "game"], how="left"

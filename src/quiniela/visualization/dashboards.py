@@ -601,6 +601,29 @@ def _season_tickets(
     women_picks = _liga_f_picks(liga_f)
     # The public's shares of the 14 matches of every archived ticket: the winners of v3+v3F·B
     public_shares = load_public_shares()
+    # Pleno al 15 of the market (v2P) of every 15th match with 1X2 and over / under odds
+    from quiniela.prediction.pleno import market_pleno
+
+    fifteenth = {
+        (m["league"], m["game"])
+        for t in tickets
+        for m in t["matches"]
+        if m["position"] == 15 and m.get("game")
+    }
+    rows = current[
+        [(lg, g) in fifteenth for lg, g in zip(current["league"], current["game"], strict=True)]
+    ]
+    plenos: dict[tuple[str, str], list[str]] = {}
+    if not rows.empty:
+        picks = market_pleno(rows)
+        for (lg, g), home, away in zip(
+            zip(rows["league"], rows["game"], strict=True),
+            picks["pleno_home"],
+            picks["pleno_away"],
+            strict=True,
+        ):
+            if isinstance(home, str):
+                plenos[(lg, g)] = [home, away]
     # v2F and v3F: the pi-ratings picks of each Liga F match (from the Liga F block of the page),
     # and the probabilities of the tickets' Liga F model (WOMEN_PLANNER_MODEL, v3F)
     planner_probs = {"pi_ratings_f": "p_v2f", "pi_ratings_shots_f": "p_v3f"}[WOMEN_PLANNER_MODEL]
@@ -617,8 +640,12 @@ def _season_tickets(
                 if k != "market"
             }
             if match["position"] == 15:
+                # v2P (the market's expected goals) when the match has its odds, else v1P
+                market_pick = plenos.get(index)
                 dc = stored.get("dixon_coles")
-                if (
+                if market_pick is not None:
+                    match["pleno_pick"] = market_pick
+                elif (
                     dc is not None
                     and index in dc.index
                     and not pd.isna(dc.loc[index, "pleno_home"])

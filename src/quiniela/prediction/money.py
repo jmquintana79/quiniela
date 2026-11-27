@@ -114,8 +114,9 @@ DEFAULT_MAX_BETS = 48
 DEFAULT_SIMULATIONS = 4000
 DEFAULT_CANDIDATES = 60
 
-# Chance of hitting the Pleno al 15 with the Dixon-Coles pick (backtest hit rate)
-PLENO_HIT_RATE = 0.145
+# Chance of hitting the Pleno al 15 with the market pick (v2P, backtest hit rate 2015-16 to
+# 2025-26; 0.145 with Dixon-Coles' pick, v1P, until v0.18)
+PLENO_HIT_RATE = 0.155
 
 # Weight of the 14-hit and Pleno al 15 prizes in the decision (prudent: none). They
 # are a few-per-thousand lottery whose value the backtest cannot check, and the

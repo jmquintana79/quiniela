@@ -107,8 +107,14 @@
     const p = DATA.pleno;
     if (!p) return "";
     const pick = p.pick_home ? `${p.pick_home} - ${p.pick_away}` : "–";
-    const source = p.source === "model" ? "Dixon-Coles' most likely goals categories"
+    const source = p.source === "market" ? `the market's most likely goals categories (v2P: expected goals from the 1X2 and over/under 2.5 odds${p.prob != null ? `, ${pct(p.prob, 1)} likely` : ""})`
+      : p.source === "model" ? "Dixon-Coles' most likely goals categories (v1P: no over/under odds yet)"
       : p.source === "public" ? "the categories the public marks most (no model for this match)" : "no data";
+    const v = p.value;
+    const value = v && (v.home !== p.pick_home || v.away !== p.pick_away)
+      ? ` Best value against the public: <strong>${esc(v.home)} - ${esc(v.away)}</strong>, ${pct(v.prob, 1)} likely and marked by about ${pct(v.public, 1)} of the bets` +
+        ` (${v.ratio.toFixed(1)} times more likely than marked): a smaller chance of the Pleno, shared with fewer winners.`
+      : v ? " It is also the best value against the public's picks." : "";
     const share = (shares, c) => shares && shares[c] != null ? ` (${shares[c]}% of the public)` : "";
     const hit = p.result ? (p.result[0] === p.pick_home && p.result[1] === p.pick_away) : null;
     const cell = !p.pick_home ? '<span class="pick none">–</span>'
@@ -116,14 +122,14 @@
         `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
     return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
       <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
-        <th class="num">Pick on the v3, v3+v3F·D, v3+v3F·R and v3+v3F·B tickets</th></tr></thead><tbody><tr>
+        <th class="num">Pick on every v3+v3F ticket</th></tr></thead><tbody><tr>
         <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
         <td class="num">${cell}</td></tr></tbody></table>
       <p class="meta" style="margin:6px 0 0">Goals categories 0, 1, 2 and M (3 or more) of each team. Pick: ${esc(source)}:
         ${esc(p.home)} ${esc(p.pick_home ?? "–")}${share(p.public_home, p.pick_home)},
-        ${esc(p.away)} ${esc(p.pick_away ?? "–")}${share(p.public_away, p.pick_away)}.</p>`;
+        ${esc(p.away)} ${esc(p.pick_away ?? "–")}${share(p.public_away, p.pick_away)}.${value}</p>`;
   }
 
   // Price of each ticket (14 matches + Pleno al 15), shown under the Pleno al 15

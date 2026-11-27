@@ -34,9 +34,10 @@ dashboards. See [Predictive models](#predictive-models) and [Releases](#releases
   - [v3 · Dixon-Coles + market (`market_blend`)](#v3--dixon-coles--market-market_blend)
   - [v4 · Pi-ratings (`pi_ratings`)](#v4--pi-ratings-pi_ratings)
   - [Consensus of the models (tested, not used)](#consensus-of-the-models-tested-not-used)
-  - [v3+v3F·D · Direct ticket (`planner`)](#v3v2fd--direct-ticket-planner)
-  - [v3+v3F·R · Reduced ticket (`reduced`)](#v3v2fr--reduced-ticket-reduced)
-  - [v3+v3F·E and v3+v3F·B · Money tickets (`money`)](#v3v2fe-and-v3v2fb--money-tickets-money)
+  - [v3+v3F·D · Direct ticket (`planner`)](#v3v3fd--direct-ticket-planner)
+  - [v3+v3F·R · Reduced ticket (`reduced`)](#v3v3fr--reduced-ticket-reduced)
+  - [v3+v3F·E and v3+v3F·B · Money tickets (`money`)](#v3v3fe-and-v3v3fb--money-tickets-money)
+  - [v2P · Pleno al 15 from the market (`pleno`)](#v2p--pleno-al-15-from-the-market-pleno)
   - [Next steps](#next-steps)
 - [Liga F (women's league)](#liga-f-womens-league)
   - [Data](#data)
@@ -245,10 +246,10 @@ range, 2015-16 to 2025-26, has 9,262 matches, all but 21 with bookmaker odds; th
 about four minutes using every CPU core (v3 most of it). Predictions go to
 `data/backtest/predictions.parquet` and the metrics are printed and shown in the evaluation
 dashboard. Each matchday's 14-match ticket is also replayed with doubles and triples (no
-doubles, random, by eye, optimal and [v3+v3F·D](#v3v2fd--direct-ticket-planner)); those tickets go to
+doubles, random, by eye, optimal and [v3+v3F·D](#v3v3fd--direct-ticket-planner)); those tickets go to
 `data/backtest/tickets.parquet` and their prizes are printed after the metrics. With the
 [official draws](#official-draws-real-tickets-winners-and-prizes) saved in `data/lae/`, the
-real tickets are then played in euros ([v3+v3F·E and v3+v3F·B](#v3v2fe-and-v3v2fb--money-tickets-money), about five more minutes)
+real tickets are then played in euros ([v3+v3F·E and v3+v3F·B](#v3v3fe-and-v3v3fb--money-tickets-money), about five more minutes)
 into `data/backtest/money.parquet` (the big-win mode makes this the slowest part: some fifteen
 minutes or more). See [Evaluation](#evaluation).
 
@@ -522,7 +523,7 @@ almost never marks X, has the lowest.
 
 The evaluation dashboard shows these tables for every model (with the league and season
 filters) and, for the **v3 tickets**, the same table on the official tickets of the
-[euro backtest](#v3v2fe-and-v3v2fb--money-tickets-money) with the signs each ticket marked as columns
+[euro backtest](#v3v3fe-and-v3v3fb--money-tickets-money) with the signs each ticket marked as columns
 (1, X, 2, the doubles 1X, 12, X2 and the triple 1X2):
 
 | Ticket | Observed | 1 | X | 2 | 1X | 12 | X2 | 1X2 | Covered |
@@ -598,7 +599,7 @@ should be close to its average confidence. In the backtest (hit rate, share of m
 For v3 the average confidence of the high tier is 69.9% and it hits 70.8% of those matches:
 its confidence can be read at face value. v1's cannot: it says 68% and hits 51%, because its
 probabilities are too extreme. Those probabilities, and so the confidence, drive the
-doubles and triples of [v3+v3F·D](#v3v2fd--direct-ticket-planner).
+doubles and triples of [v3+v3F·D](#v3v3fd--direct-ticket-planner).
 
 The metrics are implemented in
 [`quiniela/evaluation/metrics.py`](src/quiniela/evaluation/metrics.py) and the backtest in
@@ -706,7 +707,7 @@ metrics would be v3's. They cost up to 48 bets a matchday, against 1 for the oth
 prize tickets count the hits of its best column (a reduction does not play every combination).*
 
 *Real draws: 28.3%. Always "1": 45.3%. Exact score and Pleno al 15 hit rates of v2: 14.1% and
-14.5%. The market is evaluated on the 9,241 matches with odds; v3 on all 9,262 (Dixon-Coles
+14.5% (v1P; the market's Pleno, v2P, 15.5%: see [v2P](#v2p--pleno-al-15-from-the-market-pleno)). The market is evaluated on the 9,241 matches with odds; v3 on all 9,262 (Dixon-Coles
 alone in the other 21).*
 
 By league (hit rate / log-loss):
@@ -1170,7 +1171,7 @@ show that the 10-hit prize is often not paid (below 1.50 €), so securing it is
 ticket: La Liga then Segunda), with the v3 signs, played in seven ways. Every strategy but the
 first spends the same budget, 4 doubles and 1 triple (48 bets); v3+v3F·D also chooses the mix within
 48 bets; random placements are averaged over 20 draws. Prizes are counted here; the
-[euros](#v3v2fe-and-v3v2fb--money-tickets-money) come with v3+v3F·E and v3+v3F·B, on the real tickets:
+[euros](#v3v3fe-and-v3v3fb--money-tickets-money) come with v3+v3F·E and v3+v3F·B, on the real tickets:
 
 | Strategy | Bets | Prizes (10+) | 14 | 13 | 12 | 11 | 10 | Mean hits | Planned chance of a prize | Real prize rate |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -1181,7 +1182,7 @@ first spends the same budget, 4 doubles and 1 triple (48 bets); v3+v3F·D also c
 | Optimal, aiming at 10+ hits (v3+v3F·D until v0.4.0) | 48 | 159 / 376 | 0 | 6 | 26 | 55 | 72 | 9.15 | 41.3% | 42.3% |
 | Optimal, aiming at 11+ hits | 48 | 156 / 376 | 0 | 8 | 24 | 55 | 69 | 9.16 | 41.3% | 41.5% |
 | **v3+v3F·D** (best direct mix within 48 bets, 11+) | 47.9 | 156 / 376 | 0 | 8 | 24 | 54 | 70 | 9.16 | 41.3% | 41.5% |
-| **v3+v3F·R** (best direct or reduced ticket within 48 bets, 11+, see [v3+v3F·R](#v3v2fr--reduced-ticket-reduced)) | 48 | **191 / 376** | 0 | 6 | 36 | 65 | 84 | 9.56 | 50.0% | 50.8% |
+| **v3+v3F·R** (best direct or reduced ticket within 48 bets, 11+, see [v3+v3F·R](#v3v3fr--reduced-ticket-reduced)) | 48 | **191 / 376** | 0 | 6 | 36 | 65 | 84 | 9.56 | 50.0% | 50.8% |
 
 Aiming at 11+ trades a few 10-hit tickets (70 against 76) for a few more of 11 or more (86
 against 84): the prizes that are always paid.
@@ -1206,7 +1207,7 @@ against 84): the prizes that are always paid.
   376 matchdays (random placements, 0.25 on average), and the 14-hit target loses prizes in
   the lower categories.
 - The prizes are counted, not their money: the lower categories, the ones doubles and triples
-  win most, pay the least. In euros (real tickets and prizes, see [v3+v3F·E and v3+v3F·B](#v3v2fe-and-v3v2fb--money-tickets-money))
+  win most, pay the least. In euros (real tickets and prizes, see [v3+v3F·E and v3+v3F·B](#v3v3fe-and-v3v3fb--money-tickets-money))
   v3+v3F·D loses about two thirds of what it spends.
 
 **v3+v3F·D2 · the small ticket** (`v3d2`, since v0.16). The same planner with the smallest ticket
@@ -1458,8 +1459,8 @@ bets (average of the last five draws) and the announced jackpot.
 | v3+v3F·D: 48 bets (direct), 11+, every draw | 414 | 14,895 € | 5,270 € | -9,625 € | 35% | 1,213 € | 5 / 20 / 44 / 91 |
 | v3+v3F·R: 48 bets (direct or reduced), 11+, every draw | 414 | 14,904 € | 7,268 € | -7,636 € | 49% | 985 € | 3 / 30 / 56 / 91 |
 | **v3+v3F·E (prudent): only when 10-13 hits pay** | **0** | 0 € | 0 € | **0 €** | – | – | – |
-| v3+v3F·E counting 14 hits and the Pleno al 15 | 143 | 3,921 € | 1,579 € | -2,342 € | 40% | 227 € | 2 / 7 / 13 / 25 |
-| Full v3+v3F·E ticket every draw | 414 | 9,908 € | 4,160 € | -5,748 € | 42% | 1,213 € | 3 / 16 / 37 / 66 |
+| v3+v3F·E counting 14 hits and the Pleno al 15 | 150 | 4,124 € | 1,554 € | -2,570 € | 38% | 227 € | 2 / 7 / 14 / 27 |
+| Full v3+v3F·E ticket every draw | 414 | 10,026 € | 4,110 € | -5,916 € | 41% | 1,213 € | 3 / 16 / 37 / 66 |
 | v3+v3F·B: best chance of 1,000+ € within 50 €, every draw | 414 | 19,857 € | 6,907 € | -12,950 € | 35% | 497 € | 5 / 25 / 53 / 70 |
 
 *Return: euros won per euro spent; the quiniela gives back 55% on average to all players. Only
@@ -1564,6 +1565,43 @@ give the opposite. When they disagree, a line under the table says which kind of
 **No traffic light makes the quiniela profitable**: they only compare matchdays with each other,
 and every ticket loses money on average; the dashboard says so in red under the table, with the
 rule in small print.
+
+### v2P · Pleno al 15 from the market (`pleno`)
+
+[`quiniela/prediction/pleno.py`](src/quiniela/prediction/pleno.py) (since v0.19). The Pleno al
+15 is the exact score of one match in goals categories, 0, 1, 2 or M (3 or more) for each team:
+16 possible picks, one per ticket, the same on every v3+v3F ticket. It has its own counter with a
+**P**: **v1P** is Dixon-Coles' most likely pair of categories (v2's score matrix, until v0.18),
+**v2P** the market's.
+
+**Expected goals from the odds.** The 1X2 odds and the over / under 2.5 goals odds (margin
+removed), $m_1, m_X, m_2$ and $m_{>2.5}$, fix the two expected goals $\lambda_h, \lambda_a$ of a
+Poisson score model with the Dixon-Coles correction of the low scores ($\rho = -0.05$, chosen on
+2010-11 to 2014-15, before the backtest):
+
+```math
+\min_{\lambda_h, \lambda_a} \; -\sum_{k \in \{1, X, 2\}} m_k \log P_k
+- m_{>2.5} \log P_{>2.5} - (1 - m_{>2.5}) \log (1 - P_{>2.5})
+```
+
+The score matrix gives the 16 probabilities and the pick is the most likely pair. Without the
+over / under odds (e.g. before football-data publishes the fixtures) the pick is v1P's.
+
+| 2015-16 to 2025-26 | v1P (Dixon-Coles) | v2P (market) |
+|---|---|---|
+| Every La Liga / Segunda match with both odds (9,241) | 14.5% | **15.5%** (better in all 11 seasons) |
+| The real Plenos al 15 of the official tickets (428) | **18.5%** (79) | 17.8% (76) |
+
+The ticket Plenos are a small sample of the same matches (three Plenos apart, within luck: about
+eight either way); on every match v2P is a point better every season, so it is the pick. The
+prize model counts its hit rate (`PLENO_HIT_RATE`, 15.5%; 14.5% with v1P).
+
+**Against the public.** The Pleno al 15 only pays with 14 hits, and then it is shared among the
+bets that hit it too. The betting page has the public's share of each category of each team; if
+the bets pick each team independently, a pair $(c_h, c_a)$ is marked by $s^h_{c_h} s^a_{c_a}$ of
+them. `current.html` also shows the **best value** pick, the pair with the highest
+$P(c_h, c_a) / (s^h_{c_h} s^a_{c_a})$: a less likely but less shared score, the most expected
+Pleno prize for the 14-hit tickets. It is shown, not played: the ticket keeps the most likely pair.
 
 ### Next steps
 
@@ -1725,6 +1763,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.19.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.19.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), Pleno al 15 v1P (Dixon-Coles) and **v2P (market)**, tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **The Pleno al 15 from the market (v2P)**, `quiniela.prediction.pleno`: expected goals fitted to the 1X2 and over / under 2.5 odds, Poisson with the Dixon-Coles correction ($\rho = -0.05$), the most likely pair of goals categories. It hits 15.5% of the Plenos against 14.5% for v1P on 9,241 matches (better in all 11 seasons) and is the tickets' pick (v1P without odds). The next ticket also shows its probability and the best-value pick against the public. The over / under odds are now kept in the match table. |
 | [`v0.18.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.18.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **The tickets plan the Liga F matches with v3F** (`WOMEN_PLANNER_MODEL`, v2F until v0.17.0): it beats v2F on every overall metric (59.8% against 59.3%, log-loss 0.8961 against 0.8984 on 815 matches) and out of sample. The tickets are renamed v3+v3F (·D2, ·D, ·R, ·B, ·E; v3+v2F from v0.12.0 to v0.17.0). The next ticket gets the v2F and v3F predictions of its Liga F matches, and the season tickets show both picks. |
 | [`v0.17.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.17.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and **v3F pi-ratings with shots on target** (Liga F), tickets v3+v2F (single), v3+v2F·D2, v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New Liga F model v3F** (`pi_ratings_shots_f`): the v2F pi-ratings learned from 75% goal difference and 25% shots-on-target difference on the goal scale. The weight was chosen on 2023-24 and 2024-25 and tested on 2025-26 and 2026-27 (log-loss 0.9047 against 0.9096 for v2F); on the 815 Liga F matches since 2023-24 it gets 59.8% right (log-loss 0.8961) against 59.3% (0.8984). Shown in `evaluation.html` and the Liga F match tables; the tickets still plan with v2F. The ESPN loader now keeps the shots and shots on target of every match (`HS`, `AS`, `HST`, `AST`). |
 | [`v0.16.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.16.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), **v3+v2F·D2**, v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New small ticket v3+v2F·D2** (`v3d2`): the v3+v2F·D planner with the smallest ticket that can be played, 2 bets (1.50 €), played every matchday with its own traffic light of 12+ hits, in `current.html`, `season.html`, the euro backtest and `metrics.html`. In the euro backtest (414 real tickets) it got back 39% of its cost (one 13, four 12s), 75% on the tickets with its light green, 19% amber and 48% red (much of it luck). A backtest with 2, 4 and 8 bets showed small tickets doing better than large ones on the green matchdays (75%, 55%, 49%). |
@@ -1867,7 +1906,7 @@ publishes Pinnacle, and the spread did not improve v3 in a screening test).
 
 1. **The public's real picks in the prize model, and the metrics: keep checking them.** v3+v3F·B now counts the
    winners with the public's real shares whenever the ticket has them (see
-   [money tickets](#v3v2fe-and-v3v2fb--money-tickets-money)); three archived draws agree with them
+   [money tickets](#v3v3fe-and-v3v3fb--money-tickets-money)); three archived draws agree with them
    far better than with the market model. Pending: check it again with every archived draw, and
    the ·E ticket (backtest only, with no shares before 2026-27); the same for the public's
    metrics of `metrics.html` (19 ticket matches with results so far) and the verdicts.
@@ -1876,13 +1915,10 @@ publishes Pinnacle, and the spread did not improve v3 in a screening test).
    real picks), once there are enough archived jornadas to judge it. Done: the small ticket
    v3+v3F·D2 and a verdict per matchday (`metrics.html`); pending: review the verdict with new
    jornadas ("play v3+v3F·B" is not backed by the backtest).
-3. **Pleno al 15 from the market.** The two expected goals fitted to the 1X2 and over/under 2.5
-   odds give the probability of each of the 16 Pleno scores; the public's Pleno picks (also in
-   `upcoming.json`) allow picking a likely but less popular score. Its own counter (v1P, v2P...).
-4. **National-team Elo** for the national-team matches of the tickets, played today with the
+3. **National-team Elo** for the national-team matches of the tickets, played today with the
    public's picks: eloratings.net (yearly files with every match and both Elo ratings),
    `martj42/international_results` and ESPN.
-5. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
+4. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
    the European leagues of football-data, linked by ESPN's European cup matches (Champions League
    since at least 2006). Matching team names between sources is the main cost.
 

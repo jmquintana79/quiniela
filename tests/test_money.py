@@ -236,3 +236,34 @@ def test_big_win_with_public_shares(model: money.PrizeModel) -> None:
     assert 0 <= agrees.chance <= 1
     assert contrary.cost <= money.BIG_WIN_MAX_COST
     assert contrary.chance > agrees.chance
+
+
+def test_pleno_picks_prefer_the_market() -> None:
+    matched = pd.DataFrame(
+        {"position": [15, 15, 3], "league": ["SP1", "SP1", "SP1"], "game": ["a", "b", "c"]}
+    )
+    matches = pd.DataFrame(
+        {
+            "league": ["SP1", "SP1", "SP1"],
+            "game": ["a", "b", "c"],
+            "AvgH": [1.25, 2.0, 2.0],
+            "AvgD": [6.5, 3.4, 3.4],
+            "AvgA": [12.0, 4.0, 4.0],
+            "Avg>2.5": [1.45, np.nan, 1.9],
+            "Avg<2.5": [2.8, np.nan, 1.9],
+        }
+    )
+    backtest = pd.DataFrame(
+        {
+            "model": "dixon_coles",
+            "league": "SP1",
+            "game": ["a", "b", "c"],
+            "pleno_home": ["0", "1", "1"],
+            "pleno_away": ["0", "1", "1"],
+        }
+    )
+    picks = backtest_money._pleno_picks(backtest, matched, matches).set_index("game")
+    # Match a has over / under odds: the market's pick (a heavy home favourite)
+    assert picks.loc["a", "pleno_home"] in {"2", "M"} and picks.loc["a", "pleno_away"] == "0"
+    # Match b has none: Dixon-Coles' pick
+    assert (picks.loc["b", "pleno_home"], picks.loc["b", "pleno_away"]) == ("1", "1")

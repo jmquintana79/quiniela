@@ -45,7 +45,9 @@ model is evaluated with a walk-forward backtest against the betting market.
   ESPN, `quiniela.io.espn`; v3F the same learned from goals and shots on target,
   `quiniela.prediction.pi_ratings_shots_f`; all in `WOMEN_MODELS`), with
   their own history (`quiniela.data.women`: `data/women/liga_f.parquet` and the archived
-  next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). Every
+  next tickets in `data/lae/public/`) and evaluation (`quiniela.evaluation.women`). The **Pleno
+  al 15** has its own counter with a P: v1P Dixon-Coles' most likely goals categories, v2P the
+  market's (`quiniela.prediction.pleno`, the tickets' pick since v0.19). Every
   dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`
   sections, `tableOfContents()` in `base.js`). Tickets are decision layers, not registered
   models, written as the models whose probabilities they use plus a letter: **·D** direct

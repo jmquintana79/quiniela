@@ -439,14 +439,18 @@ def _pleno_pick(
 ) -> dict[str, Any] | None:
     """Pick of the Pleno al 15 of the next ticket: goals category (0, 1, 2, M) of each team.
 
-    A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
-    (from its score matrix); any other match, the categories the public marks
-    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v3F·D, v3+v3F·R and v3+v3F·B
-    tickets (the Pleno al 15 is a single match: no doubles).
+    A La Liga / Segunda match gets the market's most likely pair of categories
+    (v2P, ``quiniela.prediction.pleno``: expected goals fitted to its 1X2 and over /
+    under 2.5 odds) or, without those odds, Dixon-Coles' (v1P, from its score
+    matrix); any other match, the categories the public marks most ("Pronósticos
+    más apostados"). The same pick goes on every v3+v3F ticket (the Pleno al 15 is
+    a single match: no doubles).
 
     Returns:
         ``home``, ``away``, ``category`` (M, F, O), ``pick_home``,
-        ``pick_away``, ``source`` (``model`` or ``public``), the public's
+        ``pick_away``, ``source`` (``market``, ``model`` or ``public``),
+        ``prob`` (the pick's probability, v2P), ``value`` (the best-value pick
+        against the public's shares, v2P with the public's picks), the public's
         shares and ``result`` (categories, when football-data has it); or
         ``None`` without a 15th match.
     """
@@ -469,6 +473,8 @@ def _pleno_pick(
         "pick_home": None,
         "pick_away": None,
         "source": None,
+        "prob": None,
+        "value": None,
         "result": None,
     }
     if ours:
@@ -485,8 +491,28 @@ def _pleno_pick(
         target["game"] = target.get("game", pd.Series(dtype=object)).fillna(
             f"{closes:%Y-%m-%d} {home}-{away}"
         )
-        dc = walk_forward(
-            "dixon_coles", target.drop(columns=RESULT_COLUMNS, errors="ignore"), played
+        # v2P: the market's expected goals when the fixture has its 1X2 and over / under odds
+        from quiniela.prediction.pleno import market_pleno, value_pick
+
+        market = market_pleno(target)
+        if market["pleno_home"].notna().iloc[0]:
+            pick = market.iloc[0]
+            out.update(
+                pick_home=pick["pleno_home"],
+                pick_away=pick["pleno_away"],
+                source="market",
+                prob=round(float(pick["pleno_prob"]), 4),
+            )
+            if out["public_home"] and out["public_away"]:
+                out["value"] = value_pick(
+                    np.array(pick["categories"]), out["public_home"], out["public_away"]
+                )
+        dc = (
+            walk_forward(
+                "dixon_coles", target.drop(columns=RESULT_COLUMNS, errors="ignore"), played
+            )
+            if out["source"] is None
+            else pd.DataFrame()
         )
         if not dc.empty and dc["pleno_home"].notna().any():
             out.update(

@@ -20,6 +20,7 @@ Submodules:
 - ``planner``: the ·D ticket (direct doubles and triples of the quiniela ticket).
 - ``reduced``: the ·R ticket (official reductions of the quiniela ticket).
 - ``money``: the ·B and ·E tickets (big win and best expected prize in euros).
+- ``pleno``: v2P, the Pleno al 15 pick from the market's expected goals.
 - ``ticket``: quiniela ticket composition and prize rules.
 """
 
@@ -34,6 +35,7 @@ from quiniela.prediction import (
     pi_ratings_shots_f,
     pipeline,
     planner,
+    pleno,
     public_picks,
     reduced,
     registry,
@@ -69,6 +71,7 @@ __all__ = [
     "pi_ratings_shots_f",
     "pipeline",
     "planner",
+    "pleno",
     "public_picks",
     "reduced",
     "registry",

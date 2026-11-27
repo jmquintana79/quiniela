@@ -6,7 +6,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
   3. Boleto que combina acierto y reparto (dobles, triples y reducciones) y veredicto
      por jornada.
   4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; planifica los boletos desde v0.18.0).
-  5. Pleno al 15: marcador según el mercado y diferenciación con el público.
+  5. Pleno al 15: marcador según el mercado y diferenciación con el público (hecho en v0.19.0).
   6. Elo de selecciones para los partidos "otros".
   7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
   8. Pendientes menores (al final).
@@ -220,7 +220,7 @@ Tareas:
     recomendaciones en current.html; columna Rec. sí/no en season.html.
 
 
-5. Pleno al 15 · PRIORIDAD MEDIA
+5. Pleno al 15 · HECHO (seguimiento)
 ==============================================================================
 Idea:
   Hoy el Pleno al 15 es el marcador más probable de Dixon-Coles (14,5 % de acierto en
@@ -238,11 +238,17 @@ Matices:
     mercado...), como la Liga F con F; mismo repo, mismas releases y tags.
 
 Tareas:
-  ☐ Cargar las cuotas de más/menos de 2,5 goles: están en los ficheros de
-    football-data desde 2005 (BbAv>2.5 hasta 2018-19, Avg>2.5 desde 2019-20), pero
-    quiniela.data.loading solo guarda las de 1X2.
-  ☐ v2P: marcador según el mercado; backtest en los Plenos reales de LAE.
-  ☐ Archivar y usar los porcentajes del público del Pleno para diferenciarse.
+  ✔ Cuotas de más/menos de 2,5 goles en la carga (TOTALS_COLUMNS, v0.19.0).
+  ✔ v2P (quiniela.prediction.pleno, v0.19.0): goles esperados ajustados a 1X2 y
+    más/menos 2,5 (Poisson con ρ = −0,05 elegido en 2010-11 a 2014-15). En 9.241
+    partidos de 2015-16 a 2025-26 acierta el 15,5 % frente al 14,5 % de v1P
+    (Dixon-Coles), mejor en las 11 temporadas; en los 428 Plenos reales de los
+    boletos, 17,8 % (76) frente a 18,5 % (79): tres Plenos, dentro del azar. Va en
+    el próximo boleto, en los boletos de la temporada y en el backtest en euros
+    (v1P sin cuotas de más/menos); PLENO_HIT_RATE = 15,5 %.
+  ✔ Mejor valor frente al público (value_pick): mostrado en current.html, no jugado.
+  ☐ Seguir si el mejor valor frente al público acierta lo esperado (los porcentajes
+    del Pleno se archivan con cada upcoming.json).
 
 
 6. Elo de selecciones (partidos "otros") · PRIORIDAD MEDIA

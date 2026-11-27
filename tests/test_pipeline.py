@@ -265,3 +265,45 @@ def test_predict_upcoming_without_men_matches(
     v3 = predictions["market_blend"]
     assert len(v3) == 2 and v3[["p_H", "p_D", "p_A"]].dtypes.eq(float).all()
     assert v3.set_index("home_team").loc["Gales", "prediction"] == "A"
+
+
+def test_pleno_pick_from_the_market(tmp_path: Path) -> None:
+    import json
+
+    from quiniela.data.prizes import UPCOMING_FILE, load_upcoming
+    from tests.helpers import make_matches
+
+    # The Pleno al 15 is a Segunda match with 1X2 and over / under 2.5 odds
+    matches = [
+        {
+            "position": 1,
+            "home": "R. Valladolid (M)",
+            "away": "Castellón (M)",
+            "public": {"1": 30, "X": 25, "2": 45},
+        },
+        {
+            "position": 15,
+            "home": "R. Valladolid (M)",
+            "away": "Castellón (M)",
+            "public_home": {"0": 10, "1": 60, "2": 20, "M": 10},
+            "public_away": {"0": 30, "1": 50, "2": 15, "M": 5},
+        },
+    ]
+    content = {"jornada": 21, "closes": "14/11/2026 - 14:00", "matches": matches}
+    (tmp_path / UPCOMING_FILE).write_text(json.dumps(content))
+    ticket = load_upcoming(tmp_path)
+    assert ticket is not None
+    current = make_matches([("SP2", "2026-11-15", "Valladolid", "Castellon", 2, 0)]).assign(
+        season="2026-27", AvgH=1.9, AvgD=3.3, AvgA=4.4, **{"Avg>2.5": 2.2, "Avg<2.5": 1.7}
+    )
+    history = make_matches([("SP2", "2025-10-03", "Valladolid", "Castellon", 2, 0)]).assign(
+        season="2025-26"
+    )
+    _, _, info = pipeline.predict_upcoming(ticket, history=history, current=current)
+    pleno = info["pleno"]
+    assert pleno["source"] == "market" and 0 < pleno["prob"] < 1
+    assert (pleno["pick_home"], pleno["pick_away"]) in {("1", "0"), ("1", "1"), ("2", "0")}
+    assert pleno["result"] == ["2", "0"]
+    # Against the public's picks: the best-value pair and how much it is marked
+    value = pleno["value"]
+    assert value is not None and value["ratio"] >= 1 and 0 < value["public"] < 1
