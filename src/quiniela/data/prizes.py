@@ -403,6 +403,28 @@ def load_upcoming_file(path: Path) -> UpcomingTicket | None:
         return None
 
 
+def ticket_shares(ticket: UpcomingTicket) -> np.ndarray | None:
+    """Public's share of 1, X and 2 in the 14 matches of a ticket.
+
+    Args:
+        ticket: A next-ticket file (``load_upcoming_file``).
+
+    Returns:
+        Shape ``(14, 3)`` in ``H``, ``D``, ``A`` order, every row adding up to 1;
+        ``None`` when some match has no shares (the prize model then needs the
+        market).
+    """
+    rows = ticket.matches[ticket.matches["position"] <= 14].sort_values("position")
+    shares = rows[["public_1", "public_X", "public_2"]].to_numpy(dtype=float)
+    if len(rows) != 14 or np.isnan(shares).any():
+        return None
+    totals = shares.sum(axis=1, keepdims=True)
+    if (totals <= 0).any():
+        return None
+    normalised: np.ndarray = shares / totals
+    return normalised
+
+
 # Category of every match shown in the dashboards (legend shown next to the tables)
 CATEGORY_LEGEND: dict[str, str] = {
     "M": "Male: men's La Liga or Segunda, in football-data (the models predict them)",

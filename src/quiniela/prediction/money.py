@@ -36,6 +36,24 @@ $$
 
 The Pleno al 15 winners are a fixed share of the 14-hit winners.
 
+**With the public's real picks** (``PublicPrizeModel``). The next official ticket
+(and every archived one) has the share $s_{i,k}$ of bettors marking each sign. If
+every bet picked its signs at random with those shares, the hits of a bet would
+follow a Poisson-binomial distribution with the chances $s_{i, r_i}$ of the real
+results, and the winners of every category would be
+
+$$
+W_k = B \cdot P(\text{hits} = k), \qquad
+\sum_k P(\text{hits} = k)\, x^k = \prod_{i=1}^{14} \left(1 - s_{i, r_i} + s_{i, r_i}\, x\right)
+$$
+
+with no fitted parameter. It covers every match of the ticket, the women's and
+other competitions included, where the market model can only use the league
+shares of 1, X and 2 (and so takes any result there for a surprise). On the first
+archived draws of 2026-27 it came close to the real winners (152 real 14-hit
+winners, 150 expected) where the market model expected 8. The spread of the
+winners ($\sigma_k$) and the Pleno al 15 share are borrowed from the market model.
+
 **Expected prize of a ticket.** Results are simulated from the model
 probabilities (v3); each simulation gives the hits of every column of the
 ticket, its surprise $S$ (from the market probabilities, the stand-in for the
@@ -128,10 +146,51 @@ def surprise(crowd: np.ndarray, results: np.ndarray) -> np.ndarray:
     Returns:
         The surprise of each set of results.
     """
+    picked = picked_shares(crowd, results)
+    value: np.ndarray = -np.log(np.clip(picked, PROB_FLOOR, 1.0)).sum(axis=1)
+    return value
+
+
+def picked_shares(crowd: np.ndarray, results: np.ndarray) -> np.ndarray:
+    """Public (or market) probability of the result of every match.
+
+    Args:
+        crowd: Probabilities of each sign, shape ``(n_matches, 3)``.
+        results: Outcome index of every match, shape ``(n_matches,)`` or
+            ``(n_simulations, n_matches)``.
+
+    Returns:
+        Shape ``(n_simulations, n_matches)``.
+    """
     results = np.atleast_2d(results)
     picked = np.take_along_axis(np.broadcast_to(crowd, (*results.shape, 3)), results[..., None], 2)
-    value: np.ndarray = -np.log(np.clip(picked[..., 0], PROB_FLOOR, 1.0)).sum(axis=1)
+    value: np.ndarray = picked[..., 0]
     return value
+
+
+def hit_shares(picked: np.ndarray) -> np.ndarray:
+    """Share of bets with every number of hits when each bet picks at random with the shares.
+
+    The hits of a bet are a Poisson-binomial variable: the match $i$ is right with
+    probability $s_{i, r_i}$, independently of the others.
+
+    Args:
+        picked: Share of bettors marking the real result of each match, shape
+            ``(..., n_matches)``.
+
+    Returns:
+        Shape ``(..., n_matches + 1)``: share of bets with 0..n hits.
+    """
+    picked = np.clip(np.asarray(picked, dtype=float), 0.0, 1.0)
+    n = picked.shape[-1]
+    dist = np.zeros((*picked.shape[:-1], n + 1))
+    dist[..., 0] = 1.0
+    for i in range(n):
+        p = picked[..., i : i + 1]
+        right = dist[..., :-1] * p
+        dist = dist * (1 - p)
+        dist[..., 1:] += right
+    return dist
 
 
 @dataclass(frozen=True)
@@ -179,17 +238,29 @@ class PrizeModel:
         special = usable["winners_special"].fillna(0).sum() / max(usable["winners_14"].sum(), 1)
         return cls(intercept, slope, sd, float(special), len(usable))
 
+    def at_surprise(self, surprise: np.ndarray) -> dict[int, np.ndarray]:
+        r"""Expected $\log((W_k + 0.5) / B)$ of every category at each surprise."""
+        surprise = np.asarray(surprise, dtype=float)
+        return {k: self.intercept[k] + self.slope[k] * surprise for k in CATEGORY_HITS}
+
+    def log_shares(self, picked: np.ndarray, bets: float) -> dict[int, np.ndarray]:
+        r"""Expected $\log((W_k + 0.5) / B)$ of every category for each set of results.
+
+        Args:
+            picked: Market probability of the result of every match, shape
+                ``(..., n_matches)``.
+            bets: Bets of the draw (unused: the shares do not depend on it).
+
+        Returns:
+            Hits -> array of shape ``picked.shape[:-1]``.
+        """
+        return self.at_surprise(-np.log(np.clip(picked, PROB_FLOOR, 1.0)).sum(axis=-1))
+
     def winners(
         self, surprise: np.ndarray, bets: float, rng: np.random.Generator | None = None
     ) -> dict[int, np.ndarray]:
         """Winners of every category for each surprise (with noise if ``rng`` is given)."""
-        out = {}
-        for k in CATEGORY_HITS:
-            log_share = self.intercept[k] + self.slope[k] * surprise
-            if rng is not None:
-                log_share = log_share + rng.normal(0, self.sd[k], size=np.shape(surprise))
-            out[k] = np.maximum(bets * np.exp(log_share) - 0.5, 0.0)
-        return out
+        return category_winners(self, self.at_surprise(surprise), bets, rng)
 
     def prizes(
         self,
@@ -210,14 +281,99 @@ class PrizeModel:
             ``(prizes, special)``: shape ``(n, 15)`` prize for 0..14 hits
             (0 below 10) and shape ``(n,)`` prize of the Pleno al 15.
         """
-        winners = self.winners(np.asarray(surprise, dtype=float), bets, rng)
-        takings = BET_PRICE * bets
-        prizes = np.zeros((np.size(surprise), 15))
-        for k in CATEGORY_HITS:
-            prizes[:, k] = PRIZE_SHARES[k] * takings / (winners[k] + 1)
-        prizes[prizes[:, 10] < MIN_10_HIT_PRIZE, 10] = 0.0
-        special = (SPECIAL_SHARE * takings + jackpot) / (winners[14] * self.special_share + 1)
-        return prizes, special
+        return category_prizes(self, self.at_surprise(np.ravel(surprise)), bets, jackpot, rng)
+
+
+@dataclass(frozen=True)
+class PublicPrizeModel:
+    r"""Winners of every category from the public's real share of each sign.
+
+    The crowd passed with it to the planners is the public's shares (normalised
+    to add up to 1 in every match), not the market. The winners are
+    $B \cdot P(\text{hits} = k)$ of a bet picking at random with those shares
+    (``hit_shares``); the spread $\sigma_k$ of the winners around it and the
+    Pleno al 15 winners per 14-hit winner come from the market model ``base``.
+
+    Attributes:
+        base: Prize model fitted on past draws (market surprise).
+    """
+
+    base: PrizeModel
+
+    @property
+    def sd(self) -> dict[int, float]:
+        """Spread of the winners by hits (the market model's)."""
+        return self.base.sd
+
+    @property
+    def special_share(self) -> float:
+        """Pleno al 15 winners per 14-hit winner (the market model's)."""
+        return self.base.special_share
+
+    def log_shares(self, picked: np.ndarray, bets: float) -> dict[int, np.ndarray]:
+        r"""Expected $\log((W_k + 0.5) / B)$ of every category for each set of results.
+
+        Args:
+            picked: Public share of the result of every match, shape ``(..., n_matches)``.
+            bets: Bets of the draw (the $+ 0.5$ of the market model, in shares).
+
+        Returns:
+            Hits -> array of shape ``picked.shape[:-1]``.
+        """
+        dist = hit_shares(picked)
+        return {k: np.log(dist[..., k] + 0.5 / bets) for k in CATEGORY_HITS}
+
+
+# Either prize model: from the market surprise or from the public's real shares
+WinnersModel = PrizeModel | PublicPrizeModel
+
+
+def category_winners(
+    model: WinnersModel,
+    log_share: dict[int, np.ndarray],
+    bets: float,
+    rng: np.random.Generator | None = None,
+) -> dict[int, np.ndarray]:
+    """Winners of every category from their expected log share (noise if ``rng`` is given)."""
+    out = {}
+    for k in CATEGORY_HITS:
+        value = np.asarray(log_share[k], dtype=float)
+        if rng is not None:
+            value = value + rng.normal(0, model.sd[k], size=value.shape)
+        out[k] = np.maximum(bets * np.exp(value) - 0.5, 0.0)
+    return out
+
+
+def category_prizes(
+    model: WinnersModel,
+    log_share: dict[int, np.ndarray],
+    bets: float,
+    jackpot: float,
+    rng: np.random.Generator | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Prize per winning column of every number of hits, and of the Pleno al 15.
+
+    Args:
+        model: Prize model (spread of the winners and Pleno al 15 share).
+        log_share: Expected log share of winners of every category, shape ``(n,)``.
+        bets: Bets of the draw (all players).
+        jackpot: Jackpot announced for the Pleno al 15.
+        rng: Random generator for the winners noise (none: the expected share).
+
+    Returns:
+        ``(prizes, special)``: shape ``(n, 15)`` prize for 0..14 hits (0 below
+        10) and shape ``(n,)`` prize of the Pleno al 15.
+    """
+    winners = category_winners(model, log_share, bets, rng)
+    takings = BET_PRICE * bets
+    prizes = np.zeros((np.size(winners[14]), 15))
+    for k in CATEGORY_HITS:
+        prizes[:, k] = PRIZE_SHARES[k] * takings / (np.ravel(winners[k]) + 1)
+    prizes[prizes[:, 10] < MIN_10_HIT_PRIZE, 10] = 0.0
+    special = (SPECIAL_SHARE * takings + jackpot) / (
+        np.ravel(winners[14]) * model.special_share + 1
+    )
+    return prizes, special
 
 
 def _column_coefficients(doubles_hit: int, triples: int) -> np.ndarray:
@@ -324,7 +480,7 @@ def _candidates(
 def plan_money(
     probs: np.ndarray,
     crowd: np.ndarray,
-    model: PrizeModel,
+    model: WinnersModel,
     bets: float,
     jackpot: float = 0.0,
     max_bets: int = DEFAULT_MAX_BETS,
@@ -338,8 +494,11 @@ def plan_money(
 
     Args:
         probs: Model probabilities of the 14 ticket matches, shape ``(14, 3)``.
-        crowd: Market probabilities of the same matches (the public).
-        model: Fitted prize model.
+        crowd: What the public marks in the same matches: the market
+            probabilities with a ``PrizeModel``, the public's real shares (each
+            row adding up to 1) with a ``PublicPrizeModel``.
+        model: Prize model (winners from the market surprise or from the
+            public's shares).
         bets: Expected bets of the draw (all players).
         jackpot: Jackpot announced for the Pleno al 15.
         max_bets: Largest ticket, in bets.
@@ -365,7 +524,8 @@ def plan_money(
         cumulative = np.cumsum(probs / probs.sum(axis=1, keepdims=True), axis=1)
         outcomes = np.minimum((rng.random((simulations, n, 1)) > cumulative[None]).sum(axis=2), 2)
         s = surprise(crowd, outcomes)
-        prizes, special = model.prizes(s, bets, jackpot, rng if noise else None)
+        shares = model.log_shares(picked_shares(crowd, outcomes), bets)
+        prizes, special = category_prizes(model, shares, bets, jackpot, rng if noise else None)
         return rank[np.arange(n)[None, :], outcomes], s, prizes, special
 
     def payouts(levels: np.ndarray, draws: tuple[np.ndarray, ...]) -> tuple[np.ndarray, np.ndarray]:
@@ -467,7 +627,7 @@ def _payout_outcomes(payout: np.ndarray, cost: float) -> list[tuple[str, float, 
 def plan_big_win(
     probs: np.ndarray,
     crowd: np.ndarray,
-    model: PrizeModel,
+    model: WinnersModel,
     bets: float,
     jackpot: float = 0.0,
     max_cost: float = BIG_WIN_MAX_COST,
@@ -492,8 +652,11 @@ def plan_big_win(
 
     Args:
         probs: Model probabilities of the 14 ticket matches, shape ``(14, 3)``.
-        crowd: Market probabilities of the same matches (the public).
-        model: Fitted prize model.
+        crowd: What the public marks in the same matches: the market
+            probabilities with a ``PrizeModel``, the public's real shares (each
+            row adding up to 1) with a ``PublicPrizeModel``.
+        model: Prize model (winners from the market surprise or from the
+            public's shares).
         bets: Expected bets of the draw (all players).
         jackpot: Jackpot announced for the Pleno al 15.
         max_cost: Budget in EUR (at most ``max_cost / 0.75`` bets).
@@ -514,18 +677,19 @@ def plan_big_win(
     n = len(probs)
     cumulative = np.cumsum(probs / probs.sum(axis=1, keepdims=True), axis=1)
 
-    def simulate() -> tuple[np.ndarray, np.ndarray]:
-        """Ranks of simulated results and their surprise."""
+    def simulate() -> tuple[np.ndarray, dict[int, np.ndarray]]:
+        """Ranks of simulated results and the expected log share of winners."""
         outcomes = np.minimum((rng.random((simulations, n, 1)) > cumulative[None]).sum(axis=2), 2)
-        return rank[np.arange(n)[None, :], outcomes], surprise(crowd, outcomes)
+        shares = model.log_shares(picked_shares(crowd, outcomes), bets)
+        return rank[np.arange(n)[None, :], outcomes], shares
 
     max_bets = int(max_cost // BET_PRICE)
     # Chosen on one set of simulations, valued on another (see plan_money)
-    rank_hit, s = simulate()
+    rank_hit, shares = simulate()
     best: tuple[float, int, int, np.ndarray] | None = None
     for d, t, placements in _candidates(probs, max_bets, per_mix, min_hits=13):
         columns = column_hits(placements, rank_hit)
-        chance = big_win_chance(columns, s, model, bets, jackpot, threshold, pleno_rate).mean(
+        chance = big_win_chance(columns, shares, model, bets, jackpot, threshold, pleno_rate).mean(
             axis=1
         )
         fourteen = _fourteen_chance(
@@ -537,10 +701,10 @@ def plan_big_win(
             best = (float(chance[i]), d, t, placements[i])
     assert best is not None
     _, d, t, levels = best
-    rank_hit, s = simulate()
+    rank_hit, shares = simulate()
     columns = column_hits(levels[None, :], rank_hit)
     common = float(
-        big_win_chance(columns, s, model, bets, jackpot, threshold, pleno_rate)[0].mean()
+        big_win_chance(columns, shares, model, bets, jackpot, threshold, pleno_rate)[0].mean()
     )
     rare = float(
         _fourteen_chance(
@@ -549,9 +713,9 @@ def plan_big_win(
     )
     # The payout distribution draws the winners with their real spread too; the
     # average uses the typical winners (the spread inflates averages, see plan_money)
-    prizes, special = model.prizes(s, bets, jackpot, rng)
+    prizes, special = category_prizes(model, shares, bets, jackpot, rng)
     payout = (columns[0] * prizes).sum(axis=1) + columns[0, :, 14] * pleno_rate * special
-    typical, typical_special = model.prizes(s, bets, jackpot)
+    typical, typical_special = category_prizes(model, shares, bets, jackpot)
     mean_payout = (columns[0] * typical).sum(axis=1) + columns[
         0, :, 14
     ] * pleno_rate * typical_special
@@ -571,8 +735,8 @@ def plan_big_win(
 
 def big_win_chance(
     columns: np.ndarray,
-    s: np.ndarray,
-    model: PrizeModel,
+    shares: dict[int, np.ndarray],
+    model: WinnersModel,
     bets: float,
     jackpot: float,
     threshold: float,
@@ -580,13 +744,15 @@ def big_win_chance(
 ) -> np.ndarray:
     r"""Chance that a ticket pays ``threshold`` or more in each simulated draw.
 
-    In a draw with surprise $S$, the $c_k$ winning columns with $k$ hits pay
-    $c_k \, s_k \, 0.75 B / W_k$ with $\log(W_k / B) = a_k + b_k S + \varepsilon_k$,
-    $\varepsilon_k \sim N(0, \sigma_k^2)$, so they reach the threshold when
-    $\varepsilon_k$ is small enough:
+    In a simulated draw the $c_k$ winning columns with $k$ hits pay
+    $c_k \, s_k \, 0.75 B / W_k$ with $\log(W_k / B) = \mu_k + \varepsilon_k$,
+    $\varepsilon_k \sim N(0, \sigma_k^2)$, where $\mu_k$ is the expected log share
+    of winners of that draw ($a_k + b_k S$ with the market model, the
+    Poisson-binomial share with the public's picks), so they reach the threshold
+    when $\varepsilon_k$ is small enough:
 
     $$
-    P_k = \Phi\left(\frac{\log(c_k s_k \, 0.75 B / \text{threshold}) - \log B - a_k - b_k S}{\sigma_k}\right)
+    P_k = \Phi\left(\frac{\log(c_k s_k \, 0.75 B / \text{threshold}) - \log B - \mu_k}{\sigma_k}\right)
     $$
 
     This covers 12 and 13 hits (combined as independent); 14 hits and the
@@ -596,8 +762,9 @@ def big_win_chance(
 
     Args:
         columns: Columns with 0..14 hits, shape ``(n_tickets, n_draws, 15)``.
-        s: Surprise of each simulated draw, shape ``(n_draws,)``.
-        model: Fitted prize model.
+        shares: Expected log share of winners of every category in each
+            simulated draw (``model.log_shares``), shape ``(n_draws,)`` each.
+        model: Prize model (its spread of the winners).
         bets: Expected bets of the draw.
         jackpot: Jackpot announced for the Pleno al 15.
         threshold: Prize sought in EUR.
@@ -612,7 +779,7 @@ def big_win_chance(
     miss = np.ones(columns.shape[:2])
     for k in (12, 13):
         ours = columns[:, :, k]
-        mu = model.intercept[k] + model.slope[k] * s
+        mu = shares[k]
         with np.errstate(divide="ignore"):
             z = (
                 np.log(ours * PRIZE_SHARES[k] * takings / threshold) - np.log(bets) - mu
@@ -626,7 +793,7 @@ def _fourteen_chance(
     placements: np.ndarray,
     probs: np.ndarray,
     crowd: np.ndarray,
-    model: PrizeModel,
+    model: WinnersModel,
     bets: float,
     jackpot: float,
     threshold: float,
@@ -662,10 +829,9 @@ def _fourteen_chance(
     chosen = np.minimum(chosen, levels[:, None, :])
     signs = order[rows[None, None, :], chosen]
     picked = crowd[rows[None, None, :], signs]
-    s = -np.log(np.clip(picked, PROB_FLOOR, 1.0)).sum(axis=2)
 
     takings = BET_PRICE * bets
-    mu = model.intercept[14] + model.slope[14] * s
+    mu = model.log_shares(picked, bets)[14]
     z = (np.log(PRIZE_SHARES[14] * takings / threshold) - np.log(bets) - mu) / model.sd[14]
     pool = SPECIAL_SHARE * takings + jackpot
     share = np.log(max(model.special_share, PROB_FLOOR))

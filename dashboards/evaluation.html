@@ -723,9 +723,14 @@ function moneyLine(summary) {
   const back = m.cost ? m.expected_payout / m.cost : null;
   const jackpot = m.jackpot ? ` · estimated jackpot of the Pleno al 15 ${Math.round(m.jackpot).toLocaleString("en-GB")} €` : "";
   const every = m.matchdays_per_win ? ` (about once every ${Math.round(m.matchdays_per_win).toLocaleString("en-GB")} matchdays)` : "";
+  // Where the other winners of the estimate come from: the public's real shares of this
+  // ticket, or the market (the past tickets of the traffic lights always use the market)
+  const winners = m.winners === "public"
+    ? " Winners estimated from the public's real picks of the 14 matches (the traffic lights compare with past tickets estimated from the market)."
+    : m.winners === "market" ? " Winners estimated from the market odds." : "";
   // One line instead of the chart of payout ranges: the chance that matters and the money back
   return `<br><span class="muted">Prize of ${Math.round(m.threshold).toLocaleString("en-GB")} € or more: ${chanceText(m.chance)}${every} ·
-      on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot}.</span>`;
+      on average ${eur(m.expected_payout)} back per ${eur(m.cost)} spent (${pct(back, 0)})${jackpot}.${winners}</span>`;
 }
 
 /**

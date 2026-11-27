@@ -1,0 +1,88 @@
+Quiniela · discarded ideas
+==============================================================================
+Read before every brainstorming: everything here has already been discussed and
+discarded. Each idea has its date and its reason. If things change (a new source
+appears, the cost drops), it can be taken up again: move it to TODO.todo with the
+reason.
+Format: ✗ discarded · ~ parked (only if a condition is met)
+
+
+Models
+==============================================================================
+  ✗ Club strength (ClubElo) as an input of a v5 (v3 + Elo). Discarded on 2026-11-27:
+    - The API (api.clubelo.com, the one soccerdata uses) is retired: it does not
+      answer and the /API page of the new website redirects to the home page. The
+      page of each club only has the Elo since December 2022 (it does not cover the
+      backtest from 2015-16).
+    - An Elo of our own with our data (leagues only, no cups or Europe) would be
+      almost a duplicate of v4 (pi-ratings, learned from the same results), and v3
+      shows that those models add nothing on top of the market.
+    - Cheap tests if the idea comes back, with no new source: the v4 pi-rating
+      difference as an input of v3, and a proxy for "plays in Europe" (previous
+      season's table and the fixed UEFA calendar).
+    - Replacement under study (TODO.todo): a global rating of our own, with the
+      European leagues of football-data and the European cups of ESPN.
+
+  ✗ Dynamic Bayesian models (full MCMC: footBayes, Stan, PyMC; Macrì-Demartino,
+    Egidi and Torelli, JRSS-C 2026; and their fast score-driven / GAS version,
+    Koopman and Lit). Discarded on 2026-11-27: not worth the computation they need.
+    Refitting a full Bayesian model every week of an 11-season backtest would take
+    hours or days, and the expected gain on top of the market is a few thousandths
+    of log-loss at most; the pi-ratings are already dynamic, so the GAS version
+    would add little too.
+
+  ✗ Pinnacle (PS) as a term of its own in v3's pool. Discarded on 2026-11-27:
+    football-data stopped publishing Pinnacle's odds in January 2026 (about 100% of
+    the matches from 2012-13 to December 2025, 42-50% in January 2026, none since
+    February 2026 nor in 2026-27), so the weekly predictions would never have it.
+    Betfair Exchange (BFE), the other sharp price, only exists since 2024-25: too
+    short for the five years the pool trains on.
+
+  ✗ Spread between bookmakers as an input of v3 (an interaction that lowers the
+    weight of the market when bookmakers disagree). Discarded on 2026-11-27 after a
+    screening test: v3's pool refitted season by season on the backtest
+    probabilities (out-of-sample Dixon-Coles + market), 2016-17 to 2025-26, about
+    8,400 matches:
+    - mean log(Max / Avg) (BbMx / BbAv before 2019-20): log-loss 1.00451 against
+      1.00441 without it (0.0001 worse; better in 4 of 10 seasons);
+    - standard deviation between single bookmakers: 1.00550 (0.0011 worse; 2 of 10);
+    - its weight comes out close to 0 and changes sign between seasons.
+    As a predictability measure it mostly repeats the favourite's probability
+    (correlation 0.56) and separates far less than v3's entropy (v3 hit rate from
+    70% to 36% by entropy quintile, against 46% to 61% by spread quintile). It may
+    still be an informative column of the metrics dataset.
+
+  ✗ Gradient boosting (CatBoost...) with pi-ratings as inputs. Discarded on
+    2026-11-27: it finished 16th in the 2023 Soccer Prediction Challenge (Yeung et
+    al.), and v3's log-linear pool already combines the models with the market.
+
+  ✗ Men's v4 (pi-ratings) learned from shots on target as a model of its own.
+    Discarded on 2026-11-27: v4 does not beat v3, and in La Liga and Segunda the
+    odds already reflect the shots. Shots on target are tested in Liga F instead
+    (no odds there).
+
+
+Data sources
+==============================================================================
+  ✗ Understat xG (La Liga only, since 2014-15). Discarded on 2026-11-27: it does not
+    cover Segunda (half of the men's matches) and the odds already reflect xG; very
+    little is expected on top of v3.
+
+  ✗ Opta Power Rankings (theanalyst.com). Discarded on 2026-11-27: no official
+    download or history (only third-party snapshots since 2023), so it does not
+    cover the backtest.
+
+  ✗ Line-ups, injuries and suspensions (Sportmonks, Flashscore...). Discarded on
+    2026-11-27: paid or protected against scripts, and the market already prices
+    them in.
+
+  ✗ FootyStats. Discarded: paid (checked for Liga F and for La Liga / Segunda).
+
+  ✗ Liga F on FBref, Flashscore, Sofascore: bot protection or scripts forbidden.
+    StatsBomb open data: Liga F 2023-24 only. football-data.co.uk and TheSportsDB:
+    no Liga F.
+
+  ~ Historical odds of the Champions League, national teams and Liga F (The Odds
+    API, paid, since 2020). Parked: no free historical source. Its free plan (500
+    requests a month) gives current odds: it could be used in current.html only, if
+    it is ever worth it.

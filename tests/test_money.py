@@ -178,6 +178,61 @@ def test_big_win_chance_grows_with_columns(model: money.PrizeModel) -> None:
     columns[0, :, 13] = 1
     columns[1, :, 13] = 4  # more 13-hit columns: more money if they win
     s = np.array([12.0, 15.0, 18.0])
-    chance = money.big_win_chance(columns, s, model, 3_000_000, 0.0, 10_000)
+    chance = money.big_win_chance(columns, model.at_surprise(s), model, 3_000_000, 0.0, 10_000)
     assert (chance[1] >= chance[0]).all()
     assert chance[0, 2] > chance[0, 0]  # more surprise, fewer winners, larger prize
+
+
+def test_hit_shares_match_brute_force() -> None:
+    picked = np.array([0.8, 0.5, 0.3, 0.6])
+    dist = money.hit_shares(picked)
+    expected = np.zeros(5)
+    for right in product([0, 1], repeat=4):
+        chance = np.prod([p if r else 1 - p for p, r in zip(picked, right, strict=True)])
+        expected[sum(right)] += chance
+    assert dist == pytest.approx(expected)
+    # Leading dimensions are kept (one distribution per simulated draw)
+    many = money.hit_shares(np.stack([picked, picked[::-1]]))
+    assert many.shape == (2, 5)
+    assert many[1] == pytest.approx(expected)
+
+
+def test_public_prize_model_winners(model: money.PrizeModel) -> None:
+    public = money.PublicPrizeModel(model)
+    bets = 2_000_000
+    picked = np.full((1, 14), 0.5)
+    shares = public.log_shares(picked, bets)
+    winners = money.category_winners(public, shares, bets)
+    # Every bet picks at random: 14 hits with chance 0.5 ** 14
+    assert winners[14][0] == pytest.approx(bets * 0.5**14)
+    assert winners[13][0] == pytest.approx(bets * 14 * 0.5**14)
+    # Spread and Pleno al 15 share are the market model's
+    assert public.sd == model.sd
+    assert public.special_share == model.special_share
+
+
+def test_public_shares_change_the_prizes(model: money.PrizeModel) -> None:
+    public = money.PublicPrizeModel(model)
+    bets = 2_000_000
+    # The same results: popular with the public (many winners) or not (few, larger prizes)
+    popular = public.log_shares(np.full((1, 14), 0.8), bets)
+    unpopular = public.log_shares(np.full((1, 14), 0.3), bets)
+    small, _ = money.category_prizes(public, popular, bets, 0.0)
+    large, _ = money.category_prizes(public, unpopular, bets, 0.0)
+    assert (large[0, 11:] > small[0, 11:]).all()
+
+
+def test_big_win_with_public_shares(model: money.PrizeModel) -> None:
+    probs = np.tile([0.5, 0.3, 0.2], (14, 1))
+    public = money.PublicPrizeModel(model)
+
+    def plan(shares: np.ndarray) -> money.BigWinPlan:
+        return money.plan_big_win(probs, shares, public, 2_000_000, simulations=2000, per_mix=5)
+
+    agrees = plan(probs)
+    # The public piles on the away win, the least likely result: the likely results
+    # leave few winners and large prizes
+    contrary = plan(np.tile([0.1, 0.1, 0.8], (14, 1)))
+    assert 0 <= agrees.chance <= 1
+    assert contrary.cost <= money.BIG_WIN_MAX_COST
+    assert contrary.chance > agrees.chance

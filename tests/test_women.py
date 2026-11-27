@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from quiniela.data import women
 from quiniela.prediction.public_picks import PublicPicksModel
@@ -128,3 +129,29 @@ def test_history_keeps_only_the_liga_f(tmp_path: Path) -> None:
     # Jornada 21's women's match has no ESPN Liga F fixture: another competition, left out
     assert history["jornada"].tolist() == [4]
     assert history["espn_game"].tolist() == ["2026-09-06 Alavés-Eibar"]
+
+
+def test_load_public_shares(tmp_path: Path) -> None:
+    archive = tmp_path / "public"
+    archive.mkdir()
+    matches = [
+        {
+            "position": i,
+            "home": f"H{i} (M)",
+            "away": f"A{i} (M)",
+            "public": {"1": 60, "X": 25, "2": 15},
+        }
+        for i in range(1, 15)
+    ]
+    content = {"jornada": 22, "closes": "21/11/2026 - 14:00", "matches": matches}
+    (archive / "2026-27_j22.json").write_text(json.dumps(content))
+    # A ticket without the shares of every match is left out
+    (archive / "2026-27_j23.json").write_text(
+        json.dumps({**content, "jornada": 23, "matches": matches[:5]})
+    )
+
+    shares = women.load_public_shares(archive, tmp_path)
+
+    assert list(shares) == [("2026-27", 22)]
+    assert shares[("2026-27", 22)].shape == (14, 3)
+    assert shares[("2026-27", 22)][0].tolist() == pytest.approx([0.6, 0.25, 0.15])

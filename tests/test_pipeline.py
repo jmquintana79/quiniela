@@ -172,6 +172,8 @@ def test_predict_upcoming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert v1f["home_team"].tolist() == ["Alavés"] and v1f["source"].eq("v1F").all()
     assert "pi_ratings_f" not in predictions
     assert matches[[f"_fill_p_{o}" for o in "HDA"]].sum(axis=1).round(6).eq(1).all()
+    # The public's shares of every match go with it (the winners of the v3+v2F·B prize model)
+    assert matches[["_public_H", "_public_D", "_public_A"]].iloc[0].tolist() == [30, 25, 45]
 
 
 def test_predict_upcoming_plans_liga_f_with_v2f(

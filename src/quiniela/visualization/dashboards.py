@@ -341,6 +341,33 @@ def big_win_signal(chance: float | None, history: pd.DataFrame) -> dict[str, Any
     return percentile_signal(chance, history, "v3b", "p_big")
 
 
+def _ticket_crowd(
+    ticket: pd.DataFrame, probs: np.ndarray, model: Any
+) -> tuple[np.ndarray, Any, str]:
+    """What the public marks in a ticket's matches, and the prize model that goes with it.
+
+    With the public's share of every sign of the 14 matches (``_public_*``, the
+    next official ticket) the winners come from those shares
+    (``PublicPrizeModel``); otherwise from the market surprise, with the model
+    probabilities standing for the public where there are no odds.
+
+    Returns:
+        ``(crowd, prize model, "public" or "market")``.
+    """
+    from quiniela.prediction.money import PublicPrizeModel
+
+    public_columns = [f"_public_{o}" for o in ("H", "D", "A")]
+    if set(public_columns) <= set(ticket.columns):
+        shares = ticket[public_columns].to_numpy(dtype=float)
+        totals = shares.sum(axis=1, keepdims=True)
+        if not np.isnan(shares).any() and (totals > 0).all():
+            return shares / totals, PublicPrizeModel(model), "public"
+    crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)
+    missing = np.isnan(crowd).any(axis=1)
+    crowd[missing] = probs[missing]
+    return crowd, model, "market"
+
+
 def _money_matchday(
     group: pd.DataFrame, key: str, context: Any
 ) -> tuple[Any, dict[str, Any]] | None:
@@ -353,13 +380,11 @@ def _money_matchday(
     if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
         return None
     probs = ticket[columns].to_numpy(dtype=float)
-    crowd = ticket[[f"_crowd_{o}" for o in ("H", "D", "A")]].to_numpy(dtype=float, copy=True)
-    missing = np.isnan(crowd).any(axis=1)
-    crowd[missing] = probs[missing]
+    crowd, model, winners = _ticket_crowd(ticket, probs, context.model)
     best = plan_big_win(
         probs,
         crowd,
-        context.model,
+        model,
         context.bets,
         context.jackpot,
         rng=np.random.default_rng([MONEY_SEED, int(group["matchday"].iloc[0])]),
@@ -387,6 +412,8 @@ def _money_matchday(
                 for label, low, _, chance in best.outcomes
             ],
             "jackpot": round(float(context.jackpot), 0),
+            # Where the winners of the prize estimates come from: "public" or "market"
+            "winners": winners,
             # How predictable the ticket is: average v3 confidence of its 14 matches
             "predictability": round(float(confidence.mean()), 4),
             "odds": _ticket_odds(best.plan.coverage),
@@ -531,7 +558,8 @@ def _season_tickets(
     goals categories when it is a La Liga / Segunda match.
     """
     from quiniela.data.prizes import official_tickets
-    from quiniela.prediction.money import plan_big_win
+    from quiniela.data.women import load_public_shares
+    from quiniela.prediction.money import PublicPrizeModel, plan_big_win
     from quiniela.prediction.planner import DEFAULT_MAX_BETS, plan_ticket, single_plan
     from quiniela.prediction.reduced import plan_reduced
     from quiniela.prediction.registry import WOMEN_PLANNER_MODEL
@@ -555,6 +583,8 @@ def _season_tickets(
     money_results = load_money()
     # v1F: the public's picks of the Liga F matches, for the tickets whose page was saved
     women_picks = _liga_f_picks(liga_f)
+    # The public's shares of the 14 matches of every archived ticket: the winners of v3+v2F·B
+    public_shares = load_public_shares()
     # v2F: the pi-ratings pick of each Liga F match (from the Liga F block of the page)
     v2f: dict[tuple[str, int, int], tuple[str | None, list[float] | None]] = {
         (m["season"], m["jornada"], m["position"]): (m.get("pi_ratings_f"), m.get("p_v2f"))
@@ -608,12 +638,18 @@ def _season_tickets(
         if len(probs) != 14:
             continue
         probs_array, crowd_array = np.array(probs), np.array(crowd)
+        winners_model = prizes.model
+        archived = public_shares.get((season, ticket["jornada"]))
+        if archived is not None:
+            # Its betting page was saved: the winners come from the public's real shares
+            crowd_array, winners_model = archived, PublicPrizeModel(prizes.model)
+        ticket["winners"] = "public" if archived is not None else "market"
         plan_d = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
         plan_r = plan_reduced(probs_array, max_bets=DEFAULT_MAX_BETS)
         plan_b = plan_big_win(
             probs_array,
             crowd_array,
-            prizes.model,
+            winners_model,
             prizes.bets,
             float(jackpots.get(ticket["draw_id"], 0) or 0),
             per_mix=20,

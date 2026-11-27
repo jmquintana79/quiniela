@@ -1289,6 +1289,43 @@ fast with surprises. Given the real surprise, the model's average prize per cate
 real one (11 hits: 82 € against 82 €; 13 hits: 13,750 € against 13,331 €). The Pleno al 15
 winners are a fixed share of the 14-hit winners.
 
+**How many winners, with the public's real picks** (`PublicPrizeModel`). The
+betting page of the next ticket has the share $s_{i,k}$ of bettors marking each sign of its 14
+matches (saved in `data/lae/upcoming.json` and archived in `data/lae/public/`). If every bet
+picked its signs at random with those shares, its hits would follow a Poisson-binomial
+distribution with the chances $s_{i, r_i}$ of the real results, and the winners would be
+
+```math
+W_k = B \cdot P(\text{hits} = k), \qquad
+\sum_{k} P(\text{hits} = k)\, x^k = \prod_{i=1}^{14} \left(1 - s_{i, r_i} + s_{i, r_i}\, x\right)
+```
+
+with no fitted parameter, and every match counts, the Liga F and other competitions included.
+The market model has no odds there and uses the league shares of 1, X and 2, which take any
+result for a surprise: since the tickets have women's matches it expects far too few winners.
+On the first archived draws already played (2026-27):
+
+| Draw | Matches with odds | 14 hits: real winners | Market model | Public's picks |
+|---|---|---|---|---|
+| Jornada 21 | 9 | 4 | 1.1 | 2 |
+| Jornada 22 (women's Champions League) | 0 | 267 | 0.3 | 30 |
+| Jornada 23 (4 Liga F matches) | 10 | 152 | 7.8 | 150 |
+
+(jornada 23 with 13 hits: 3,105 real winners, 2,943 from the public's picks, 210 from the
+market model). Three draws are a sign, not a proof: it is checked again with every archived
+draw. A mapping from the market to the public's shares (the public overrates favourites: 58%
+on the favourite on average against the market's 51%) was also tried on the 618 past draws,
+to use the same idea in the backtest: it barely changed the market model (+1% on 14 and 13
+hits, −2% on 11 and 10), whose slope already absorbs that bias; the value is in the
+match-by-match differences that only the real shares show.
+
+So **v3+v2F·B uses the public's picks whenever the ticket has the shares of its 14 matches**
+(the next ticket in `current.html`, the archived ones in `season.html`), with the spread of the
+winners and the Pleno al 15 share of the market model; otherwise, and in the euro backtest (no
+shares before 2026-27), the market model. The page says which one was used: the traffic lights
+compare with past tickets estimated from the market. On the ticket of jornada 25 the chance of
+1,000 € or more went from 0.19% to 0.30% and the average money back from 20 € to 28 € per 48 €.
+
 **Expected prize of a ticket.** 4,000 sets of results are simulated from the v3 probabilities
 (the other ticket matches get the league shares of 1, X and 2). Each one gives the hits of every
 column, its surprise $S$ (from the market probabilities, the stand-in for the public) and so the
@@ -1563,6 +1600,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.14.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.14.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **v3+v2F·B counts the other winners with the public's real picks** (`PublicPrizeModel`) whenever the ticket has the shares of its 14 matches (the next ticket in `current.html`, the archived ones in `season.html`): the winners of a bet picking at random with those shares (Poisson-binomial), every match counted, the Liga F and other competitions included. On the first archived draws it matched the real winners far better than the market model (jornada 23, 14 hits: 152 real, 150 against 7.8); on the ticket of jornada 25 the chance of 1,000 € or more went from 0.19% to 0.30%. The page says which winners were used; the euro backtest keeps the market model. New `DISCARDED.todo` with the ideas discarded and their reason (Pinnacle apart and the spread between bookmakers in v3, tested and dropped); new roadmap from the brainstorming of 2026-11-27. |
 | [`v0.13.5`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.5) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | `invoke update` no longer crashes in a week whose football-data fixtures file lists no Spanish match: the empty file kept its dates as text, and the loader now always reads them as datetimes. |
 | [`v0.13.4`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.4) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | `season.html` no longer loses its jornadas table when a draw is still being played (no scrutiny yet: the ticket takes its own date), and its hits come with their share, e.g. 7/10 (70.0%). |
 | [`v0.13.3`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.3) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | In `current.html` the football-data fixtures notice is **amber** with ⚠ when the odds are not (or only partly) published yet: there is still a prediction, but v3 does not use the market on those matches. |
@@ -1690,37 +1728,44 @@ and version bumps (`cz commit`, `cz bump`).
 
 ## Roadmap
 
-Pending improvements, in order of priority. The detailed plan (in Spanish) is in
-[`TODO.todo`](TODO.todo); what is already done is in [Releases](#releases).
+Pending improvements, in order of importance. The detailed plan (in Spanish) is in
+[`TODO.todo`](TODO.todo); what is already done is in [Releases](#releases), and the ideas
+already discussed and discarded, with their reason, are in [`DISCARDED.todo`](DISCARDED.todo)
+(among them Pinnacle apart and the spread between bookmakers in v3: football-data no longer
+publishes Pinnacle, and the spread did not improve v3 in a screening test).
 
-1. **Club strength ratings (medium priority).** soccerdata includes ClubElo, daily Elo ratings
-   of European clubs with decades of history and current values. They include cup and
-   European matches that Dixon-Coles does not see. The pre-match Elo difference would be one
-   more input of v3 (one more term of the pool). Pending: check the API (it was down when
-   tried), its Segunda coverage, a local copy of the ratings, and matching team names between
-   sources. v3 shows that Dixon-Coles adds nothing once the odds are known, so Elo has to be
-   judged the same way: by what it adds on top of the market.
-2. **Playing against the crowd with the public's picks (low priority).** v3+v2F·E and v3+v2F·B already maximise
-   the expected prize, with the market probabilities standing in for what the public marks.
-   The official ticket file (`data/lae/upcoming.json`) holds the real share of bettors per
-   sign: in close matches a slightly less likely but less popular sign can be worth more (e.g.
-   X at 35% picked by 10% of bettors, against 1 at 40% picked by 80%). No official history of
-   those shares exists, so it has to be built by saving the file every week; with it, the
-   prize model of v3+v2F·E and v3+v2F·B could use the public's own picks instead of the market, judged by the
-   euro backtest.
+1. **The public's real picks in the prize model: keep checking them.** v3+v2F·B now counts the
+   winners with the public's real shares whenever the ticket has them (see
+   [money tickets](#v3v2fe-and-v3v2fb--money-tickets-money)); three archived draws agree with them
+   far better than with the market model. Pending: check it again with every archived draw, and
+   the ·E ticket (backtest only, with no shares before 2026-27).
+2. **A dataset of metrics and KPIs.** One record per match (history and current ticket):
+   probabilities of v3, the market and the public, entropy, bookmaker spread, rating
+   difference, model-against-market and model-against-public edges; one record per draw and
+   ticket: differentiation, expected co-winners, expected return, chances of a prize, hits and
+   money won. Shown in a new page, with each metric by quintile against the KPIs.
+3. **Tickets that weigh hits and sharing.** Doubles, triples and reductions placed where they
+   raise the expected prize (chance of the hits times the share of the prize, with the public's
+   real picks), a small ticket for good matchdays and a verdict per matchday.
+4. **Liga F: v3F with shots on target.** Pi-ratings learned from a mix of goal and
+   shots-on-target differences. ESPN's monthly scoreboard, already downloaded, has the shots on
+   target of each team (no request per match needed).
+5. **Pleno al 15 from the market.** The two expected goals fitted to the 1X2 and over/under 2.5
+   odds give the probability of each of the 16 Pleno scores; the public's Pleno picks (also in
+   `upcoming.json`) allow picking a likely but less popular score. Its own counter (v1P, v2P...).
+6. **National-team Elo** for the national-team matches of the tickets, played today with the
+   public's picks: eloratings.net (yearly files with every match and both Elo ratings),
+   `martj42/international_results` and ESPN.
+7. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
+   the European leagues of football-data, linked by ESPN's European cup matches (Champions League
+   since at least 2006). Matching team names between sources is the main cost.
 
 Other ideas:
 
-- **Shots on target** (`HST`, `AST`) as a less noisy measure of performance than goals; the
-  [pi-ratings](#v4--pi-ratings-pi_ratings) could learn from the shots-on-target difference
-  instead of the goal difference.
-- **Liga F: a v2F variant with shots on target** (pending, not implemented). ESPN gives the shots
-  on target of each team in every Liga F match (`summary?event=<id>`, one request per match, so
-  they would be cached like the scoreboard): the pi-ratings could learn from the shots-on-target
-  difference, or from a mix of goals and shots, and be compared with v2F walk-forward.
 - **v3+v2F·B with reductions.** At 1,000 € a 13 is often enough, so the official reductions
   (more matches covered, 13 guaranteed when the covered signs are right) may now beat the direct
   ticket for the ·B target; test them as candidates, as in v3+v2F·R.
 - **Liga F: check the switch to v2F.** The tickets plan the Liga F matches with v2F since
   v0.12.0; once the v1F-against-v2F comparison on the ticket matches has enough matches, go back
   to the public if it turns out better.
+- **v4 instead of Dixon-Coles** in v3 when the odds are missing.

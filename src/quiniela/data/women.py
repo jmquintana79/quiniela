@@ -23,6 +23,7 @@ import logging
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from quiniela.config import LAE_DIR, PUBLIC_DIR, WOMEN_DIR
@@ -34,6 +35,7 @@ from quiniela.data.prizes import (
     load_upcoming_file,
     match_category,
     normalise,
+    ticket_shares,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,6 +159,34 @@ def load_public_picks(public_dir: Path = PUBLIC_DIR, lae_dir: Path = LAE_DIR) ->
         return pd.DataFrame(columns=[*LIGA_F_COLUMNS[:3], "home", "away", "closes"])
     out = pd.concat(frames, ignore_index=True)
     return out.drop_duplicates(["season", "jornada", "position"], keep="last")
+
+
+def load_public_shares(
+    public_dir: Path = PUBLIC_DIR, lae_dir: Path = LAE_DIR
+) -> dict[tuple[str, int], np.ndarray]:
+    """Public's share of 1, X and 2 in the 14 matches of every archived ticket.
+
+    All the matches, not only the Liga F ones: the prize model of the ·B and ·E
+    tickets counts the winners with them (``quiniela.prediction.money.PublicPrizeModel``).
+
+    Args:
+        public_dir: Archive of next-ticket files.
+        lae_dir: Folder with the current ``upcoming.json``.
+
+    Returns:
+        ``(season, jornada)`` -> shape ``(14, 3)`` shares (``ticket_shares``), for
+        the tickets with the shares of every match.
+    """
+    paths = sorted(public_dir.glob("*.json")) if public_dir.exists() else []
+    tickets = [load_upcoming_file(path) for path in paths]
+    out: dict[tuple[str, int], np.ndarray] = {}
+    for ticket in [*tickets, load_upcoming(lae_dir)]:
+        if ticket is None:
+            continue
+        shares = ticket_shares(ticket)
+        if shares is not None:
+            out[(ticket_season(ticket.closes), ticket.jornada)] = shares
+    return out
 
 
 def lae_women_name(lae_name: str) -> str:

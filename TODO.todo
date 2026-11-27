@@ -1,12 +1,24 @@
 Quiniela · tareas pendientes
 ==============================================================================
-Orden de prioridad propuesto: 3 → 2.
-  2. mejora la DECISIÓN (el público en el modelo de premios de v3+v2F·E y v3+v2F·B).
-Formato: ☐ pendiente · ✔ hecho · ✗ descartado (al final, con el motivo)
+Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
+  1. El público real en el modelo de premios de v3+v2F·E y v3+v2F·B.
+  2. Dataset de métricas y KPIs por partido y por jornada, y su página.
+  3. Boleto que combina acierto y reparto (dobles, triples y reducciones) y veredicto
+     por jornada.
+  4. v3F: Liga F con tiros a puerta.
+  5. Pleno al 15: marcador según el mercado y diferenciación con el público.
+  6. Elo de selecciones para los partidos "otros".
+  7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
+  8. Pendientes menores (al final).
+(Pinnacle y la dispersión entre casas en v3: descartados el 2026-11-27, ver
+DISCARDED.todo.)
+Formato: ☐ pendiente · ✔ hecho
+Lo descartado, con el motivo, está en DISCARDED.todo (en inglés): leerlo antes de
+cada brainstorming.
 Lo ya hecho está en el README (Releases y cada modelo).
 
 
-2. Jugar contra la mayoría con los porcentajes del público · PRIORIDAD BAJA
+1. El público real en el modelo de premios · PRIORIDAD ALTA
 ==============================================================================
 Idea:
   v3+v2F·E y v3+v2F·B ya buscan el mejor premio, pero usan el mercado como "lo que marca el
@@ -14,10 +26,15 @@ Idea:
   apostantes por signo: en partidos igualados, un signo algo menos probable pero
   poco apostado puede valer más (p. ej. X al 35 % marcada por el 10 %, frente a 1
   al 40 % marcado por el 80 %).
+  Si el público eligiera al azar según sus porcentajes, W14 / B ≈ Π s_i (sorpresa
+  del público, b = −1 exacto; el ajuste actual con el mercado da b14 = −1,05).
 
 Matices:
   - No hay histórico oficial descargable de esos porcentajes: hay que construirlo
     guardando upcoming.json cada semana antes del cierre.
+  - Para el backtest (2015-2026, sin porcentajes): aprender en las jornadas
+    archivadas la relación mercado → público (el público infla a los favoritos,
+    p. ej. s = softmax(γ·log m + δ)) y aplicarla a los sorteos antiguos.
   - Pesa sobre todo en las categorías altas (14 y 13 aciertos); en la de 10 el
     efecto es pequeño.
 
@@ -26,17 +43,104 @@ Tareas:
     dashboards.build, v0.10.0).
   ✔ invoke update abre las páginas de LAE cuando falta algo y recoge los archivos de
     Descargas tras un clic en el marcador Quiniela (v0.10.1).
-  ☐ Usar los porcentajes del público (en lugar de las cuotas) como "público" en el
-    modelo de premios de v3+v2F·E y v3+v2F·B.
-  ☐ Medir con el backtest en euros si mejora frente al mercado.
+  ✔ Prueba previa (2026-11-27, scripts en el scratchpad, sin tocar el código):
+    - Archivo (5 boletos, 19 partidos masculinos con cuotas): el público marca al
+      favorito un 58 % de media frente al 51 % del mercado; s = softmax(γ·log m + δ)
+      da γ = 1,56 (KL público‖mercado 0,038 → 0,020 con la relación).
+    - Sorteos 2010-11 a 2026-27 (618 con 10+ partidos de Liga/Segunda): la misma
+      relación ajustada sobre los acertantes de 14 da γ ≈ 1,35, estable en todas
+      las temporadas. Pero apenas mejora el modelo de premios fuera de muestra
+      (+1 % en 14 y 13 aciertos, −0,4 %, −2,3 % y −1,8 % en 12, 11 y 10): la
+      pendiente b_k ya absorbía el sesgo hacia los favoritos. Conclusión: la
+      relación mercado → público NO sirve para el backtest; el valor está en las
+      desviaciones de cada partido, que solo dan los porcentajes reales
+      (Almería-Andorra: público 80 %, mercado 58 %; Mallorca-Córdoba: 71 % y 49 %).
+    - Sorteos archivados ya jugados (j21, j22, j23 de 2026-27), acertantes reales
+      frente a previstos:
+        · el método actual (mercado y, en los partidos sin cuotas, el reparto
+          medio de 1/X/2) los infravalora mucho cuando hay partidos que no son de
+          Liga/Segunda: j22 (Champions femenina, 0 partidos enlazados) 267 de 14
+          reales frente a 0,3; j23 (4 de Liga F) 152 frente a 7,8;
+        · sin parámetros, con los porcentajes reales y las columnas del público
+          como elecciones independientes (Poisson-binomial de s_i del resultado
+          real: W_k = B·P(aciertos = k)): j21 2 / 47 / 605 / 4.649 / 23.480 frente a
+          4 / 40 / 459 / 3.831 / 21.762 reales (14 a 10 aciertos); j23 150 / 2.943 /
+          24.843 / 118.739 / 356.304 frente a 152 / 3.105 / 28.917 / 148.971 /
+          455.229; j22 unas 6-9 veces por debajo (aún mucho mejor que el actual).
+  ✔ Implementado (2026-11-27, v0.14.0): PublicPrizeModel en
+    quiniela.prediction.money (acertantes = B·P(aciertos = k) de la Poisson-binomial
+    de los porcentajes reales; dispersión σ_k y parte del Pleno al 15 del modelo del
+    mercado). v3+v2F·B lo usa cuando el boleto trae los porcentajes de los 14
+    partidos: el próximo boleto en current.html (columnas _public_* de
+    predict_upcoming) y los archivados en season.html (load_public_shares). La página
+    dice de dónde salen los acertantes. Boleto de la jornada 25: P(1.000 € o más)
+    0,19 % → 0,30 %, media devuelta 20 € → 28 € por 48 €. El backtest en euros sigue
+    con el mercado (sin porcentajes antes de 2026-27).
+  ☐ Seguir comprobándolo con cada sorteo archivado (con 3 sorteos es indicativo,
+    no una prueba): acertantes reales frente a los previstos por los dos modelos.
+  ✔ Publicado en v0.14.0.
 
 
-3. Liga F (fútbol femenino) · PRIORIDAD ALTA
+2. Dataset de métricas y KPIs · PRIORIDAD ALTA
+==============================================================================
+Idea:
+  Una tabla con un registro por partido (histórico y jornada actual) con todas las
+  métricas, y otra por jornada y boleto con los KPIs. Sirve para decidir a mano,
+  para alimentar el optimizador del boleto (3) y para medir qué métricas predicen
+  mejor los KPIs.
+
+Métricas por partido (candidatas):
+  - Probabilidades: v3, mercado (Avg), público (1X2) y modelos sueltos.
+  - Igualdad: entropía de v3 y probabilidad del favorito.
+  - Dispersión entre casas (solo informativa: no mejora v3, DISCARDED.todo).
+  - Diferencia de fuerza: pi-ratings (v4), Dixon-Coles (ataque y defensa).
+  - Modelo frente a mercado: log(p_v3 / p_mercado).
+  - Modelo frente a público (ventaja): log(p_v3 / s_público) por signo.
+  - Valor de cada signo: p_v3 / s_público (acierto × reparto).
+  - Incertidumbre del modelo: diferencia entre v2, v4 y mercado.
+Métricas por jornada:
+  - Sorpresa esperada, diferenciación D = Σ log(p_i / s_i) del boleto, acertantes
+    esperados si se acierta (B · Π s_i), retorno esperado (E[premio] / coste),
+    P(algún premio), P(≥ 100 €), P(≥ 1.000 €), bote.
+KPIs:
+  - Aciertos (condición necesaria y forma de valorar modelos), P(13+), P(14).
+  - Retorno: ganado − invertido y ganado / invertido, por temporada.
+  - Calidad del veredicto: retorno de las jornadas "jugar" frente a las "no jugar".
+
+Tareas:
+  ☐ Definir el esquema (data/metrics/matches.parquet y draws.parquet) desde los
+    datos que ya hay (predicciones, backtest, sorteos, data/lae/public/).
+  ☐ Construirlo en invoke update (jornada actual) y en el backtest (histórico).
+  ☐ Página metrics.html: tabla de la jornada con las métricas por partido (colores
+    por percentil) y, para el histórico, cada métrica por quintiles frente a los
+    KPIs (¿se acierta más o se gana más en el quintil alto?).
+
+
+3. Boleto que combina acierto y reparto · PRIORIDAD MEDIA
+==============================================================================
+Idea:
+  Diferenciarse no sirve sin acertar: el objetivo debe ser el premio esperado (o
+  P(premio ≥ X)), que ya cuenta las dos cosas: probabilidad de acertar (p, del modelo)
+  y con cuántos se reparte (s, del público). Dobles, triples y reducciones van donde
+  más suben ese objetivo, no solo donde hay más igualdad. Las demás métricas entran
+  a través de p (mejores probabilidades) o como medida de lo fiable que es p
+  (dispersión), sin contarlas dos veces.
+
+Tareas:
+  ☐ Objetivo con el público real (depende de 1) en ·D, ·R y ·B.
+  ☐ Variante pequeña (2-8 columnas) para jornadas verdes.
+  ☐ Veredicto por jornada (no jugar / jugar poco / jugar ·B) con las métricas de 2,
+    validado con la columna Rec. de season.html.
+
+
+4. Liga F (fútbol femenino) · PRIORIDAD MEDIA
 ==============================================================================
 Idea:
   Desde 2026-27 los boletos de fin de semana llevan 4 partidos de la Liga F (29 % del
   boleto). Se modela y evalúa aparte: v1F = porcentajes del público, v2F = pi-ratings con
   los resultados de ESPN (el que usan los boletos desde v0.12.0; v1F de respaldo).
+  Sin cuotas, los modelos de resultados son lo único que hay, y con 240 partidos al
+  año los goles son muy ruidosos: los tiros a puerta pueden ayudar aquí.
 
 Tareas:
   ✔ Histórico de la Liga F: resultados de los boletos oficiales y porcentajes del
@@ -55,37 +159,86 @@ Tareas:
     y otras competiciones van como "otras").
   ✔ season.html por boletos oficiales con los cuatro boletos v3+v2F (aciertos, categoría
     y premio real); current.html solo con los boletos y aviso de boleto que falta.
+  ☐ v3F: pi-ratings aprendiendo de una mezcla de goles y tiros a puerta,
+    α·Δgoles + (1 − α)·κ·Δtiros a puerta (κ pasa los tiros a escala de goles, α se
+    ajusta en el backtest semanal); compararlo con v2F. Los tiros a puerta vienen
+    en el mismo scoreboard mensual que ya se descarga (statistics de cada
+    competidor: shotsOnTarget, totalShots...): no hace falta summary?event=<id>.
   ☐ Revisar la comparación v1F vs v2F cuando tenga suficientes partidos, por si el
     público resultara mejor (jornada 21: 4 partidos, empate a 2 aciertos).
   ✔ ·B apunta a 1.000 € o más (antes 10.000 €); semáforos en una tabla de
     recomendaciones en current.html; columna Rec. sí/no en season.html.
+
+
+5. Pleno al 15 · PRIORIDAD MEDIA
+==============================================================================
+Idea:
+  Hoy el Pleno al 15 es el marcador más probable de Dixon-Coles (14,5 % de acierto en
+  el backtest). Dos mejoras:
+  - Marcador según el mercado: despejar λ_local y λ_visitante para que el Poisson
+    (con la corrección de Dixon-Coles) reproduzca las cuotas de 1X2 y de más/menos de
+    2,5 goles; de ahí las 16 probabilidades (0, 1, 2, M por equipo).
+  - Diferenciación: upcoming.json trae los porcentajes del público del Pleno por
+    equipo (public_home y public_away: 0, 1, 2, M). Elegir el marcador con mejor
+    probabilidad / popularidad, no solo el más probable (solo cobra con 14
+    aciertos: pesa en el valor esperado con bote, no en P(premio)).
+
+Matices:
+  - Notación propuesta: contador propio con P (v1P = Dixon-Coles actual, v2P =
+    mercado...), como la Liga F con F; mismo repo, mismas releases y tags.
+
+Tareas:
+  ☐ Cargar las cuotas de más/menos de 2,5 goles: están en los ficheros de
+    football-data desde 2005 (BbAv>2.5 hasta 2018-19, Avg>2.5 desde 2019-20), pero
+    quiniela.data.loading solo guarda las de 1X2.
+  ☐ v2P: marcador según el mercado; backtest en los Plenos reales de LAE.
+  ☐ Archivar y usar los porcentajes del público del Pleno para diferenciarse.
+
+
+6. Elo de selecciones (partidos "otros") · PRIORIDAD MEDIA
+==============================================================================
+Idea:
+  Los partidos de selecciones van hoy con los porcentajes del público.
+  Fuentes comprobadas el 2026-11-27:
+  - eloratings.net: un fichero por año (<año>_results.tsv) con cada partido y el Elo
+    de los dos equipos, y latest.tsv con lo último (17-11-2026). Confirmar si el Elo
+    de cada fila es el de antes o el de después del partido.
+  - martj42/international_results (GitHub): todos los resultados desde 1872,
+    actualizado el 23-11-2026.
+  - ESPN: clasificatorias, Nations League, Eurocopa, Mundial y amistosos desde al
+    menos 2012, con tiros a puerta.
+  - Sin cuotas históricas gratuitas (ver DISCARDED.todo).
+
+Tareas:
+  ☐ Descarga histórica y semanal (eloratings.net o Elo propio con martj42 + ESPN).
+  ☐ Equivalencias de nombres con LAE.
+  ☐ Modelo (Elo → 1X2 con regresión ordinal) y evaluación en los partidos de
+    selecciones de los boletos reales desde 2010.
+
+
+7. Rating global de clubes (partidos "otros") · PRIORIDAD BAJA
+==============================================================================
+Idea:
+  Un rating propio (pi-ratings o Elo) sobre todas las ligas europeas, enlazadas por
+  los partidos de copas europeas, para la Champions, la Europa League, la Conference
+  y la Copa del Rey de los boletos de entre semana (sustituye a ClubElo).
+  Fuentes comprobadas el 2026-11-27:
+  - football-data: las ~22 ligas principales (con cuotas previas) y las ligas extra
+    (new/<país>.csv: NOR, SWE, FIN, DNK, AUT, SWZ, POL, ROU...: resultados, pero solo
+    cuotas de cierre, que no se pueden usar).
+  - ESPN: Champions desde al menos 2006, Europa League desde 2012, Conference desde
+    2021, Copa del Rey y Supercopa, todas con tiros a puerta. Sin cuotas.
+
+Tareas:
+  ☐ Descarga histórica y semanal de las ligas y de las copas.
+  ☐ Equivalencias de nombres football-data ↔ ESPN ↔ LAE (el mayor coste).
+  ☐ Modelo y evaluación en los partidos de copas de los boletos reales desde 2010.
+
+
+8. Pendientes menores
+==============================================================================
   ☐ Elegir el boleto v3+v2F con el que apostar (el más competitivo) cuando haya
     suficientes boletos oficiales.
   ☐ Probar las reducciones oficiales como candidatas del boleto ·B (con 1.000 € a
     menudo basta un 13).
-  ☐ Variante de v2F con tiros a puerta (ESPN los da por partido en summary?event=<id>,
-    una petición por partido, con caché): pi-ratings aprendiendo de la diferencia de
-    tiros a puerta o de una mezcla de goles y tiros; compararla con v2F. NO
-    implementada todavía.
-
-
-Otras ideas (ya en el README)
-==============================================================================
-  ☐ Tiros a puerta (HST, AST) como medida de rendimiento menos ruidosa que los goles
-    (por ejemplo, pi-ratings v4 aprendiendo de la diferencia de tiros a puerta).
   ☐ Usar v4 (pi-ratings) en lugar de Dixon-Coles cuando falten las cuotas en v3.
-
-
-Descartado
-==============================================================================
-  ✗ Fuerza de los clubes (ClubElo) como variable de un v5 (v3 + Elo). Descartado el
-    2026-11-27:
-    - La API (api.clubelo.com, la que usa soccerdata) está retirada: no responde y la
-      página /API de la web nueva redirige a la portada. Las páginas de cada club
-      solo traen el Elo desde diciembre de 2022 (no cubre el backtest desde 2015-16).
-    - Un Elo propio con nuestros datos (solo ligas, sin Copa ni Europa) sería casi
-      un duplicado de v4 (pi-ratings, que aprende de los mismos resultados), y v3
-      muestra que esos modelos no suman encima del mercado.
-    - Si se retoma la idea, pruebas baratas sin fuente nueva: la diferencia de
-      pi-ratings de v4 como variable de v3, y una aproximación a "juega en Europa"
-      (clasificación de la temporada anterior y calendario fijo de la UEFA).

@@ -1,7 +1,9 @@
 # CLAUDE.md
 
 Guidance for Claude Code in this repository. Read `README.md` (architecture, models, metrics,
-releases) and `TODO.todo` (pending work, in Spanish) before starting a task.
+releases) and `TODO.todo` (pending work, in Spanish) before starting a task. Before proposing
+new ideas (brainstorming), also read `DISCARDED.todo` (discarded ideas with their reason)
+so they are not discussed again; add every idea the user discards there.
 
 ## Project
 

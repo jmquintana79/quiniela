@@ -352,6 +352,13 @@ def predict_upcoming(
     # League rounds are not known for the official ticket (and mix competitions)
     matches["round"] = None
     matches["official_position"] = matches.pop("position")
+    # The public's share of 1, X and 2 of every match (percent): the winners of the
+    # ·B prize model (quiniela.prediction.money.PublicPrizeModel)
+    public_shares = upcoming.matches.set_index("position")
+    for sign, outcome in (("1", "H"), ("X", "D"), ("2", "A")):
+        matches[f"_public_{outcome}"] = (
+            matches["official_position"].map(public_shares[f"public_{sign}"]).astype(float)
+        )
     ours = ~matches["league"].isin([WOMEN_LEAGUE, OTHER_LEAGUE])
     # Without a football-data fixture the match has no date yet: the closing day is used
     known_date = matches["date"].notna()

@@ -208,3 +208,28 @@ def test_ticket_flags_and_official_tickets(lae_dir: Path, matches: pd.DataFrame)
     # A draw still being played (no scrutiny, so not in load_draws) keeps the ticket's date
     pending = prizes.official_tickets(prizes.load_draws(lae_dir).iloc[0:0], matched)
     assert pending["2025-26"][0]["date"] == "2025-10-05"
+
+
+def test_ticket_shares(tmp_path: Path) -> None:
+    _upcoming_file(tmp_path)
+    ticket = prizes.load_upcoming(tmp_path)
+    assert ticket is not None
+    # Only two matches saved: not a full ticket
+    assert prizes.ticket_shares(ticket) is None
+    rows = [
+        {
+            "position": i,
+            "lae_home": "A",
+            "lae_away": "B",
+            "public_1": 50,
+            "public_X": 30,
+            "public_2": 20,
+        }
+        for i in range(1, 15)
+    ]
+    full = prizes.UpcomingTicket(
+        jornada=21, closes=ticket.closes, saved_at=None, matches=pd.DataFrame(rows), pleno_public={}
+    )
+    shares = prizes.ticket_shares(full)
+    assert shares is not None and shares.shape == (14, 3)
+    assert shares[0].tolist() == pytest.approx([0.5, 0.3, 0.2])

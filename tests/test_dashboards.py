@@ -684,3 +684,31 @@ def test_recommendations_rank_every_ticket() -> None:
     assert levels[(dashboards.MONEY_KEY, "1,000 € or more")] == "green"
     assert levels[(dashboards.MONEY_KEY, "13+ hits")] == "red"
     assert dashboards._recommendations(summary, pd.DataFrame()) == []
+
+
+def test_ticket_crowd_prefers_the_public() -> None:
+    import numpy as np
+
+    from quiniela.prediction.money import PrizeModel, PublicPrizeModel
+
+    model = PrizeModel({14: 0.0}, {14: -1.0}, {14: 0.5}, 0.2, 100)
+    probs = np.tile([0.5, 0.3, 0.2], (14, 1))
+    ticket = pd.DataFrame(
+        {
+            "_crowd_H": [0.6] * 13 + [np.nan],
+            "_crowd_D": [0.25] * 13 + [np.nan],
+            "_crowd_A": [0.15] * 13 + [np.nan],
+        }
+    )
+    # Without the public's shares: the market, the model where there are no odds
+    crowd, winners, source = dashboards._ticket_crowd(ticket, probs, model)
+    assert source == "market" and winners is model
+    assert crowd[-1].tolist() == [0.5, 0.3, 0.2]
+    # With the shares of every match (percent): normalised, and the public's prize model
+    shared = ticket.assign(_public_H=70.0, _public_D=20.0, _public_A=10.0)
+    crowd, winners, source = dashboards._ticket_crowd(shared, probs, model)
+    assert source == "public" and isinstance(winners, PublicPrizeModel)
+    assert crowd[0].tolist() == pytest.approx([0.7, 0.2, 0.1])
+    # A match without shares: back to the market
+    partial = shared.assign(_public_H=[70.0] * 13 + [np.nan])
+    assert dashboards._ticket_crowd(partial, probs, model)[2] == "market"
