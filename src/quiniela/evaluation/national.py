@@ -197,12 +197,17 @@ def _join(tickets: pd.DataFrame, backtest: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def summarize_national(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[str, Any]:
+def summarize_national(
+    backtest: pd.DataFrame, tickets: pd.DataFrame, public_key: str = PUBLIC_KEY
+) -> dict[str, Any]:
     """Metrics of the national-team models on every international and on the tickets.
+
+    The club models are summarised the same way (``quiniela.evaluation.clubs``).
 
     Args:
         backtest: Output of :func:`national_backtest`.
         tickets: Output of :func:`ticket_predictions`.
+        public_key: Model key of the public's picks in ``tickets``.
 
     Returns:
         ``all`` (every international), ``tickets`` (the ticket matches) and
@@ -222,7 +227,7 @@ def summarize_national(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[st
             }
         return out
 
-    with_public = tickets.loc[tickets["model"] == PUBLIC_KEY, "game"]
+    with_public = tickets.loc[tickets["model"] == public_key, "game"]
     by_year: dict[str, dict[str, Any]] = {}
     for (year, key), group in backtest.groupby(["year", "model"]):
         probs = group[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
@@ -234,7 +239,7 @@ def summarize_national(backtest: pd.DataFrame, tickets: pd.DataFrame) -> dict[st
         }
     return {
         "all": scores(backtest),
-        "tickets": scores(tickets[tickets["model"] != PUBLIC_KEY]),
+        "tickets": scores(tickets[tickets["model"] != public_key]),
         "public": scores(tickets[tickets["game"].isin(with_public)]),
         "by_year": by_year,
     }

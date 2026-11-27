@@ -17,6 +17,7 @@ Submodules:
 - ``public_picks``: v1F, the Liga F model (the public's picks).
 - ``pi_ratings_shots_f``: v3F, Liga F pi-ratings learned from goals and shots on target.
 - ``elo_national``: v1N, World Football Elo ratings of the national teams mapped to 1X2.
+- ``elo_clubs``: v1C, one Elo rating of every club of the ESPN competitions mapped to 1X2.
 - ``pipeline``: walk-forward predictions of matchdays and their storage.
 - ``planner``: the ·D ticket (direct doubles and triples of the quiniela ticket).
 - ``reduced``: the ·R ticket (official reductions of the quiniela ticket).
@@ -28,6 +29,7 @@ Submodules:
 from quiniela.prediction import (
     confidence,
     dixon_coles,
+    elo_clubs,
     elo_national,
     head_to_head,
     market,
@@ -65,6 +67,7 @@ __all__ = [
     "Predictor",
     "confidence",
     "dixon_coles",
+    "elo_clubs",
     "elo_national",
     "head_to_head",
     "market",

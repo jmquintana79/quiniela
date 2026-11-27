@@ -27,7 +27,12 @@ from quiniela.data.loading import load_current, load_historical
 from quiniela.data.matchdays import assign_matchdays
 from quiniela.prediction.confidence import CONFIDENCE_COLUMNS, confidence
 from quiniela.prediction.planner import PLANNER_MODEL
-from quiniela.prediction.registry import MODELS, NATIONAL_PLANNER_MODEL, WOMEN_PLANNER_MODEL
+from quiniela.prediction.registry import (
+    CLUB_PLANNER_MODEL,
+    MODELS,
+    NATIONAL_PLANNER_MODEL,
+    WOMEN_PLANNER_MODEL,
+)
 
 # The Liga F model of the public's picks (v1F)
 PUBLIC_PICKS_MODEL = "public_picks"
@@ -283,8 +288,10 @@ def predict_upcoming(
     Segunda matches are predicted with every model trained on all played
     matches; without odds the market reference has no prediction and v3 is
     Dixon-Coles alone. The Liga F matches get the Liga F models (v3F for the
-    tickets, ``WOMEN_PLANNER_MODEL``) and the national-team matches v1N
-    (``NATIONAL_PLANNER_MODEL``); the other competitions get the public's picks.
+    tickets, ``WOMEN_PLANNER_MODEL``), the national-team matches v1N
+    (``NATIONAL_PLANNER_MODEL``) and the other club matches (European cups,
+    Copa del Rey, foreign leagues) v1C (``CLUB_PLANNER_MODEL``); the rest get
+    the public's picks.
 
     Args:
         upcoming: The next ticket (``quiniela.data.prizes.load_upcoming``).
@@ -298,7 +305,8 @@ def predict_upcoming(
         the predictions of every model for the La Liga / Segunda ones, and
         ``info`` with how many are ``ours``, have a football-data ``fixture``,
         ``odds`` and ``results``, how many use the ``public``'s picks and how
-        many are ``national``-team matches predicted by v1N, and the
+        many are ``national``-team matches predicted by v1N and ``clubs``
+        matches predicted by v1C, and the
         ``pleno`` al 15 pick (``_pleno_pick``).
     """
     from quiniela.data.prizes import team_names, translate_team
@@ -409,18 +417,25 @@ def predict_upcoming(
     national = _national_predictions(upcoming, matches[matches["league"] == OTHER_LEAGUE], closes)
     if not national.empty:
         predictions[NATIONAL_PLANNER_MODEL] = national
+    # Club matches of other competitions: v1C, the club Elo of ESPN (the public without it)
+    others = matches[
+        (matches["league"] == OTHER_LEAGUE) & ~matches["game"].isin(national.get("game", []))
+    ]
+    clubs = _club_predictions(upcoming, others, closes)
+    if not clubs.empty:
+        predictions[CLUB_PLANNER_MODEL] = clubs
     # The Liga F model of the tickets (v3F); v1F (the public) where it has no prediction
     planner_women = predictions.get(WOMEN_PLANNER_MODEL, pd.DataFrame())
-    modelled = [*planner_women.get("game", []), *national.get("game", [])]
+    modelled = [*planner_women.get("game", []), *national.get("game", []), *clubs.get("game", [])]
     # Empty frames are left out: concatenating them would turn the probabilities into objects
-    parts = [planner_women, national, public[~public["game"].isin(modelled)]]
+    parts = [planner_women, national, clubs, public[~public["game"].isin(modelled)]]
     parts = [part for part in parts if not part.empty]
     fill = pd.concat(parts, ignore_index=True) if parts else public.iloc[:0]
     fill = fill.astype({column: float for column in ("p_H", "p_D", "p_A")})
     if PLANNER_MODEL in predictions:
         # The ticket of v3 + v3F: Dixon-Coles + market where there is data, v3F on the
-        # Liga F matches (v1F without it), v1N on the national teams and the public's
-        # picks on the other competitions
+        # Liga F matches (v1F without it), v1N on the national teams, v1C on the other
+        # club matches and the public's picks on the rest
         model_rows = predictions[PLANNER_MODEL].assign(source="model")
         predictions[PLANNER_MODEL] = pd.concat([model_rows, fill], ignore_index=True)
     elif not fill.empty:
@@ -430,8 +445,9 @@ def predict_upcoming(
         "fixtures": int(matches.loc[ours, "_fixture"].sum()),
         "odds": with_odds,
         "results": int(matches["FTR"].notna().sum()),
-        "public": len(public) - len(national),
+        "public": len(public) - len(national) - len(clubs),
         "national": len(national),
+        "clubs": len(clubs),
         "pleno": _pleno_pick(upcoming, names, league_of, pending, recent, played, closes),
     }
     return matches.drop(columns=["_fixture"]), predictions, info
@@ -702,6 +718,74 @@ def _national_predictions(
     out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
     out = out.reindex(columns=PREDICTION_COLUMNS)
     return out.assign(source=NATIONAL_MODELS[NATIONAL_PLANNER_MODEL].version)
+
+
+def _club_predictions(
+    upcoming: "UpcomingTicket", matches: pd.DataFrame, closes: pd.Timestamp
+) -> pd.DataFrame:
+    """v1C predictions of the ticket's club matches of other competitions.
+
+    Each match is linked to its ESPN fixture (``quiniela.data.clubs.link_espn``,
+    by the similarity of the names around the sales deadline) and predicted by
+    the club Elo trained on the ESPN matches played before the deadline, so it
+    keeps its pre-match prediction once played.
+
+    Args:
+        upcoming: The next ticket (LAE team names by position).
+        matches: The ticket matches of other competitions that are not
+            national-team ones (``official_position``, ``game``...).
+        closes: Sales deadline.
+
+    Returns:
+        Predictions with ``PREDICTION_COLUMNS`` and ``source`` = ``"v1C"``;
+        empty without club matches or ESPN data.
+    """
+    from quiniela.data.clubs import is_club_match, link_espn
+    from quiniela.evaluation.clubs import club_model
+    from quiniela.io.espn_clubs import load_club_matches
+    from quiniela.prediction.registry import CLUB_MODELS
+
+    empty = pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
+    lae = upcoming.matches.set_index("position")
+    positions = [int(p) for p in matches["official_position"]]
+    rows = matches.assign(
+        lae_home=[lae.loc[p, "lae_home"] for p in positions],
+        lae_away=[lae.loc[p, "lae_away"] for p in positions],
+        kickoff=pd.NaT,
+        draw_date=closes,
+    )
+    rows = rows[
+        [is_club_match(h, a) for h, a in zip(rows["lae_home"], rows["lae_away"], strict=True)]
+    ]
+    if rows.empty:
+        return empty
+    espn = load_club_matches()
+    if espn.empty:
+        return empty
+    links = link_espn(rows, espn)
+    rows = rows.join(links[["espn_id", "swapped"]]).dropna(subset=["espn_id"])
+    model = club_model(espn, before=closes)
+    if rows.empty or model is None:
+        return empty
+    found = espn.set_index("espn_id").loc[rows["espn_id"]]
+    swapped = rows["swapped"].to_numpy(dtype=bool)
+    target = pd.DataFrame(
+        {
+            "home_id": np.where(swapped, found["away_id"], found["home_id"]),
+            "away_id": np.where(swapped, found["home_id"], found["away_id"]),
+            "neutral": found["neutral"].to_numpy(dtype=bool),
+        }
+    )
+    probs = model.predict_proba(target)
+    out = rows.assign(
+        p_H=probs[:, 0],
+        p_D=probs[:, 1],
+        p_A=probs[:, 2],
+        prediction=np.array(OUTCOMES)[probs.argmax(axis=1)],
+    )
+    out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
+    out = out.reindex(columns=PREDICTION_COLUMNS)
+    return out.assign(source=CLUB_MODELS[CLUB_PLANNER_MODEL].version)
 
 
 def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:

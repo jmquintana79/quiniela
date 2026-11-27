@@ -235,6 +235,7 @@ function pickCell(match, key) {
     : match[`${key}_source`] === "v2F" ? " · Liga F: v2F, pi-ratings of the Liga F results"
     : match[`${key}_source`] === "v1F" ? " · Liga F: v1F, the public's picks"
     : match[`${key}_source`] === "v1N" ? " · national teams: v1N, Elo of every international"
+    : match[`${key}_source`] === "v1C" ? " · other club competitions: v1C, Elo of every ESPN club match"
     : match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
     : match[`${key}_source`] === "reduced" ? " · in the reduction (not every combination is played)" : "";
   const mark = match[`${key}_source`] === "reduced" ? '<sup class="muted">R</sup>' : "";

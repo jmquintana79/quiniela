@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from quiniela.prediction.dixon_coles import DixonColesModel
+from quiniela.prediction.elo_clubs import ClubEloModel
 from quiniela.prediction.elo_national import NationalEloModel
 from quiniela.prediction.head_to_head import HeadToHeadModel
 from quiniela.prediction.market import MarketModel
@@ -163,3 +164,22 @@ NATIONAL_MODELS: dict[str, ModelSpec] = {
 # National-team model whose probabilities the tickets use (since v0.20; the public's picks
 # before, and still where it has no prediction)
 NATIONAL_PLANNER_MODEL = "elo_national"
+
+# Club models of the other competitions (European cups, Copa del Rey, foreign leagues): their
+# own version counter with a "C", trained on every ESPN match of quiniela.io.espn_clubs and
+# evaluated apart (quiniela.evaluation.clubs) on those matches and on the club matches of the
+# official tickets outside La Liga / Segunda (quiniela.data.clubs)
+CLUB_MODELS: dict[str, ModelSpec] = {
+    "elo_clubs": ModelSpec(
+        name="Club Elo",
+        factory=ClubEloModel,
+        description="Other club competitions: one Elo rating of every club of 24 leagues and 14 "
+        "cups (ESPN, since 2009), linked by the European cups, mapped to 1X2 by an ordered "
+        "logistic regression on the Elo difference and home advantage.",
+        version="v1C",
+    ),
+}
+
+# Club model whose probabilities the tickets use for the club matches outside La Liga /
+# Segunda (since v0.21; the public's picks before, and still where it has no prediction)
+CLUB_PLANNER_MODEL = "elo_clubs"

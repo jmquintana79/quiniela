@@ -806,3 +806,18 @@ def test_national_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     # Without results the page shows an empty block
     empty = dashboards.national_payload(_internationals().iloc[:0])
     assert empty["scopes"] == {} and len(empty["models"]) == 3
+
+
+def test_clubs_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    from quiniela.evaluation.clubs import club_backtest
+    from tests.test_clubs import _espn
+
+    backtest = club_backtest(_espn())
+    monkeypatch.setattr(dashboards, "_club_evaluation", lambda: (backtest, pd.DataFrame()))
+    payload = dashboards.clubs_payload()
+    assert [m["key"] for m in payload["models"]] == ["elo_clubs", "club_shares", "club_public"]
+    assert payload["scopes"]["all"]["elo_clubs"]["matches"] > 0
+    assert payload["scopes"]["tickets"] == {}
+    json.dumps(payload)
+    monkeypatch.setattr(dashboards, "_club_evaluation", lambda: (pd.DataFrame(), pd.DataFrame()))
+    assert dashboards.clubs_payload()["scopes"] == {}

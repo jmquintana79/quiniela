@@ -46,6 +46,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
     monkeypatch.setattr(
         update.international, "download_results", lambda: Path("national/results.csv")
     )
+    monkeypatch.setattr(update.espn_clubs, "update_clubs", lambda today: 3)
     monkeypatch.setattr(
         update.dashboards,
         "build_dashboards",

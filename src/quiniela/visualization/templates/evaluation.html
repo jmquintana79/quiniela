@@ -117,6 +117,31 @@
     <div class="grid two" id="national-contingency"></div>
   </section>
 
+  <h2 class="group" id="clubs">Other club competitions</h2>
+  <p class="meta" style="margin:-4px 0 12px">The club matches of the tickets outside La Liga and Segunda: European cups,
+    Copa del Rey, the Swedish, Norwegian, Brazilian, English or Italian leagues... Evaluated apart, on every match of 24 leagues
+    and 14 cups of ESPN since 2011 and on those ticket matches (linked to ESPN by the similarity of the team names).
+    <strong>v1C</strong> rates every club with one Elo scale, linked by the European cups, and maps the Elo difference to 1X2
+    as v1N; the regression is refitted every year on the earlier ones. References: the <strong>result shares</strong> of the
+    earlier years and the <strong>public's picks</strong> (what the tickets used until v0.20). No season filter.</p>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Metrics">
+    <h2>Other club competitions · Metrics</h2>
+    <div class="scroll" id="clubs-metrics"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · By year">
+    <h2>Other club competitions · Hit rate and log-loss by year</h2>
+    <p class="meta" style="margin:0 0 10px">Every ESPN club match of the year, predicted with the ratings before each match.</p>
+    <div class="scroll" id="clubs-years"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Contingency tables">
+    <h2>Other club competitions · Contingency tables on the official tickets</h2>
+    <p class="meta" style="margin:0 0 10px">Rows: the <strong>observed</strong> result; columns: the <strong>predicted</strong> sign.</p>
+    <div class="grid two" id="clubs-contingency"></div>
+  </section>
+
   <h2 class="group">Tickets (v3 on the men's matches + v3F on the Liga F ones)</h2>
 
   <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
@@ -458,35 +483,34 @@
     $("women-matches").innerHTML = ligaFMatchesTable((liga.matches || []).filter((m) => state.season === "all" || m.season === state.season));
   }
 
-  /** National-team tables: v1N and its references on every international and on the tickets. */
-  function nationalTables() {
-    const nat = DATA.national || {};
+  /** Tables of a group of models apart (national teams, other clubs): metrics, years, contingency. */
+  function groupTables(prefix, nat, names) {
+    nat = nat || {};
     const scopes = nat.scopes || {};
     const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`;
-    const names = { all: "Every international from 2010", tickets: "Official tickets", public: "Tickets with public picks" };
     const columns = Object.keys(names).flatMap((s) => (nat.models || []).filter((m) => scopes[s]?.[m.key]).map((m) => [s, m]));
     if (!columns.length) {
-      $("national-metrics").innerHTML = '<p class="empty">No national-team results yet. Run <code>invoke update</code>.</p>';
-      $("national-years").innerHTML = $("national-contingency").innerHTML = "";
+      $(`${prefix}-metrics`).innerHTML = '<p class="empty">No results yet. Run <code>invoke update</code>.</p>';
+      $(`${prefix}-years`).innerHTML = $(`${prefix}-contingency`).innerHTML = "";
       return;
     }
     const groups = Object.keys(names).map((s) => [s, columns.filter(([c]) => c === s).length]).filter(([, n]) => n);
     const head = `<tr><th></th>${groups.map(([s, n]) => `<th class="num" colspan="${n}">${names[s]}</th>`).join("")}</tr>
       <tr><th>Metric</th>${columns.map(([, m]) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
     const metrics = DATA.metrics.filter((metric) => columns.some(([s, m]) => scopes[s][m.key][metric.key] != null));
-    $("national-metrics").innerHTML = `<table><thead>${head}</thead><tbody>${metrics.map((metric) =>
+    $(`${prefix}-metrics`).innerHTML = `<table><thead>${head}</thead><tbody>${metrics.map((metric) =>
       `<tr><td data-tip="${esc(metric.description)}">${esc(metric.label)}</td>${columns.map(([s, m]) =>
         `<td class="num">${fmt(scopes[s][m.key][metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     const years = Object.keys(nat.by_year || {}).sort().reverse();
     const yearModels = (nat.models || []).filter((m) => years.some((y) => nat.by_year[y][m.key]));
-    $("national-years").innerHTML = `<table><thead><tr><th>Year</th><th class="num">Matches</th>${yearModels.map((m) =>
+    $(`${prefix}-years`).innerHTML = `<table><thead><tr><th>Year</th><th class="num">Matches</th>${yearModels.map((m) =>
       `<th class="num">${label(m)}<br><span class="muted">hits · log-loss</span></th>`).join("")}</tr></thead><tbody>${years.map((y) => {
         const row = nat.by_year[y];
         const n = Object.values(row)[0]?.matches;
         return `<tr><td class="strong">${y}</td><td class="num">${n ?? "–"}</td>${yearModels.map((m) => row[m.key]
           ? `<td class="num">${fmt(row[m.key].hit_rate, "pct")} · ${fmt(row[m.key].log_loss, "num")}</td>` : '<td class="num muted">–</td>').join("")}</tr>`;
       }).join("")}</tbody></table>`;
-    $("national-contingency").innerHTML = (nat.models || []).filter((m) => scopes.tickets?.[m.key]?.contingency)
+    $(`${prefix}-contingency`).innerHTML = (nat.models || []).filter((m) => scopes.tickets?.[m.key]?.contingency)
       .map((m) => contingencyCard(label(m), scopes.tickets[m.key].contingency, SIGNS, (i, j) => i === j)).join("");
   }
 
@@ -501,7 +525,10 @@
     $("ticket-contingency").innerHTML = ticketContingencyTables();
     $("metrics").innerHTML = metricsTable();
     womenTables();
-    nationalTables();
+    groupTables("national", DATA.national,
+      { all: "Every international from 2010", tickets: "Official tickets", public: "Tickets with public picks" });
+    groupTables("clubs", DATA.clubs,
+      { all: "Every ESPN club match from 2011", tickets: "Official tickets", public: "Tickets with public picks" });
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();
     $("money").innerHTML = moneyTable();

@@ -4,6 +4,7 @@ from quiniela.config import paths
 from quiniela.config.paths import (
     BACKTEST_DIR,
     CACHE_DIR,
+    CLUBS_DIR,
     CURRENT_DIR,
     DASHBOARDS_DIR,
     DATA_DIR,
@@ -22,6 +23,7 @@ from quiniela.config.paths import (
 __all__ = [
     "BACKTEST_DIR",
     "CACHE_DIR",
+    "CLUBS_DIR",
     "CURRENT_DIR",
     "DASHBOARDS_DIR",
     "DATA_DIR",

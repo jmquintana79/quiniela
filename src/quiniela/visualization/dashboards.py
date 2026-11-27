@@ -571,8 +571,8 @@ def _season_tickets(
     public's picks) on the Liga F matches whose betting page was archived;
     v3+v3F·D, v3+v3F·R and v3+v3F·B plan their doubles and triples on the 14
     matches with the v3 probabilities, v3F's on the Liga F matches (v1F's without it),
-    v1N's on the national-team matches and the league shares of 1, X and 2
-    elsewhere; the Pleno al 15 gets the market's goals categories (v2P), or
+    v1N's on the national-team matches, v1C's on the other club matches and
+    the league shares of 1, X and 2 elsewhere; the Pleno al 15 gets the market's goals categories (v2P), or
     Dixon-Coles' (v1P) without odds, when it is a La Liga / Segunda match.
     """
     from quiniela.data.prizes import official_tickets
@@ -632,8 +632,10 @@ def _season_tickets(
     women_models: dict[tuple[str, int, int], dict[str, Any]] = {
         (m["season"], m["jornada"], m["position"]): m for m in (liga or {}).get("matches", [])
     }
-    # v1N: the walk-forward Elo probabilities of the national-team matches of the tickets
+    # v1N and v1C: the walk-forward Elo probabilities of the national-team and the other club
+    # matches of the tickets
     national = _national_ticket_probs()
+    clubs = _club_ticket_probs()
     for number, ticket in enumerate(tickets):
         probs, crowd = [], []
         for match in ticket["matches"]:
@@ -679,6 +681,11 @@ def _season_tickets(
                 # National-team match: v1N marks it, and the tickets plan it with v1N
                 match["picks"]["elo_national"] = OUTCOMES_HDA[int(np.argmax(elo))]
                 row = elo
+            club = clubs.get((season, int(ticket["jornada"]), int(match["position"])))
+            if club is not None:
+                # Club match of another competition: v1C marks it, and the tickets plan it with v1C
+                match["picks"]["elo_clubs"] = OUTCOMES_HDA[int(np.argmax(club))]
+                row = club
             market = stored.get("market")
             public = (
                 market.loc[index, ["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
@@ -792,19 +799,86 @@ def _national_ticket_probs() -> dict[tuple[str, int, int], np.ndarray]:
         ticket's order of the teams); empty without the international results.
     """
     from quiniela.data.national import ticket_national
-    from quiniela.data.prizes import load_tickets
     from quiniela.evaluation.national import ELO_KEY, national_backtest, ticket_predictions
     from quiniela.io.international import load_results
 
     try:
         results = load_results()
-        tickets = load_tickets()
+        tickets = _matched_tickets()
     except (OSError, ValueError) as error:
         logger.warning("No national-team results for the tickets: %s", error)
         return {}
     if results.empty or tickets.empty:
         return {}
     rows = ticket_predictions(ticket_national(tickets, results), national_backtest(results))
+    rows = rows[rows["model"] == ELO_KEY]
+    return {
+        (str(r.season), int(r.jornada), int(r.position)): np.array([r.p_H, r.p_D, r.p_A])
+        for r in rows.itertuples()
+    }
+
+
+@functools.lru_cache(maxsize=1)
+def _matched_tickets() -> pd.DataFrame:
+    """Every official ticket match linked to football-data, read once per build.
+
+    Returns:
+        ``quiniela.data.prizes.match_tickets`` of every saved draw (empty without draws).
+    """
+    from quiniela.data.loading import load_current, load_historical
+    from quiniela.data.prizes import load_tickets, match_tickets
+
+    tickets = load_tickets()
+    if tickets.empty:
+        return tickets
+    matches = pd.concat([load_historical(), load_current()], ignore_index=True)
+    return match_tickets(tickets, matches)
+
+
+@functools.lru_cache(maxsize=1)
+def _club_evaluation() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """v1C walk-forward predictions of every ESPN club match and of the ticket club matches.
+
+    Computed once per build (about a minute): the season tickets and the evaluation
+    dashboard share it.
+
+    Returns:
+        ``(backtest, tickets)`` (``quiniela.evaluation.clubs``); empty frames
+        without ESPN club matches.
+    """
+    from quiniela.config import CLUBS_DIR
+    from quiniela.data.clubs import ticket_clubs
+    from quiniela.data.women import load_public_shares
+    from quiniela.evaluation.clubs import club_backtest, ticket_predictions
+    from quiniela.io.espn_clubs import load_club_matches
+
+    try:
+        espn = load_club_matches()
+        if espn.empty:
+            return pd.DataFrame(), pd.DataFrame()
+        matched = _matched_tickets()
+        if matched.empty:
+            return pd.DataFrame(), pd.DataFrame()
+        linked = ticket_clubs(matched, espn, cache_dir=CLUBS_DIR)
+    except (OSError, ValueError, KeyError) as error:
+        logger.warning("No club evaluation: %s", error)
+        return pd.DataFrame(), pd.DataFrame()
+    backtest = club_backtest(espn)
+    return backtest, ticket_predictions(linked, backtest, load_public_shares())
+
+
+def _club_ticket_probs() -> dict[tuple[str, int, int], np.ndarray]:
+    """v1C walk-forward probabilities of every club match of the official tickets outside La Liga / Segunda.
+
+    Returns:
+        ``(season, jornada, position)`` -> probabilities of 1, X and 2 (in the
+        ticket's order of the teams); empty without ESPN club matches.
+    """
+    from quiniela.evaluation.clubs import ELO_KEY
+
+    _, rows = _club_evaluation()
+    if rows.empty:
+        return {}
     rows = rows[rows["model"] == ELO_KEY]
     return {
         (str(r.season), int(r.jornada), int(r.position)): np.array([r.p_H, r.p_D, r.p_A])
@@ -2061,7 +2135,6 @@ def national_payload(results: pd.DataFrame | None = None) -> dict[str, Any]:
         by model with its metrics and contingency table, and ``by_year``.
     """
     from quiniela.data.national import ticket_national
-    from quiniela.data.prizes import load_tickets
     from quiniela.data.women import load_public_shares
     from quiniela.evaluation.national import (
         REFERENCE_SPECS,
@@ -2084,7 +2157,7 @@ def national_payload(results: pd.DataFrame | None = None) -> dict[str, Any]:
     ] + REFERENCE_SPECS
     try:
         results = load_results() if results is None else results
-        tickets = load_tickets()
+        tickets = _matched_tickets()
     except (OSError, ValueError) as error:
         logger.warning("No national-team evaluation: %s", error)
         return {"models": models, "scopes": {}, "by_year": {}}
@@ -2097,6 +2170,40 @@ def national_payload(results: pd.DataFrame | None = None) -> dict[str, Any]:
         load_public_shares(),
     )
     summary = summarize_national(backtest, rows)
+    scopes = {
+        scope: {key: _clean(values) for key, values in summary[scope].items()}
+        for scope in ("all", "tickets", "public")
+    }
+    return {"models": models, "scopes": scopes, "by_year": summary["by_year"]}
+
+
+def clubs_payload() -> dict[str, Any]:
+    """Club block of the evaluation dashboard: v1C and its references.
+
+    Returns:
+        As :func:`national_payload`: ``models``, ``scopes`` (``all``: every ESPN
+        club match from 2011; ``tickets``: the ticket club matches outside La Liga /
+        Segunda; ``public``: those with public picks) and ``by_year``.
+    """
+    from quiniela.evaluation.clubs import REFERENCE_SPECS, summarize_clubs
+    from quiniela.prediction.registry import CLUB_MODELS
+
+    models = [
+        {
+            "key": key,
+            "name": spec.name,
+            "version": spec.version,
+            "reference": spec.reference,
+            "description": spec.description,
+        }
+        for key, spec in CLUB_MODELS.items()
+    ] + REFERENCE_SPECS
+    backtest, rows = _club_evaluation()
+    if backtest.empty:
+        return {"models": models, "scopes": {}, "by_year": {}}
+    if rows.empty:
+        rows = pd.DataFrame(columns=["model", "game", "p_H", "p_D", "p_A", "FTR", "prediction"])
+    summary = summarize_clubs(backtest, rows)
     scopes = {
         scope: {key: _clean(values) for key, values in summary[scope].items()}
         for scope in ("all", "tickets", "public")
@@ -2145,6 +2252,7 @@ def evaluation_payload(
             "results": {},
             "liga_f": liga_f_payload(liga_f),
             "national": national_payload(),
+            "clubs": clubs_payload(),
         }
     tickets = load_tickets() if tickets is None else tickets
     if money_results is None:
@@ -2202,6 +2310,8 @@ def evaluation_payload(
         "liga_f": liga_f_payload(liga_f),
         # National teams, apart too: v1N (Elo) against the result shares and the public
         "national": national_payload(),
+        # Club matches of other competitions, apart too: v1C against the result shares
+        "clubs": clubs_payload(),
         "calibration": calibration,
         "confidence": _confidence_tables(backtest),
         "tickets": _ticket_tables(tickets),

@@ -8,7 +8,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
   4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; planifica los boletos desde v0.18.0).
   5. Pleno al 15: marcador según el mercado y diferenciación con el público (hecho en v0.19.0).
   6. Elo de selecciones para los partidos "otros" (HECHO, v1N).
-  7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
+  7. Rating global de clubes para los partidos "otros" (HECHO, v1C).
   8. Pendientes menores (al final).
 (Pinnacle y la dispersión entre casas en v3: descartados el 2026-11-27, ver
 DISCARDED.todo.)
@@ -290,7 +290,7 @@ Tareas:
     liga (solo juega sorteos con 10+ partidos de Liga / Segunda, efecto pequeño).
 
 
-7. Rating global de clubes (partidos "otros") · PRIORIDAD BAJA
+7. Rating global de clubes (partidos "otros") · HECHO (seguimiento)
 ==============================================================================
 Idea:
   Un rating propio (pi-ratings o Elo) sobre todas las ligas europeas, enlazadas por
@@ -304,9 +304,37 @@ Idea:
     2021, Copa del Rey y Supercopa, todas con tiros a puerta. Sin cuotas.
 
 Tareas:
-  ☐ Descarga histórica y semanal de las ligas y de las copas.
-  ☐ Equivalencias de nombres football-data ↔ ESPN ↔ LAE (el mayor coste).
-  ☐ Modelo y evaluación en los partidos de copas de los boletos reales desde 2010.
+  ✔ Tamaño: 4.627 partidos de clubes fuera de Liga / Segunda en los boletos desde
+    2010-11 (22 % de todos; cinco veces los de selecciones): copas europeas y Copa del
+    Rey entre semana, ligas sueca, noruega y brasileña en verano.
+  ✔ Descarga histórica y semanal solo de ESPN (quiniela.io.espn_clubs): 24 ligas y
+    14 copas desde 2009, unos 160.000 partidos, con un id por club en todas las
+    competiciones (no hace falta football-data ni emparejar sus nombres). Un parquet
+    por competición y mes en data/clubs/espn/ (60 MB); invoke update pide lo que falta,
+    los dos últimos meses y el siguiente.
+  ✔ Nombres LAE ↔ ESPN por parecido (quiniela.data.clubs): partidos de ESPN de ±2 días
+    del inicio (±5 del sorteo sin él), nombres normalizados y exónimos (Nápoles,
+    Oporto...). 4.269 de 4.627 enlazados (92 %); los enlaces de los sorteos jugados se
+    guardan en data/clubs/.
+  ✔ Modelo v1C (quiniela.prediction.elo_clubs): Elo único K = 20, H = 65, los equipos
+    nuevos entran en el percentil 10 de su competición; 1X2 con la regresión ordinal de
+    v1N (8 años). Evaluación (quiniela.evaluation.clubs, evaluation.html):
+    - Todos los partidos de ESPN desde 2011 (140.241): 50,8 %, log-loss 1,004, frente a
+      45,0 % y 1,067 de las proporciones (v3 con cuotas: 50,0 % y 1,003 en Liga y
+      Segunda).
+    - Los 4.111 partidos de clubes de los boletos: 55,5 % y 0,955, frente a 45,4 % y
+      1,060.
+  ✔ Los boletos planifican con v1C esos partidos (current.html y season.html).
+    Temporada 2026-27: más aciertos en todos los boletos (sencillo 168 → 186, ·D 208 →
+    226, ·R 226 → 242, ·B 216 → 233); en euros, ·B 198 → 741 €, ·D 526 → 235 € (se
+    pierde un premio de 420 € de la jornada 7).
+  ☐ Seguimiento: v1C frente al público cuando haya boletos archivados con estos
+    partidos y su resultado; competiciones que ESPN no tiene (liga finlandesa,
+    Segunda B / Primera RFEF).
+  ☐ La reconstrucción de los dashboards tarda unos 6 minutos (igual que en v0.20: con los
+    enlaces guardados, v1C no añade tiempo). Casi todo es anterior: las simulaciones de
+    v3+v3F·B, los resúmenes del backtest y la evaluación semanal de la Liga F. Ver si se
+    pueden guardar en disco.
 
 
 8. Pendientes menores

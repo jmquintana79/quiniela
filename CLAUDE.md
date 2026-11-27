@@ -49,7 +49,10 @@ model is evaluated with a walk-forward backtest against the betting market.
   teams** have their own counter with an N: v1N World Football Elo of every international since
   1872 (`quiniela.prediction.elo_national`, `NATIONAL_MODELS`, data from martj42 in
   `quiniela.io.international`, ticket matches in `quiniela.data.national`, evaluation in
-  `quiniela.evaluation.national`). The **Pleno
+  `quiniela.evaluation.national`); the **other club competitions** (European cups, Copa del Rey,
+  foreign leagues) with a C: v1C club Elo of every ESPN match of 38 competitions since 2009
+  (`quiniela.prediction.elo_clubs`, `CLUB_MODELS`, data in `quiniela.io.espn_clubs`, ticket matches
+  linked by name similarity in `quiniela.data.clubs`, evaluation in `quiniela.evaluation.clubs`). The **Pleno
   al 15** has its own counter with a P: v1P Dixon-Coles' most likely goals categories, v2P the
   market's (`quiniela.prediction.pleno`, the tickets' pick since v0.19). Every
   dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`
@@ -59,7 +62,8 @@ model is evaluated with a walk-forward backtest against the betting market.
   (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
   (`quiniela.prediction.money`). They use `PLANNER_MODEL` (v3) on the men's matches and
   `WOMEN_PLANNER_MODEL` (v3F, with v1F as fallback) on the Liga F ones and
-  `NATIONAL_PLANNER_MODEL` (v1N, since v0.20) on the national-team ones: v3+v3F·D, ·D2, ·R, ·B and
+  `NATIONAL_PLANNER_MODEL` (v1N, since v0.20) on the national-team ones and `CLUB_PLANNER_MODEL`
+  (v1C, since v0.21) on the other club ones: v3+v3F·D, ·D2, ·R, ·B and
   ·E (v3+v2F·D... in v0.12-v0.17, v3+v1F·D... in v0.10-v0.11, v3·D... in v0.9,
   v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d2`, `v3d`, `v3r`,
   `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`
@@ -92,6 +96,8 @@ invoke dev.all              # format, lint, mypy, pytest, API docs: run before c
 
 Tests must not need network access (mock downloads, use small synthetic data from
 `tests/helpers.py`).
+`tests/conftest.py` empties the national-team results and ESPN club matches for every test (a
+test that needs them sets its own; the loaders' own tests call `monkeypatch.undo()`).
 
 ## Releasing a model version
 

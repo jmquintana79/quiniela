@@ -63,6 +63,9 @@ def test_parse_results() -> None:
 
 
 def test_download_and_load_results(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The real loader, not the empty one of conftest.py
+    monkeypatch.undo()
+
     class Response(io.BytesIO):
         def __enter__(self) -> "Response":
             return self

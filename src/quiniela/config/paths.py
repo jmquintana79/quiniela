@@ -40,6 +40,9 @@ WOMEN_DIR: Path = DATA_DIR / "women"
 # Results of every men's national-team match since 1872 (quiniela.io.international)
 NATIONAL_DIR: Path = DATA_DIR / "national"
 
+# Club matches of many competitions from ESPN (quiniela.io.espn_clubs)
+CLUBS_DIR: Path = DATA_DIR / "clubs"
+
 # Metrics and KPIs of every official ticket, per match and per draw (quiniela.evaluation.ticket_metrics)
 METRICS_DIR: Path = DATA_DIR / "metrics"
 
@@ -53,5 +56,5 @@ DASHBOARDS_DIR: Path = ROOT_DIR / "dashboards"
 def ensure_data_dirs() -> None:
     """Create the data folders if they do not exist yet."""
     folders = (HISTORICAL_DIR, CURRENT_DIR, PREDICTIONS_DIR, BACKTEST_DIR, LAE_DIR, CACHE_DIR)
-    for path in (*folders, PUBLIC_DIR, WOMEN_DIR, NATIONAL_DIR, METRICS_DIR):
+    for path in (*folders, PUBLIC_DIR, WOMEN_DIR, NATIONAL_DIR, CLUBS_DIR, METRICS_DIR):
         path.mkdir(parents=True, exist_ok=True)

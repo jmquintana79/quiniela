@@ -194,6 +194,9 @@ def ticket_national(tickets: pd.DataFrame, results: pd.DataFrame) -> pd.DataFram
         official sign, or the result from the ticket's home team without it), ``swapped`` (the results file
         lists the teams the other way round) and ``game``.
     """
+    # Columns of a ticket table already linked to football-data are replaced by the results file's
+    added = ["home_team", "away_team", "date", "neutral", "tournament", "FTR", "swapped", "game"]
+    tickets = tickets.drop(columns=[c for c in added if c in tickets.columns])
     columns = [*tickets.columns, "home_team", "away_team", "date", "neutral", "tournament"]
     columns += ["FTR", "swapped", "game"]
     rows = tickets[tickets["position"] <= 14].copy()

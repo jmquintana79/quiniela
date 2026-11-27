@@ -157,6 +157,7 @@ def test_predict_upcoming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
         "results": 0,
         "public": 1,
         "national": 0,
+        "clubs": 0,
     }
     assert not matches["_kickoff_known"].any()
     # Only the La Liga / Segunda match is predicted; the market has no odds
@@ -359,3 +360,57 @@ def test_predict_upcoming_national_teams_with_v1n(
     assert v3.loc["Gales", "source"] == "v1N" and v3.loc["Gales", "prediction"] == "A"
     assert v3.loc["Chelsea", "source"] == "v1F"
     assert v3[["p_H", "p_D", "p_A"]].dtypes.eq(float).all()
+
+
+def test_predict_upcoming_other_clubs_with_v1c(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from quiniela.data.prizes import UPCOMING_FILE, load_upcoming
+    from quiniela.io import espn, espn_clubs
+    from tests.helpers import make_matches
+    from tests.test_clubs import _espn
+
+    # ESPN club matches up to 2013 and the Champions League fixture of the ticket
+    history = _espn()
+    fixture = pd.DataFrame(
+        [
+            {"competition": "uefa.champions", "espn_id": "f1", "date": pd.Timestamp("2026-11-25 21:00"),
+             "home_id": "8", "away_id": "1", "home_team": "Luton Town", "away_team": "Real Madrid",
+             "FTHG": None, "FTAG": None, "FTR": None, "status": "STATUS_SCHEDULED", "neutral": False}
+        ]
+    )  # fmt: skip
+    monkeypatch.setattr(espn, "load_liga_f_matches", lambda *_: pd.DataFrame(columns=espn.COLUMNS))
+    monkeypatch.setattr(
+        espn_clubs, "load_club_matches", lambda *_: pd.concat([history, fixture], ignore_index=True)
+    )
+    matches = [
+        {
+            "position": 1,
+            "home": "Luton (M)",
+            "away": "R. Madrid (M)",
+            "public": {"1": 40, "X": 30, "2": 30},
+        },
+        {
+            "position": 2,
+            "home": "Olimpia (M)",
+            "away": "Nacional (M)",
+            "public": {"1": 50, "X": 30, "2": 20},
+        },
+    ]
+    content = {"jornada": 26, "closes": "25/11/2026 - 20:00", "matches": matches}
+    (tmp_path / UPCOMING_FILE).write_text(json.dumps(content))
+    current = make_matches([("SP2", "2026-10-03", "Valladolid", "Castellon", 1, 1)]).assign(
+        season="2026-27"
+    )
+    _, predictions, info = pipeline.predict_upcoming(
+        load_upcoming(tmp_path), history=current.iloc[:0], current=current
+    )
+    # v1C on the Champions League match (Real Madrid far stronger), the public on the other
+    assert (info["clubs"], info["public"], info["national"]) == (1, 1, 0)
+    v1c = predictions["elo_clubs"]
+    assert v1c["home_team"].tolist() == ["Luton"] and v1c["source"].eq("v1C").all()
+    v3 = predictions["market_blend"].set_index("home_team")
+    assert v3.loc["Luton", "source"] == "v1C" and v3.loc["Luton", "prediction"] == "A"
+    assert v3.loc["Olimpia", "source"] == "public"
