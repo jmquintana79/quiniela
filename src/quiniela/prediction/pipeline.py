@@ -390,22 +390,24 @@ def predict_upcoming(
     public.loc[women.to_numpy(), "source"] = "v1F"
     if women.any():
         predictions[PUBLIC_PICKS_MODEL] = public[women.to_numpy()].reset_index(drop=True)
-    # v2F: pi-ratings of the Liga F (ESPN results) on the women's matches of the ticket
+    # v2F, v3F...: the results-based Liga F models (ESPN) on the women's matches of the ticket
+    from quiniela.evaluation.women import RESULT_KEYS
+
     women_matches = matches[matches["league"] == WOMEN_LEAGUE]
-    pi_rows = pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
     if not women_matches.empty:
-        pi_rows = _women_results_predictions(upcoming, women_matches, closes)
-        if not pi_rows.empty:
-            predictions["pi_ratings_f"] = pi_rows
-    # The Liga F model of the tickets (v2F); v1F (the public) where it has no prediction
-    planner_women = pi_rows if WOMEN_PLANNER_MODEL == "pi_ratings_f" else pd.DataFrame()
+        for women_key in RESULT_KEYS:
+            rows = _women_results_predictions(upcoming, women_matches, closes, women_key)
+            if not rows.empty:
+                predictions[women_key] = rows
+    # The Liga F model of the tickets (v3F); v1F (the public) where it has no prediction
+    planner_women = predictions.get(WOMEN_PLANNER_MODEL, pd.DataFrame())
     # Empty frames are left out: concatenating them would turn the probabilities into objects
     parts = [planner_women, public[~public["game"].isin(planner_women.get("game", []))]]
     parts = [part for part in parts if not part.empty]
     fill = pd.concat(parts, ignore_index=True) if parts else public.iloc[:0]
     fill = fill.astype({column: float for column in ("p_H", "p_D", "p_A")})
     if PLANNER_MODEL in predictions:
-        # The ticket of v3 + v2F: Dixon-Coles + market where there is data, v2F on the
+        # The ticket of v3 + v3F: Dixon-Coles + market where there is data, v3F on the
         # Liga F matches (v1F without it) and the public's picks on the other competitions
         model_rows = predictions[PLANNER_MODEL].assign(source="model")
         predictions[PLANNER_MODEL] = pd.concat([model_rows, fill], ignore_index=True)
@@ -439,7 +441,7 @@ def _pleno_pick(
 
     A La Liga / Segunda match gets Dixon-Coles' most likely pair of categories
     (from its score matrix); any other match, the categories the public marks
-    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B
+    most ("Pronósticos más apostados"). The same pick goes on the v3, v3+v3F·D, v3+v3F·R and v3+v3F·B
     tickets (the Pleno al 15 is a single match: no doubles).
 
     Returns:
@@ -539,22 +541,29 @@ def _liga_f_positions(upcoming: "UpcomingTicket", closes: pd.Timestamp) -> set[i
 
 
 def _women_results_predictions(
-    upcoming: "UpcomingTicket", matches: pd.DataFrame, closes: pd.Timestamp
+    upcoming: "UpcomingTicket",
+    matches: pd.DataFrame,
+    closes: pd.Timestamp,
+    key: str = "pi_ratings_f",
 ) -> pd.DataFrame:
-    """v2F predictions of the ticket's Liga F matches, from the ESPN results.
+    """Predictions of a results-based Liga F model for the ticket's Liga F matches.
 
     Each women's match of the ticket is linked to its ESPN fixture (team
-    aliases and dates around the sales deadline) and predicted by the
-    pi-ratings trained on every Liga F match played.
+    aliases and dates around the sales deadline) and predicted by the model
+    (v2F, v3F...) trained on every Liga F match played.
 
     Args:
         upcoming: The next ticket (LAE team names by position).
         matches: The ticket's Liga F matches (``official_position``, ``game``).
         closes: Sales deadline.
+        key: Liga F model (``WOMEN_MODELS``).
 
     Returns:
-        Predictions with ``PREDICTION_COLUMNS`` and ``source`` = ``"v2F"``.
+        Predictions with ``PREDICTION_COLUMNS`` and ``source``, the model's
+        version (``"v2F"``, ``"v3F"``...).
     """
+    from quiniela.prediction.registry import WOMEN_MODELS
+
     from quiniela.data.women import MATCH_DAYS, espn_candidates
     from quiniela.evaluation.women import upcoming_predictions
     from quiniela.io.espn import load_liga_f_matches
@@ -563,7 +572,7 @@ def _women_results_predictions(
     if espn.empty:
         return pd.DataFrame(columns=[*PREDICTION_COLUMNS, "source"])
     # Trained on the matches before the deadline: the prediction stays pre-match once played
-    pending = upcoming_predictions(espn, before=closes - pd.Timedelta(days=MATCH_DAYS))
+    pending = upcoming_predictions(espn, before=closes - pd.Timedelta(days=MATCH_DAYS), key=key)
     names = set(espn["home_team"]) | set(espn["away_team"])
     lae = upcoming.matches.set_index("position")
     rows = []
@@ -595,7 +604,7 @@ def _women_results_predictions(
     out = pd.DataFrame(rows)
     probs = out[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
     out[CONFIDENCE_COLUMNS] = confidence(probs, out["prediction"]).to_numpy()
-    return out.reindex(columns=PREDICTION_COLUMNS).assign(source="v2F")
+    return out.reindex(columns=PREDICTION_COLUMNS).assign(source=WOMEN_MODELS[key].version)
 
 
 def _public_predictions(upcoming: "UpcomingTicket", matches: pd.DataFrame) -> pd.DataFrame:

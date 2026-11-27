@@ -211,7 +211,7 @@ def upcoming_predictions(
             matches from it on are predicted (e.g. a ticket's sales deadline:
             its matches keep their pre-match prediction once played).
             Defaults to the first match not played yet.
-        key: Results-based model (v2F by default, the tickets' one; v3F...).
+        key: Results-based model (v2F by default; v3F, the tickets' one...).
 
     Returns:
         The predicted matches with ``p_H``, ``p_D``, ``p_A`` and ``prediction``.

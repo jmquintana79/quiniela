@@ -297,7 +297,7 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
     reduced = summary[dashboards.REDUCED_KEY]["plan"]
     assert reduced["bets"] <= 48 and reduced["odds"]["11"] >= plan["odds"]["11"] - 1e-9
     assert summary[dashboards.REDUCED_KEY]["odds"] == reduced["odds"]
-    # v3+v2F·D2: two bets, one double on the least predictable match
+    # v3+v3F·D2: two bets, one double on the least predictable match
     small = summary[dashboards.SMALL_KEY]["plan"]
     assert small["bets"] == 2 and small["doubles"] == 1
     assert len(matches["H1"]["v3d2_sign"]) == 2 and matches["H0"]["v3d2_sign"] == "H"
@@ -659,7 +659,7 @@ def test_current_models_are_the_tickets_only() -> None:
     ]
     shown = dashboards._current_models(models)
     assert [m["key"] for m in shown] == ["market_blend", dashboards.PLANNED_KEY]
-    assert shown[0]["version"] == "v3+v2F" and shown[0]["ticket"]
+    assert shown[0]["version"] == "v3+v3F" and shown[0]["ticket"]
 
 
 def test_ticket_notice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

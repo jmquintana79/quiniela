@@ -23,7 +23,7 @@
   </header>
 
   <p class="meta" style="margin:0 0 16px">What was known before every official ticket (per match and per
-    jornada) and what the v3+v2F tickets made of it, to decide by hand and to see which metrics predict the
+    jornada) and what the v3+v3F tickets made of it, to decide by hand and to see which metrics predict the
     KPIs: hits (needed, not the goal) and money won against money spent. No metric makes the quiniela
     profitable: every ticket loses money on average.</p>
 
@@ -53,8 +53,8 @@
     <div class="filters"><div class="segmented" id="draw-metric-switch"></div></div>
     <div class="scroll" id="draw-validation"></div>
     <p class="meta" style="margin:10px 0 0">Quintiles of the official tickets (lowest to highest value of the
-      metric), with the mean of every KPI in each: hits of the single v3+v2F ticket, share of tickets with 12+ hits
-      (v3+v2F·D) or 13+ hits (v3+v2F·B), money back per euro spent and share of v3+v2F·B tickets paying 1,000 € or
+      metric), with the mean of every KPI in each: hits of the single v3+v3F ticket, share of tickets with 12+ hits
+      (v3+v3F·D) or 13+ hits (v3+v3F·B), money back per euro spent and share of v3+v3F·B tickets paying 1,000 € or
       more. A metric is useful when the KPI grows (or falls) steadily across its quintiles; ups and downs mean
       noise.</p>
   </section>
@@ -63,17 +63,17 @@
     <h2>Verdicts: the KPIs of the tickets each verdict would have played</h2>
     <div class="scroll" id="verdicts"></div>
     <p class="meta" style="margin:10px 0 0">Rule (a first version, judged here): <strong>big</strong> (play
-      v3+v2F·B) when its light on a prize of 1,000 € or more is green; <strong>small</strong> (play the single or
-      the v3+v2F·D ticket) when only the light on 12+ hits of v3+v2F·D is green; <strong>skip</strong> otherwise.
+      v3+v3F·B) when its light on a prize of 1,000 € or more is green; <strong>small</strong> (play the single or
+      the v3+v3F·D ticket) when only the light on 12+ hits of v3+v3F·D is green; <strong>skip</strong> otherwise.
       In the past seasons every light ranks the ticket among the tickets before it only (no look-ahead).</p>
   </section>
 
   <h2 class="group">Liga F</h2>
 
   <section data-toc="Liga F metrics" class="card">
-    <h2>v2F hits by quintile (every Liga F match, weekly walk-forward)</h2>
+    <h2>v3F hits by quintile (every Liga F match, weekly walk-forward)</h2>
     <div class="grid two" id="liga-f-validation"></div>
-    <p class="meta" style="margin:10px 0 0">The Liga F has no odds: only the openness of the v2F probabilities.
+    <p class="meta" style="margin:10px 0 0">The Liga F has no odds: only the openness of the v3F probabilities (the tickets' Liga F model).
       Its ticket matches are in the next ticket above (category F).</p>
   </section>
 </main>
@@ -89,10 +89,10 @@
   const count = (v) => v == null ? "–" : Math.round(v).toLocaleString("en-GB");
   const label = (m) => (INFO[m] || [m])[0];
   const meaning = (m) => (INFO[m] || [m, ""])[1];
-  const VERDICT = { big: "Play v3+v2F·B", small: "Play small (single or ·D)", skip: "Skip" };
+  const VERDICT = { big: "Play v3+v3F·B", small: "Play small (single or ·D)", skip: "Skip" };
   const VERDICT_TIP = {
-    big: "The v3+v2F·B chance of 1,000 € or more is green: high among past tickets.",
-    small: "Only the v3+v2F·D chance of 12+ hits is green: many hits are likely, large prizes are not.",
+    big: "The v3+v3F·B chance of 1,000 € or more is green: high among past tickets.",
+    small: "Only the v3+v3F·D chance of 12+ hits is green: many hits are likely, large prizes are not.",
     skip: "No green light: an ordinary or poor jornada.",
   };
 
@@ -144,7 +144,7 @@
     $("next").innerHTML = verdict + `<div class="tiles" style="margin:12px 0">${tiles}</div>` +
       `<p class="meta" style="margin:0 0 12px">${winners} Tiles: the metrics of the jornada; the lights rank its planned chances among the 414+ past tickets (green high, amber typical, red low).</p>` +
       `<div class="scroll">${nextMatchesTable(next.matches)}</div>` + outcomeLegend() +
-      `<p class="meta" style="margin:8px 0 0">Cells are shaded by the quintile of the metric among past ticket matches (darker: higher). v3: the probabilities the tickets plan on (v2F on the Liga F, the public's picks on other competitions). Value: v3 probability over the public's share of its best sign (above 1: underrated by the public).</p>`;
+      `<p class="meta" style="margin:8px 0 0">Cells are shaded by the quintile of the metric among past ticket matches (darker: higher). v3: the probabilities the tickets plan on (v3F on the Liga F, the public's picks on other competitions). Value: v3 probability over the public's share of its best sign (above 1: underrated by the public).</p>`;
   }
 
   function nextMatchesTable(rows) {
@@ -209,7 +209,7 @@
     const publicColumns = [["hit", "v3 hit rate", (v) => pct(v, 1)], ["value_hit", "Best-value sign came up", (v) => pct(v, 1)]];
     $("public-validation").innerHTML = Object.entries(V.public || {}).map(([m, rows]) => quintileTable(rows, m, publicColumns)).join("") +
       `<p class="meta" style="grid-column:1/-1">${count(counts.public_matches)} ticket matches with the public's shares and a result so far: three groups, and still a small sample.</p>`;
-    $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "v2F hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No Liga F results downloaded.</p>';
+    $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "v3F hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No Liga F results downloaded.</p>';
 
     const drawColumns = [
       ["hits_v3s", "Single: mean hits", (v) => num(v, 2)], ["return_v3d2", "·D2 back per €", (v) => pct(v, 0)],

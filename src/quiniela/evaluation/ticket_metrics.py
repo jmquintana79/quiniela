@@ -1,6 +1,6 @@
 r"""Metrics and KPIs of the official tickets: one record per match and one per draw.
 
-The tickets plan their signs on the v3 probabilities $p$ (v3+v2F: v2F on the Liga F
+The tickets plan their signs on the v3 probabilities $p$ (v3+v3F: v3F on the Liga F
 matches), and their prizes depend on what the public marks $s$ (the share of bettors
 marking each sign, saved from the betting page since jornada 21 of 2026-27). This
 module gathers, for every match of every official ticket, what was known before the
@@ -33,9 +33,9 @@ the season dashboard for the current one: cost, payout, net and best hits of eve
 ticket, the planned chances its traffic lights rank and the verdict.
 
 **Verdict** (``verdicts``). A first rule built on the traffic lights, judged by the
-KPIs of the draws it would have played: *big* (play v3+v2F·B) when its chance of a
-prize of 1,000 € or more is green, *small* (play the single or the v3+v2F·D ticket)
-when only the chance of 12+ hits of v3+v2F·D is green, *skip* otherwise. In the past
+KPIs of the draws it would have played: *big* (play v3+v3F·B) when its chance of a
+prize of 1,000 € or more is green, *small* (play the single or the v3+v3F·D ticket)
+when only the chance of 12+ hits of v3+v3F·D is green, *skip* otherwise. In the past
 draws the lights rank each draw only among the draws before it (no look-ahead).
 """
 
@@ -102,11 +102,11 @@ MATCH_COLUMNS = [
 METRIC_INFO: dict[str, tuple[str, str]] = {
     "fav_prob": (
         "Favourite",
-        "probability of the pick (v3; v2F in the Liga F): higher, clearer match",
+        "probability of the pick (v3; v3F in the Liga F): higher, clearer match",
     ),
     "entropy": (
         "Openness",
-        "entropy of the probabilities (v3; v2F in the Liga F): higher, more open",
+        "entropy of the probabilities (v3; v3F in the Liga F): higher, more open",
     ),
     "strength": ("Strength gap", "pi-ratings (v4) home-win minus away-win probability"),
     "edge_market": ("v3 vs market", "log of v3's probability of its pick over the market's"),
@@ -122,11 +122,11 @@ METRIC_INFO: dict[str, tuple[str, str]] = {
         "sum of the v3 vs public edges of the single ticket's picks",
     ),
     "co_winners_14": ("Co-winners if 14", "bets expected to share a 14 of the single ticket"),
-    "p_big_v3b": ("v3+v2F·B 1,000 €+", "planned chance of a prize of 1,000 € or more"),
-    "p_hits_v3d": ("v3+v2F·D 12+", "planned chance of 12 or more hits"),
-    "p_hits_v3d2": ("v3+v2F·D2 12+", "planned chance of 12 or more hits of the 2-bet ticket"),
+    "p_big_v3b": ("v3+v3F·B 1,000 €+", "planned chance of a prize of 1,000 € or more"),
+    "p_hits_v3d": ("v3+v3F·D 12+", "planned chance of 12 or more hits"),
+    "p_hits_v3d2": ("v3+v3F·D2 12+", "planned chance of 12 or more hits of the 2-bet ticket"),
     "p_hits_v3s": ("Single 12+", "planned chance of 12 or more hits of the single ticket"),
-    "expected_return": ("Expected return", "v3+v2F·E expected prize over its cost (prudent)"),
+    "expected_return": ("Expected return", "v3+v3F·E expected prize over its cost (prudent)"),
     "jackpot": ("Jackpot", "jackpot announced for the Pleno al 15 (EUR)"),
 }
 
@@ -304,7 +304,7 @@ def upcoming_matches(
             (``official_position``, ``league``, ``game``, teams, odds and the
             public's shares ``_public_*`` in percent).
         predictions: Its predictions per model key.
-        planner_key: Model whose probabilities the tickets plan on (v3, with v2F
+        planner_key: Model whose probabilities the tickets plan on (v3, with v3F
             and the public's picks filled in on the other matches).
         season: Season of the ticket.
         jornada: Its jornada.
@@ -341,7 +341,7 @@ def add_kpis(draws: pd.DataFrame) -> pd.DataFrame:
     Returns:
         ``draws`` with ``return_*`` (payout over cost), ``hit12_*`` and
         ``hit13_*`` (best column with 12 or 13+ hits) and ``big_v3b``
-        (v3+v2F·B paid 1,000 € or more); ``NaN`` while a draw is not complete.
+        (v3+v3F·B paid 1,000 € or more); ``NaN`` while a draw is not complete.
     """
     out = draws.copy()
     for key in TICKETS:
@@ -419,7 +419,7 @@ def money_kpis(money: pd.DataFrame) -> pd.DataFrame:
         ``draw_id``, ``jackpot`` and, for every ticket key ``v3s``, ``v3d2``,
         ``v3d``, ``v3r`` and ``v3b``: ``cost_*``, ``payout_*``, ``net_*``, ``hits_*``
         (best column) and the planned chance its light ranks (``p_hits_*`` of 12+
-        hits, ``p_big_v3b`` of 1,000 € or more); ``expected_return`` of v3+v2F·E.
+        hits, ``p_big_v3b`` of 1,000 € or more); ``expected_return`` of v3+v3F·E.
     """
     if money.empty:
         return pd.DataFrame(columns=["draw_id"])
@@ -471,16 +471,16 @@ def walk_forward_lights(draws: pd.DataFrame, column: str) -> list[str | None]:
 def verdicts(
     light_big: list[str | None], light_hits: list[str | None], matched: list[int] | None = None
 ) -> list[str | None]:
-    """Verdict of every draw from the v3+v2F·B and v3+v2F·D lights.
+    """Verdict of every draw from the v3+v3F·B and v3+v3F·D lights.
 
     Args:
-        light_big: Light of the chance of 1,000 € or more of v3+v2F·B.
-        light_hits: Light of the chance of 12+ hits of v3+v2F·D.
+        light_big: Light of the chance of 1,000 € or more of v3+v3F·B.
+        light_hits: Light of the chance of 12+ hits of v3+v3F·D.
         matched: La Liga / Segunda matches of every draw (no verdict below
             ``MIN_MATCHED``); all draws count by default.
 
     Returns:
-        ``"big"`` (play v3+v2F·B), ``"small"`` (single or v3+v2F·D ticket),
+        ``"big"`` (play v3+v3F·B), ``"small"`` (single or v3+v3F·D ticket),
         ``"skip"``, or ``None`` without lights or with too few league matches.
     """
     counts = matched if matched is not None else [MIN_MATCHED] * len(light_big)

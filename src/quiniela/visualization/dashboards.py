@@ -10,7 +10,7 @@ Dashboards:
   column per model (the market reference is left out: v3 follows it
   closely), the confidence of each
   match, hit rate, quiniela ticket with the chance of each prize, and the
-  v3+v2F·D ticket with doubles and triples) and the standings.
+  v3+v3F·D ticket with doubles and triples) and the standings.
 - ``season.html``: every matchday of the current season, season totals per
   model and the detail of any matchday (without the market reference).
 - ``historical.html``: completed seasons (1X2 split and goals per season,
@@ -18,7 +18,7 @@ Dashboards:
 - ``evaluation.html``: backtest metrics of every model over past seasons,
   one column per model, with the market as reference; hit rate by
   confidence tier, and the prizes of the tickets played with doubles and
-  triples (random, by eye, optimal and v3+v2F·D).
+  triples (random, by eye, optimal and v3+v3F·D).
 """
 
 import json
@@ -237,45 +237,45 @@ def historical_payload(
     }
 
 
-# Key and display information of the v3+v2F·D planned ticket (not a registered model:
+# Key and display information of the v3+v3F·D planned ticket (not a registered model:
 # a decision layer over the planner model's probabilities)
 PLANNED_KEY = "v3d"
 PLANNED_SPEC = {
     "key": PLANNED_KEY,
     "name": "Direct ticket",
-    "version": "v3+v2F·D",
+    "version": "v3+v3F·D",
     "reference": False,
-    "description": "Probabilities of v3 on the men's matches and v2F (pi-ratings) on the "
+    "description": "Probabilities of v3 on the men's matches and v3F (pi-ratings with shots on target) on the "
     "Liga F ones (v1F, the public's picks, without it), plus the best direct doubles and triples for a 48-bet budget, chosen to "
     "maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
     # A way of playing, not a probability model: never "best model" in the evaluation
     "ticket": True,
 }
 
-# The small direct ticket v3+v2F·D2: the same planner as v3+v2F·D with the smallest budget
+# The small direct ticket v3+v3F·D2: the same planner as v3+v3F·D with the smallest budget
 # that can be played (2 bets, 1.50 EUR), for the jornadas worth playing a little
 SMALL_KEY = "v3d2"
 SMALL_BETS = 2
 SMALL_SPEC = {
     "key": SMALL_KEY,
     "name": "Small ticket",
-    "version": "v3+v2F·D2",
+    "version": "v3+v3F·D2",
     "reference": False,
-    "description": "Like v3+v2F·D with the smallest ticket that can be played: 2 bets (1.50 EUR), "
+    "description": "Like v3+v3F·D with the smallest ticket that can be played: 2 bets (1.50 EUR), "
     "one double where it most raises the chance of 11 or more hits. In the euro backtest it got "
-    "back about twice as much on the jornadas with the v3+v2F·D light green as on the rest. "
+    "back about twice as much on the jornadas with the v3+v3F·D light green as on the rest. "
     "Outside the ticket, the v3 sign.",
     "ticket": True,
 }
 
-# The direct ticket that may also play one of the official reductions (v3+v2F·R), next to v3+v2F·D
+# The direct ticket that may also play one of the official reductions (v3+v3F·R), next to v3+v3F·D
 REDUCED_KEY = "v3r"
 REDUCED_SPEC = {
     "key": REDUCED_KEY,
     "name": "Reduced ticket",
-    "version": "v3+v2F·R",
+    "version": "v3+v3F·R",
     "reference": False,
-    "description": "Like v3+v2F·D, but the 48 bets may also go to an official reduction (fewer "
+    "description": "Like v3+v3F·D, but the 48 bets may also go to an official reduction (fewer "
     "columns that cover more matches, guaranteeing 13 hits when every covered sign is right) "
     "with direct doubles and triples on other matches: the best chance of 11 or more hits. "
     "Matches marked R are in the reduction. Outside the ticket, the v3 sign.",
@@ -283,25 +283,25 @@ REDUCED_SPEC = {
 }
 
 
-# The v3+v2F·B ticket in its big-win mode: also a decision layer over the planner model,
+# The v3+v3F·B ticket in its big-win mode: also a decision layer over the planner model,
 # shown when the saved LAE draws allow fitting the prize model
 MONEY_KEY = "v3b"
 MONEY_SPEC = {
     "key": MONEY_KEY,
     "name": "1,000 € ticket",
-    "version": "v3+v2F·B",
+    "version": "v3+v3F·B",
     "reference": False,
-    "description": "v3 on the men's matches and v2F on the Liga F ones, plus the doubles and "
+    "description": "v3 on the men's matches and v3F on the Liga F ones, plus the doubles and "
     "triples (at most 50 EUR) with the best chance "
     "of a prize of 1,000 EUR or more: many hits and few other winners. It loses money on "
     "average; its banner shows what can happen. Outside the ticket, the v3 sign.",
     "ticket": True,
 }
 
-# Seed of the v3+v2F·B simulations (the same plan on every rebuild)
+# Seed of the v3+v3F·B simulations (the same plan on every rebuild)
 MONEY_SEED = 0
 
-# Traffic light of the v3+v2F·B big-win ticket: percentile of its chance of a large prize
+# Traffic light of the v3+v3F·B big-win ticket: percentile of its chance of a large prize
 # among the past real tickets planned the same way (backtest)
 SIGNAL_RED_AT = 25
 SIGNAL_GREEN_AT = 75
@@ -353,7 +353,7 @@ def percentile_signal(
 
 
 def big_win_signal(chance: float | None, history: pd.DataFrame) -> dict[str, Any] | None:
-    """Traffic light of the v3+v2F·B ticket by its chance of a prize of 1,000 EUR or more."""
+    """Traffic light of the v3+v3F·B ticket by its chance of a prize of 1,000 EUR or more."""
     return percentile_signal(chance, history, "v3b", "p_big")
 
 
@@ -387,7 +387,7 @@ def _ticket_crowd(
 def _money_matchday(
     group: pd.DataFrame, key: str, context: Any
 ) -> tuple[Any, dict[str, Any]] | None:
-    """Plan the v3+v2F·B big-win ticket of a matchday, or None without a full ticket with probabilities."""
+    """Plan the v3+v3F·B big-win ticket of a matchday, or None without a full ticket with probabilities."""
     from quiniela.prediction.money import plan_big_win
     from quiniela.prediction.ticket import TICKET_SIZE
 
@@ -488,19 +488,19 @@ def _liga_f_picks(liga_f: pd.DataFrame | None) -> dict[tuple[str, int, int], np.
     return out
 
 
-# The single-column v3+v2F ticket: one sign per match (0.75 EUR)
+# The single-column v3+v3F ticket: one sign per match (0.75 EUR)
 SINGLE_KEY = "v3s"
 SINGLE_SPEC = {
     "key": SINGLE_KEY,
     "name": "Single ticket",
-    "version": "v3+v2F",
+    "version": "v3+v3F",
     "reference": False,
-    "description": "One sign per match, the most likely one: v3 on the men's matches, v2F on "
+    "description": "One sign per match, the most likely one: v3 on the men's matches, v3F on "
     "the Liga F ones (v1F without it) and the public's picks elsewhere. One bet, 0.75 EUR.",
     "ticket": True,
 }
 
-# The v3+v2F tickets of the official ticket views, cheapest first
+# The v3+v3F tickets of the official ticket views, cheapest first
 TICKET_KEYS = [SINGLE_KEY, SMALL_KEY, PLANNED_KEY, REDUCED_KEY, MONEY_KEY]
 
 
@@ -565,11 +565,11 @@ def _season_tickets(
 ) -> list[dict[str, Any]]:
     """Official tickets of the current season with what every model would have marked.
 
-    v1 to v4 give their sign on the La Liga / Segunda matches, v2F on the Liga F
-    matches and v1F (the
+    v1 to v4 give their sign on the La Liga / Segunda matches, v2F and v3F on the
+    Liga F matches and v1F (the
     public's picks) on the Liga F matches whose betting page was archived;
-    v3+v2F·D, v3+v2F·R and v3+v2F·B plan their doubles and triples on the 14
-    matches with the v3 probabilities, v2F's on the Liga F matches (v1F's without it) and the
+    v3+v3F·D, v3+v3F·R and v3+v3F·B plan their doubles and triples on the 14
+    matches with the v3 probabilities, v3F's on the Liga F matches (v1F's without it) and the
     league shares of 1, X and 2 elsewhere; the Pleno al 15 gets Dixon-Coles'
     goals categories when it is a La Liga / Segunda match.
     """
@@ -599,12 +599,13 @@ def _season_tickets(
     money_results = load_money()
     # v1F: the public's picks of the Liga F matches, for the tickets whose page was saved
     women_picks = _liga_f_picks(liga_f)
-    # The public's shares of the 14 matches of every archived ticket: the winners of v3+v2F·B
+    # The public's shares of the 14 matches of every archived ticket: the winners of v3+v3F·B
     public_shares = load_public_shares()
-    # v2F: the pi-ratings pick of each Liga F match (from the Liga F block of the page)
-    v2f: dict[tuple[str, int, int], tuple[str | None, list[float] | None]] = {
-        (m["season"], m["jornada"], m["position"]): (m.get("pi_ratings_f"), m.get("p_v2f"))
-        for m in (liga or {}).get("matches", [])
+    # v2F and v3F: the pi-ratings picks of each Liga F match (from the Liga F block of the page),
+    # and the probabilities of the tickets' Liga F model (WOMEN_PLANNER_MODEL, v3F)
+    planner_probs = {"pi_ratings_f": "p_v2f", "pi_ratings_shots_f": "p_v3f"}[WOMEN_PLANNER_MODEL]
+    women_models: dict[tuple[str, int, int], dict[str, Any]] = {
+        (m["season"], m["jornada"], m["position"]): m for m in (liga or {}).get("matches", [])
     }
     for number, ticket in enumerate(tickets):
         probs, crowd = [], []
@@ -635,14 +636,13 @@ def _season_tickets(
                 # Liga F match with the public's picks: v1F marks it (the tickets' fallback)
                 match["picks"]["public_picks"] = OUTCOMES_HDA[int(np.argmax(women))]
                 row = women
-            v2f_pick, v2f_probs = v2f.get(
-                (season, ticket["jornada"], match["position"]), (None, None)
-            )
-            if v2f_pick:
-                match["picks"]["pi_ratings_f"] = v2f_pick
-            if v2f_probs is not None and WOMEN_PLANNER_MODEL == "pi_ratings_f":
-                # The tickets plan the Liga F matches with v2F
-                row = np.array(v2f_probs, dtype=float)
+            liga_match = women_models.get((season, ticket["jornada"], match["position"]), {})
+            for women_key in ("pi_ratings_f", "pi_ratings_shots_f"):
+                if liga_match.get(women_key):
+                    match["picks"][women_key] = liga_match[women_key]
+            if liga_match.get(planner_probs) is not None:
+                # The tickets plan the Liga F matches with their Liga F model (v3F)
+                row = np.array(liga_match[planner_probs], dtype=float)
             market = stored.get("market")
             public = (
                 market.loc[index, ["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
@@ -690,7 +690,7 @@ def _season_tickets(
             match["picks"][REDUCED_KEY] = reduced_picks
             match["picks"][MONEY_KEY] = money_picks
         results = [m.get("sign") if isinstance(m.get("sign"), str) else None for m in first14]
-        # What each v3+v2F ticket got on the real ticket: hits of the played matches,
+        # What each v3+v3F ticket got on the real ticket: hits of the played matches,
         # category and the real prize of the draw (its winners and takings)
         draw = draws_by_id.get(ticket["draw_id"])
         pleno = next((m for m in ticket["matches"] if m["position"] == 15), None)
@@ -778,7 +778,7 @@ def _plan_odds(plan: Any) -> dict[str, float]:
 
 
 def _plan_summary(plan: Any) -> dict[str, Any]:
-    """Doubles, triples, bets and (v3+v2F·R) reduction of a planned ticket."""
+    """Doubles, triples, bets and (v3+v3F·R) reduction of a planned ticket."""
     summary: dict[str, Any] = {
         "doubles": plan.doubles,
         "triples": plan.triples,
@@ -807,15 +807,15 @@ TICKET_SIZE_HITS = 14
 def _plan_matchday(
     group: pd.DataFrame, key: str, reduced: bool = False, max_bets: int | None = None
 ) -> dict[str, Any] | None:
-    """Plan the v3+v2F·D ticket of a matchday from the probabilities of model ``key``.
+    """Plan the v3+v3F·D ticket of a matchday from the probabilities of model ``key``.
 
     Args:
         group: Matches of the matchday with ``ticket`` positions and the
             model's ``<key>_p_H``, ``<key>_p_D``, ``<key>_p_A`` columns.
         key: Model whose probabilities choose the signs.
-        reduced: Plan v3+v2F·R (direct or with an official reduction) instead of
-            v3+v2F·D (direct only).
-        max_bets: Budget in bets (48 by default; 2 for v3+v2F·D2).
+        reduced: Plan v3+v3F·R (direct or with an official reduction) instead of
+            v3+v3F·D (direct only).
+        max_bets: Budget in bets (48 by default; 2 for v3+v3F·D2).
 
     Returns:
         The picks and coverage per match index, the matches of the reduction,
@@ -857,7 +857,7 @@ def _current_season(current: pd.DataFrame) -> str | None:
 
 
 def _ticket_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Columns of the official ticket views: the v3+v2F tickets only (single, ·D, ·R, ·B).
+    """Columns of the official ticket views: the v3+v3F tickets only (single, ·D, ·R, ·B).
 
     The season and current pages are about the tickets that can be played; the
     models are compared in the evaluation page.
@@ -965,8 +965,17 @@ def liga_f_payload(
     shots_rows = predictions[predictions["model"] == SHOTS_KEY].set_index("game")
     if not espn.empty:
         future = upcoming_predictions(espn, key=SHOTS_KEY).dropna(subset=["prediction"])
-        shots_rows = pd.concat([shots_rows, future.set_index("game")[["prediction"]]])
-    v3f = shots_rows[~shots_rows.index.duplicated(keep="last")]["prediction"].to_dict()
+        shots_rows = pd.concat(
+            [shots_rows, future.set_index("game")[["prediction", "p_H", "p_D", "p_A"]]]
+        )
+    shots_rows = shots_rows[~shots_rows.index.duplicated(keep="last")]
+    v3f = shots_rows["prediction"].to_dict()
+    v3f_probs = {
+        game: [round(float(x), 4) for x in values]
+        for game, values in zip(
+            shots_rows.index, shots_rows[["p_H", "p_D", "p_A"]].to_numpy(dtype=float), strict=True
+        )
+    }
     picks = _liga_f_picks(history)
     matches = []
     for row in history.sort_values(["date", "position"], ascending=[False, True]).itertuples():
@@ -989,6 +998,9 @@ def liga_f_payload(
                     else None,
                     PI_KEY: v2f.get(row.espn_game) if isinstance(row.espn_game, str) else None,
                     SHOTS_KEY: v3f.get(row.espn_game) if isinstance(row.espn_game, str) else None,
+                    "p_v3f": v3f_probs.get(row.espn_game)
+                    if isinstance(row.espn_game, str)
+                    else None,
                     "p_v2f": v2f_probs.get(row.espn_game)
                     if isinstance(row.espn_game, str)
                     else None,
@@ -1028,8 +1040,8 @@ def season_payload(
             Defaults to the downloaded data.
         predictions: Stored predictions per model key. Defaults to the saved files.
         prizes: Prize context (``quiniela.evaluation.money.PrizeContext``) for
-            the v3+v2F·B big-win ticket and the euros won. Defaults to the saved LAE
-            draws when the predictions are the saved ones too; without it, v3+v2F·B
+            the v3+v3F·B big-win ticket and the euros won. Defaults to the saved LAE
+            draws when the predictions are the saved ones too; without it, v3+v3F·B
             and the euros are left out.
 
     Returns:
@@ -1055,7 +1067,7 @@ def season_payload(
     keys += [key for key in WOMEN_MODELS if key in predictions]
     models = _model_specs(keys)
     # The tickets need the planner model's predictions; they go after every model
-    # (v1, v2, v3, v4...), as v3+v2F·D, v3+v2F·R and v3+v2F·B side by side
+    # (v1, v2, v3, v4...), as v3+v3F·D, v3+v3F·R and v3+v3F·B side by side
     planned = PLANNER_MODEL in keys
     if planned:
         position = len(models)
@@ -1069,7 +1081,7 @@ def season_payload(
     # One column per model: predicted sign, its probability and, for models
     # that predict goals, the exact score and Pleno al 15 picks
     matches = current.copy()
-    # Market probabilities stand for the public in the v3+v2F·B prize estimates
+    # Market probabilities stand for the public in the v3+v3F·B prize estimates
     market = predictions.get("market")
     for outcome in ("H", "D", "A"):
         matches[f"_crowd_{outcome}"] = (
@@ -1137,7 +1149,7 @@ def season_payload(
 
         small_plan = _plan_matchday(group, PLANNER_MODEL, max_bets=SMALL_BETS) if planned else None
         if planned:
-            # v3+v2F·D2: the small ticket's picks on the ticket, the planner model's sign elsewhere
+            # v3+v3F·D2: the small ticket's picks on the ticket, the planner model's sign elsewhere
             group[f"{SMALL_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{SMALL_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             if small_plan is not None:
@@ -1150,7 +1162,7 @@ def season_payload(
             group[f"{SMALL_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         plan = _plan_matchday(group, PLANNER_MODEL) if planned else None
         if planned:
-            # v3+v2F·D: the planned picks on the ticket, the planner model's sign elsewhere
+            # v3+v3F·D: the planned picks on the ticket, the planner model's sign elsewhere
             group[f"{PLANNED_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{PLANNED_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             if plan is not None:
@@ -1163,7 +1175,7 @@ def season_payload(
             group[f"{PLANNED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         reduced_plan = _plan_matchday(group, PLANNER_MODEL, reduced=True) if planned else None
         if planned:
-            # v3+v2F·R: like v3+v2F·D, with the matches of the reduction marked
+            # v3+v3F·R: like v3+v3F·D, with the matches of the reduction marked
             group[f"{REDUCED_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{REDUCED_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             group[f"{REDUCED_KEY}_source"] = None
@@ -1178,7 +1190,7 @@ def season_payload(
             group[f"{REDUCED_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         money_plan = _money_matchday(group, PLANNER_MODEL, prizes) if with_money else None
         if with_money:
-            # v3+v2F·B: like v3+v2F·D, with the doubles and triples of the big-win ticket
+            # v3+v3F·B: like v3+v3F·D, with the doubles and triples of the big-win ticket
             group[f"{MONEY_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
             group[f"{MONEY_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
             if money_plan is not None:
@@ -1193,7 +1205,7 @@ def season_payload(
         summary: dict[str, Any] = {}
         for key in columns_keys:
             predicted = group[f"{key}_sign"].notna()
-            # A pick may cover several signs (doubles and triples of the v3+v2F·D ticket)
+            # A pick may cover several signs (doubles and triples of the v3+v3F·D ticket)
             covered = [
                 isinstance(sign, str) and isinstance(result, str) and result in sign
                 for sign, result in zip(group[f"{key}_sign"], group["FTR"], strict=True)
@@ -1311,10 +1323,10 @@ def season_payload(
 def _matchday_euros(
     group: pd.DataFrame, key: str, context: Any, money_plan: Any, reduced_plan: Any = None
 ) -> dict[str, Any] | None:
-    """Cost and prize of a model's ticket in a played matchday (v3, v3+v2F·D, v3+v2F·R and v3+v2F·B only).
+    """Cost and prize of a model's ticket in a played matchday (v3, v3+v3F·D, v3+v3F·R and v3+v3F·B only).
 
-    v3 plays one column, v3+v2F·D its doubles and triples, v3+v2F·R its reduced columns
-    (``reduced_plan``) and v3+v2F·B its big-win ticket.
+    v3 plays one column, v3+v3F·D its doubles and triples, v3+v3F·R its reduced columns
+    (``reduced_plan``) and v3+v3F·B its big-win ticket.
     """
     from quiniela.evaluation.money import matchday_payout
     from quiniela.data.prizes import BET_PRICE
@@ -1394,7 +1406,7 @@ def current_matchday_index(matchdays: list[dict[str, Any]]) -> int | None:
 def _recommendations(
     summary: dict[str, Any], money_results: pd.DataFrame | None
 ) -> list[dict[str, Any]]:
-    """Traffic lights of the v3+v2F tickets of a matchday, for the recommendations table.
+    """Traffic lights of the v3+v3F tickets of a matchday, for the recommendations table.
 
     Each ticket is ranked by the planned chance of its target among the past
     official tickets planned the same way (``percentile_signal``): 12 or more
@@ -1456,10 +1468,10 @@ def _recommendations(
 
 
 def _current_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Columns of ``current.html``: the v3+v2F tickets only.
+    """Columns of ``current.html``: the v3+v3F tickets only.
 
     The v3 column is the single ticket (one sign per match: v3 on the men's
-    matches, v2F on the Liga F ones, the public's picks elsewhere); the models
+    matches, v3F on the Liga F ones, the public's picks elsewhere); the models
     themselves are compared in the evaluation page.
     """
     from quiniela.prediction.planner import PLANNER_MODEL
@@ -1499,7 +1511,7 @@ def current_payload(
         upcoming: ``(ticket, payload, info)`` of the next official ticket: the
             ``UpcomingTicket``, the ``season_payload`` of its matches and the
             ``info`` of ``quiniela.prediction.pipeline.predict_upcoming``.
-        money_results: Money backtest, for the traffic light of the v3+v2F·B
+        money_results: Money backtest, for the traffic light of the v3+v3F·B
             ticket (``big_win_signal``). Defaults to the saved one.
 
     Returns:
@@ -1534,8 +1546,8 @@ def current_payload(
     else:
         status = "completed"
 
-    # Traffic lights of the v3+v2F·D, v3+v2F·R and v3+v2F·B tickets of the current matchday: chance of a
-    # big prize (v3+v2F·B) and of many hits (11+ for v3+v2F·D and v3+v2F·R, 13+ for v3+v2F·B) against past tickets
+    # Traffic lights of the v3+v3F·D, v3+v3F·R and v3+v3F·B tickets of the current matchday: chance of a
+    # big prize (v3+v3F·B) and of many hits (11+ for v3+v3F·D and v3+v3F·R, 13+ for v3+v3F·B) against past tickets
     summary = (matchday or {}).get("summary", {})
     money_plan = summary.get(MONEY_KEY, {}).get("money")
     planned_plan = summary.get(PLANNED_KEY, {}).get("plan")
@@ -1580,7 +1592,7 @@ def current_payload(
             stamp = datetime.fromtimestamp(fixtures_path.stat().st_mtime)
             odds_downloaded = max(odds_downloaded or stamp, stamp)
 
-    # Only the v3+v2F tickets (single, ·D, ·R, ·B): the models are compared in evaluation.html
+    # Only the v3+v3F tickets (single, ·D, ·R, ·B): the models are compared in evaluation.html
     return {
         "models": _current_models(season["models"]),
         # When the next ticket is missing: what to do (the page shows it on top)
@@ -1600,7 +1612,7 @@ def current_payload(
         "jornada": jornada,
         "deadline": deadline,
         "fixtures": fixtures,
-        # Pleno al 15 of the official ticket: the same pick on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets
+        # Pleno al 15 of the official ticket: the same pick on the v3, v3+v3F·D, v3+v3F·R and v3+v3F·B tickets
         "pleno": pleno,
     }
 
@@ -1793,11 +1805,11 @@ def _confidence_tables(backtest: pd.DataFrame) -> dict[str, dict[str, list[dict[
 def _planned_results(
     backtest: pd.DataFrame, tickets: pd.DataFrame, strategy: str = "v3d"
 ) -> dict[str, dict[str, Any]]:
-    """Hit rate and prizes of a v3 ticket (v3+v2F·D or v3+v2F·R), keyed by ``"<league>|<season>"``.
+    """Hit rate and prizes of a v3 ticket (v3+v3F·D or v3+v3F·R), keyed by ``"<league>|<season>"``.
 
     The ticket marks the planner model's sign in every match and, on the ticket, its
     doubles and triples: a match is a hit when its result is among the
-    marked signs (the prizes of v3+v2F·R count the hits of its best column).
+    marked signs (the prizes of v3+v3F·R count the hits of its best column).
     Probability metrics do not apply (the ticket has v3's probabilities). Prizes are
     only given for both leagues together, as for the models.
     """
@@ -2028,7 +2040,7 @@ def evaluation_payload(
             key = f"{row.get('league', 'all')}|{row.get('season', 'all')}"
             results.setdefault(key, {})[row["model"]] = _clean(row)
 
-    # v3+v2F·D and v3+v2F·R tickets: only hit rate and prizes, after every model and
+    # v3+v3F·D and v3+v3F·R tickets: only hit rate and prizes, after every model and
     # before the references (the market), side by side
     position = next((i for i, m in enumerate(models) if m.get("reference")), len(models))
     for spec, strategy in ((PLANNED_SPEC, "v3d"), (REDUCED_SPEC, "v3r")):
@@ -2485,10 +2497,11 @@ def _verdict_table(draws: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _liga_f_validation() -> dict[str, list[dict[str, Any]]]:
-    """v2F hits by quintile of its favourite's probability and openness (Liga F results)."""
+    """Hits of the tickets' Liga F model (v3F) by quintile of its favourite and openness."""
     from quiniela.evaluation import ticket_metrics as tm
-    from quiniela.evaluation.women import PI_KEY, results_backtest
+    from quiniela.evaluation.women import results_backtest
     from quiniela.io.espn import load_liga_f_matches
+    from quiniela.prediction.registry import WOMEN_PLANNER_MODEL
 
     try:
         espn = load_liga_f_matches()
@@ -2496,7 +2509,7 @@ def _liga_f_validation() -> dict[str, list[dict[str, Any]]]:
         logger.warning("No Liga F results for the metrics: %s", error)
         return {}
     rows = results_backtest(espn)
-    rows = tm.match_metrics(rows[rows["model"] == PI_KEY])
+    rows = tm.match_metrics(rows[rows["model"] == WOMEN_PLANNER_MODEL])
     kpis = {"hit": "hit", "log_loss": "log_loss"}
     return {m: tm.quintiles(rows, m, kpis) for m in ("fav_prob", "entropy")}
 
@@ -2522,7 +2535,7 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
         (output_dir / name).unlink(missing_ok=True)
     from quiniela.evaluation.money import prize_context
 
-    # The season payload (with the v3+v2F·B simulations) is built once for both pages
+    # The season payload (with the v3+v3F·B simulations) is built once for both pages
     prizes = prize_context()
     liga_f = _liga_f()
     season = season_payload(prizes=prizes, liga_f=liga_f)

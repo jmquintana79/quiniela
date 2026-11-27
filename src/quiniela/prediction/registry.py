@@ -139,6 +139,7 @@ WOMEN_MODELS: dict[str, ModelSpec] = {
     ),
 }
 
-# Liga F model whose probabilities the tickets use for the women's matches: v2F
-# (pi-ratings of the ESPN results); v1F (the public's picks) where v2F has no prediction
-WOMEN_PLANNER_MODEL = "pi_ratings_f"
+# Liga F model whose probabilities the tickets use for the women's matches: v3F (pi-ratings
+# of the ESPN goals and shots on target, since v0.18; v2F until v0.17); v1F (the public's
+# picks) where it has no prediction
+WOMEN_PLANNER_MODEL = "pi_ratings_shots_f"

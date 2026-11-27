@@ -5,16 +5,16 @@ Segunda matches (``quiniela.data.prizes``), the ticket is played with:
 
 - ``single``: one column with the v3 signs (0.75 EUR, a reference: the
   minimum ticket is two columns);
-- ``v3d`` (v3+v2F·D): direct doubles and triples for the highest chance of 11+
+- ``v3d`` (v3+v3F·D): direct doubles and triples for the highest chance of 11+
   hits within 48 bets;
-- ``v3r`` (v3+v2F·R): the same, with the official reductions as candidates;
-- ``v3e`` (v3+v2F·E): the prudent expected-prize planner (only 10 to 13-hit
+- ``v3r`` (v3+v3F·R): the same, with the official reductions as candidates;
+- ``v3e`` (v3+v3F·E): the prudent expected-prize planner (only 10 to 13-hit
   prizes count), only when its expected net prize is positive;
 - ``v3e_full``: the expected-prize planner counting every prize (14 hits and
   the Pleno al 15 too), only when its expected net prize is positive;
 - ``v3e_always``: the full planner's ticket every draw, to measure what
   choosing the draws adds;
-- ``v3b`` (v3+v2F·B): the 1,000 EUR ticket, every draw: at most 50 EUR, the
+- ``v3b`` (v3+v3F·B): the 1,000 EUR ticket, every draw: at most 50 EUR, the
   ticket with the best chance of a prize of ``BIG_WIN_THRESHOLD`` (1,000 EUR) or more.
 
 The other ticket matches (other competitions, women's league) get the league
@@ -50,18 +50,18 @@ MIN_MATCHED = 10
 # Draws whose bets are averaged to expect the bets of the next one
 VOLUME_WINDOW = 5
 
-# Budget of the small direct ticket v3+v2F·D2: the smallest ticket that can be played
+# Budget of the small direct ticket v3+v3F·D2: the smallest ticket that can be played
 SMALL_BETS = 2
 
 MONEY_STRATEGIES: dict[str, str] = {
     "single": "One column with the v3 signs (0.75 EUR)",
-    "v3d2": "v3+v2F·D2: best chance of 11+ hits within 2 bets (1.50 EUR), every draw",
-    "v3d": "v3+v2F·D: best chance of 11+ hits within 48 bets (direct), every draw",
-    "v3r": "v3+v2F·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
-    "v3e": "v3+v2F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
-    "v3e_full": "v3+v2F·E counting 14 hits and the Pleno al 15 too, only when it pays",
-    "v3e_always": "The full v3+v2F·E ticket every draw, worth it or not",
-    "v3b": "v3+v2F·B: best chance of 1,000+ EUR within 50 EUR, every draw",
+    "v3d2": "v3+v3F·D2: best chance of 11+ hits within 2 bets (1.50 EUR), every draw",
+    "v3d": "v3+v3F·D: best chance of 11+ hits within 48 bets (direct), every draw",
+    "v3r": "v3+v3F·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
+    "v3e": "v3+v3F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
+    "v3e_full": "v3+v3F·E counting 14 hits and the Pleno al 15 too, only when it pays",
+    "v3e_always": "The full v3+v3F·E ticket every draw, worth it or not",
+    "v3b": "v3+v3F·B: best chance of 1,000+ EUR within 50 EUR, every draw",
 }
 
 # Hits whose planned chance ranks the single, direct and reduced tickets in the traffic
@@ -189,7 +189,7 @@ def _season_money(
             "v3r": (plan_r, nan, nan, True, nan),
         }
         # Planned chance of many hits, what the traffic lights rank: RECOMMEND_HITS (12) or more
-        # for the single ticket, v3+v2F·D and v3+v2F·R, 13+ for v3+v2F·B
+        # for the single ticket, v3+v3F·D and v3+v3F·R, 13+ for v3+v3F·B
         single = plans["single"][0]
         p_hits = {
             "single": single.at_least(RECOMMEND_HITS),
@@ -275,7 +275,7 @@ def money_backtest(
         matches: football-data matches (odds and results) of every season.
         seasons: Seasons to play. Defaults to the seasons of ``backtest``.
         model_key: Model whose probabilities choose the signs (v3).
-        max_bets: Budget of v3+v2F·D, v3+v2F·R and v3+v2F·E.
+        max_bets: Budget of v3+v3F·D, v3+v3F·R and v3+v3F·E.
         seed: Seed of the simulations.
         n_jobs: Parallel jobs (one per season).
 
@@ -423,7 +423,7 @@ def load_money(backtest_dir: Path = BACKTEST_DIR) -> pd.DataFrame:
 
 @dataclass(frozen=True)
 class PrizeContext:
-    """What the dashboards need to plan v3+v2F·B and value tickets in euros.
+    """What the dashboards need to plan v3+v3F·B and value tickets in euros.
 
     Attributes:
         model: Prize model fitted on every saved draw.

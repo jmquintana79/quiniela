@@ -113,7 +113,7 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const sign = { H: "1", D: "X", A: "2" }[m.sign] ?? (m.position === 15 ? "Pleno" : "–");
     const marks = cols.map((model) => {
       if (m.position === 15) {
-        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets
+        // The Pleno al 15 pick (Dixon-Coles' goals categories) is on the v2, v3, v4, v3+v3F·D, v3+v3F·R and v3+v3F·B tickets
         if (!m.pleno_pick || model.key === "head_to_head") return '<td class="num muted">–</td>';
         const pick = `${m.pleno_pick[0]}-${m.pleno_pick[1]}`;
         if (!m.score) return `<td class="num"><span class="pick pending">${pick}</span></td>`;
@@ -133,7 +133,7 @@ function officialTicketTable(ticket, legend = {}, models = null) {
     const marked = first14.filter((m) => m.picks?.[model.key]);
     const plan = ticket.plans?.[model.key];
     const outcome = ticket.outcomes?.[model.key];
-    // A reduced ticket (v3+v2F·R) does not play every combination: hits of its best column
+    // A reduced ticket (v3+v3F·R) does not play every combination: hits of its best column
     const hits = outcome?.hits ?? plan?.hits ?? marked.filter((m) => m.picks[model.key].includes(m.sign)).length;
     const bets = plan ? plan.bets : 1;
     // Liga F models only mark the women's matches: hits, no ticket price
@@ -220,7 +220,7 @@ function confidenceCell(match, key, tiers) {
  * Prediction cell: the predicted sign only (probability, score and Pleno al 15
  * in the tooltip, to keep columns narrow); green check for a hit, red cross
  * for a miss, outline while pending, dashed outline without a prediction.
- * A pick can cover several signs (doubles "1X" and triples "1X2" of v3+v2F·D).
+ * A pick can cover several signs (doubles "1X" and triples "1X2" of v3+v3F·D).
  */
 function pickCell(match, key) {
   const sign = match[`${key}_sign`];
@@ -231,7 +231,8 @@ function pickCell(match, key) {
   const label = [...sign].sort((a, b) => "HDA".indexOf(a) - "HDA".indexOf(b)).map((s) => SIGN[s]).join("");
   const kind = { 2: "Double", 3: "Triple" }[sign.length];
   const conf = match[`${key}_margin`] != null && !kind ? ` · margin ${pct(match[`${key}_margin`], 1)}` : "";
-  const source = match[`${key}_source`] === "v2F" ? " · Liga F: v2F, pi-ratings of the Liga F results"
+  const source = match[`${key}_source`] === "v3F" ? " · Liga F: v3F, pi-ratings of the Liga F goals and shots on target"
+    : match[`${key}_source`] === "v2F" ? " · Liga F: v2F, pi-ratings of the Liga F results"
     : match[`${key}_source`] === "v1F" ? " · Liga F: v1F, the public's picks"
     : match[`${key}_source`] === "public" ? " · from the public's picks (no model for this match)"
     : match[`${key}_source`] === "reduced" ? " · in the reduction (not every combination is played)" : "";
@@ -306,7 +307,7 @@ function chanceText(p) {
 }
 
 /**
- * v3+v2F·B big-win ticket: what can happen with it, as a horizontal bar chart of the
+ * v3+v3F·B big-win ticket: what can happen with it, as a horizontal bar chart of the
  * chance of each payout range (one series, values always shown), plus the key
  * figures, so the decision to play is the reader's.
  */
@@ -456,11 +457,11 @@ const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the offic
   international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
   probability): ✓ hit · ✗ miss · grey ✓: an R match of the reduction whose result was covered (the best column can still miss it) · outline: pending · – no prediction. The market reference (bookmakers'
   odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
-  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v2F·D): the v3 signs with
+  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v3F·D): the v3 signs with
   the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
-  reduced ticket (v3+v2F·R): the same budget, which may also go to an official reduction (fewer columns
+  reduced ticket (v3+v3F·R): the same budget, which may also go to an official reduction (fewer columns
   covering more matches; R marks its matches; its hits are those of the best column);
-  the chance of each prize before the matchday is under each ticket banner. 1,000 € ticket (v3+v2F·B): the
+  the chance of each prize before the matchday is under each ticket banner. 1,000 € ticket (v3+v3F·B): the
   doubles and triples (at most 50 €) with the best chance of a prize of 1,000 € or more. The traffic
   lights of every ticket are in the recommendations table. Euros of played matchdays use the real prizes of
   the official draw when it is saved in data/lae (otherwise an estimate).`;
@@ -493,7 +494,7 @@ function tableOfContents() {
   header.after(nav);
 }
 
-/** Liga F matches of the official tickets with the result and the v1F and v2F picks (✓ hit, ✗ miss). */
+/** Liga F matches of the official tickets with the result and the v1F, v2F and v3F picks (✓ hit, ✗ miss). */
 function ligaFMatchesTable(matches) {
   if (!matches?.length) return '<p class="empty">No Liga F matches on the official tickets.</p>';
   return `<table><thead><tr><th>Season</th><th class="num">Jornada</th><th>Date</th><th class="num">Home</th><th>Away</th>

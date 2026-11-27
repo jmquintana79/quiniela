@@ -13,7 +13,7 @@ league, plus the quiniela prizes the 14-match tickets would have won.
 
 The tickets are also played with doubles and triples (``ticket_strategies``):
 without them, on random matches, "by eye" on the least predictable matches,
-and placed by the planner (``quiniela.prediction.planner``, v3+v2F·D), to measure
+and placed by the planner (``quiniela.prediction.planner``, v3+v3F·D), to measure
 how many more prizes each way of spending the same bets wins.
 """
 
@@ -260,12 +260,12 @@ TICKET_STRATEGIES: dict[str, tuple[str, str, int]] = {
     "optimal_10": ("Optimal placement, aiming at 10+ hits", "optimal", MIN_PRIZE_HITS),
     "optimal": ("Optimal placement, aiming at 11+ hits", "optimal", planner.DEFAULT_MIN_HITS),
     "v3d": (
-        "v3+v2F·D: best direct mix within the budget, aiming at 11+ hits",
+        "v3+v3F·D: best direct mix within the budget, aiming at 11+ hits",
         "mix",
         planner.DEFAULT_MIN_HITS,
     ),
     "v3r": (
-        "v3+v2F·R: best direct or reduced ticket within the budget, aiming at 11+ hits",
+        "v3+v3F·R: best direct or reduced ticket within the budget, aiming at 11+ hits",
         "reduced",
         planner.DEFAULT_MIN_HITS,
     ),
@@ -317,7 +317,7 @@ def _season_tickets(
         probs = ticket[["p_H", "p_D", "p_A"]].to_numpy(dtype=float)
         results = ticket["FTR"].tolist()
         # Which matches the ticket had and what each strategy marked, so per-match
-        # hit rates (e.g. v3+v2F·D in the evaluation dashboard) can be computed later
+        # hit rates (e.g. v3+v3F·D in the evaluation dashboard) can be computed later
         games = LIST_SEPARATOR.join(ticket["league"] + "/" + ticket["game"])
         # One generator per matchday, so results do not depend on the job split
         rng = np.random.default_rng([seed, int(matchday), int(str(season)[:4])])
@@ -378,7 +378,7 @@ def ticket_strategies(
         model: Model whose probabilities choose the signs (v3 by default).
         doubles: Doubles of the random, by-eye and optimal strategies.
         triples: Triples of the random, by-eye and optimal strategies.
-        max_bets: Budget of the v3+v2F·D strategy, which also chooses the mix.
+        max_bets: Budget of the v3+v3F·D strategy, which also chooses the mix.
         seed: Seed of the random placements.
         n_jobs: Parallel jobs (one per season).
 

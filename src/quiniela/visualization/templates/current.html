@@ -116,7 +116,7 @@
         `${pick}${hit == null ? "" : hit ? " ✓" : " ✗"}</span>`;
     return `<h3 style="margin:0 0 6px;font-size:14px">Pleno al 15</h3>
       <table><thead><tr><th class="num">Ticket</th><th>Cat.</th><th class="num">Home</th><th>Away</th><th>Result</th>
-        <th class="num">Pick on the v3, v3+v2F·D, v3+v2F·R and v3+v2F·B tickets</th></tr></thead><tbody><tr>
+        <th class="num">Pick on the v3, v3+v3F·D, v3+v3F·R and v3+v3F·B tickets</th></tr></thead><tbody><tr>
         <td class="num muted">15</td><td>${categoryChip(p.category, DATA.categories)}</td>
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
@@ -135,7 +135,7 @@
       const bets = plan?.bets ?? 1;
       const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
       const r = plan?.reduction;
-      // v3+v2F·R may play an official reduction (fewer columns), times its direct doubles and triples
+      // v3+v3F·R may play an official reduction (fewer columns), times its direct doubles and triples
       const direct = r ? [r.direct_doubles ? plural(r.direct_doubles, "direct double") : "",
         r.direct_triples ? plural(r.direct_triples, "direct triple") : ""].filter(Boolean).join(" + ") : "";
       const marks = r ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets)${direct ? ` + ${direct}` : ""}`
@@ -156,8 +156,8 @@
   }
 
   $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only the v3+v2F tickets are shown here: the single ticket (one sign per match), the direct (·D), the reduced (·R) and the big-win (·B) one." +
-    " They use v3 on the La Liga / Segunda matches, <strong>v2F</strong> (pi-ratings of the Liga F results) on the Liga F ones (v1F, the public's picks, without it)" +
+    "<br>Only the v3+v3F tickets are shown here: the single ticket (one sign per match), the small (·D2), the direct (·D), the reduced (·R) and the big-win (·B) one." +
+    " They use v3 on the La Liga / Segunda matches, <strong>v3F</strong> (pi-ratings of the Liga F goals and shots on target) on the Liga F ones (v1F, the public's picks, without it)" +
     " and the public's picks on the other competitions (hover a sign for its source). The models themselves are compared in evaluation.html.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;

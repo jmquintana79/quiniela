@@ -172,11 +172,11 @@ def test_predict_upcoming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert v1f["home_team"].tolist() == ["Alavés"] and v1f["source"].eq("v1F").all()
     assert "pi_ratings_f" not in predictions
     assert matches[[f"_fill_p_{o}" for o in "HDA"]].sum(axis=1).round(6).eq(1).all()
-    # The public's shares of every match go with it (the winners of the v3+v2F·B prize model)
+    # The public's shares of every match go with it (the winners of the v3+v3F·B prize model)
     assert matches[["_public_H", "_public_D", "_public_A"]].iloc[0].tolist() == [30, 25, 45]
 
 
-def test_predict_upcoming_plans_liga_f_with_v2f(
+def test_predict_upcoming_plans_liga_f_with_v3f(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from quiniela.data.prizes import load_upcoming
@@ -197,12 +197,14 @@ def test_predict_upcoming_plans_liga_f_with_v2f(
     _, predictions, _ = pipeline.predict_upcoming(
         load_upcoming(tmp_path), history=current.iloc[:0], current=current
     )
-    # v2F predicts the Liga F match, and the tickets (the v3 column) use it there
+    # v2F and v3F predict the Liga F match, and the tickets (the v3 column) use v3F there
     v2f = predictions["pi_ratings_f"]
     assert v2f["home_team"].tolist() == ["Alavés"] and v2f["source"].eq("v2F").all()
+    v3f = predictions["pi_ratings_shots_f"]
+    assert v3f["home_team"].tolist() == ["Alavés"] and v3f["source"].eq("v3F").all()
     v3 = predictions["market_blend"].set_index("home_team")
-    assert v3.loc["Alavés", "source"] == "v2F"
-    assert v3.loc["Alavés", "p_H"] == pytest.approx(v2f["p_H"].iloc[0])
+    assert v3.loc["Alavés", "source"] == "v3F"
+    assert v3.loc["Alavés", "p_H"] == pytest.approx(v3f["p_H"].iloc[0])
 
 
 def test_pleno_pick_from_the_public(tmp_path: Path) -> None:

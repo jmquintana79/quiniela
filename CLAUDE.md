@@ -52,8 +52,8 @@ model is evaluated with a walk-forward backtest against the betting market.
   doubles and triples (`quiniela.prediction.planner`; **·D2** the same with 2 bets), **·R** with the official reductions
   (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
   (`quiniela.prediction.money`). They use `PLANNER_MODEL` (v3) on the men's matches and
-  `WOMEN_PLANNER_MODEL` (v2F, with v1F as fallback) on the Liga F ones: v3+v2F·D, ·R, ·B and
-  ·E (v3+v1F·D... in v0.10-v0.11, v3·D... in v0.9,
+  `WOMEN_PLANNER_MODEL` (v3F, with v1F as fallback) on the Liga F ones: v3+v3F·D, ·D2, ·R, ·B and
+  ·E (v3+v2F·D... in v0.12-v0.17, v3+v1F·D... in v0.10-v0.11, v3·D... in v0.9,
   v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d2`, `v3d`, `v3r`,
   `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`
   (`data/backtest/tickets.parquet`), and `v3d2`, `v3d`, `v3r`, `v3e`, `v3e_full`, `v3e_always`, `v3b`

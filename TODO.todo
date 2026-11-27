@@ -5,7 +5,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
   2. Dataset de métricas y KPIs por partido y por jornada, y su página.
   3. Boleto que combina acierto y reparto (dobles, triples y reducciones) y veredicto
      por jornada.
-  4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; falta decidir si planifica).
+  4. v3F: Liga F con tiros a puerta (hecho en v0.17.0; planifica los boletos desde v0.18.0).
   5. Pleno al 15: marcador según el mercado y diferenciación con el público.
   6. Elo de selecciones para los partidos "otros".
   7. Rating global de clubes para los partidos "otros" (copas europeas y Copa).
@@ -209,9 +209,11 @@ Tareas:
     partidos desde 2023-24: 59,8 % y 0,8961 frente a 59,3 % y 0,8984 de v2F. ESPN
     guarda ahora tiros y tiros a puerta (HS, AS, HST, AST) de cada partido, del mismo
     scoreboard mensual (no hizo falta summary?event=<id>).
-  ☐ Decidir si los boletos planifican la Liga F con v3F (WOMEN_PLANNER_MODEL) tras
-    unas jornadas más; pesos mayores (0,5) fueron aún mejores en las temporadas de
-    prueba, pero no se eligen sobre las mismas temporadas que los juzgan.
+  ✔ Los boletos planifican la Liga F con v3F (WOMEN_PLANNER_MODEL, v0.18.0): mejor
+    que v2F en acierto, log-loss, Brier y RPS, y fuera de muestra. Los boletos pasan
+    a llamarse v3+v3F·D, ·D2, ·R, ·B y ·E (v3+v2F de v0.12.0 a v0.17.0).
+  ☐ Pesos mayores de los tiros (0,5) fueron aún mejores en las temporadas de prueba:
+    revisarlo con la temporada siguiente, sin elegirlo sobre las mismas temporadas.
   ☐ Revisar la comparación v1F vs v2F cuando tenga suficientes partidos, por si el
     público resultara mejor (jornada 21: 4 partidos, empate a 2 aciertos).
   ✔ ·B apunta a 1.000 € o más (antes 10.000 €); semáforos en una tabla de

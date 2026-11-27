@@ -141,7 +141,7 @@ def test_money_kpis_and_add_kpis() -> None:
     kpis = tm.add_kpis(tm.money_kpis(_money()).set_index("draw_id"))
     assert kpis.loc["1", "net_v3d"] == pytest.approx(4.0)
     assert kpis.loc["1", "p_big_v3b"] == pytest.approx(0.004)
-    # Expected return of the ticket v3+v2F·E planned (24 EUR), not of what it played (0)
+    # Expected return of the ticket v3+v3F·E planned (24 EUR), not of what it played (0)
     assert kpis.loc["1", "expected_return"] == pytest.approx((24 - 12) / 24)
     assert kpis.loc["1", "return_v3d"] == pytest.approx(40 / 36)
     assert kpis.loc["1", "hit12_v3d"] == 1 and kpis.loc["1", "hit13_v3b"] == 1

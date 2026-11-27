@@ -1,4 +1,4 @@
-r"""Ticket planner (the ·D ticket, v3+v2F·D with v3): where to spend the doubles and triples of a quiniela ticket.
+r"""Ticket planner (the ·D ticket, v3+v3F·D with v3): where to spend the doubles and triples of a quiniela ticket.
 
 A quiniela bet can cover more than one sign per match: a **double** (two
 signs) multiplies the number of bets by 2 and a **triple** (1, X and 2) by 3,
@@ -88,7 +88,7 @@ class TicketPlan:
         min_hits: Hits the plan maximises the probability of.
         distribution: Probability of every number of hits, from 0 to the
             number of matches.
-        reduction: Official reduction played on some matches (v3+v2F·R, see
+        reduction: Official reduction played on some matches (v3+v3F·R, see
             ``quiniela.prediction.reduced``), or ``None`` for a direct ticket.
         reduced: Matches of the reduction, in the order of the code's
             coordinates (triples first).
