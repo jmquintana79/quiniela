@@ -690,6 +690,8 @@ def _season_tickets(
         ):
             signal = percentile_signal(value, money_results, strategy, column)
             ticket["outcomes"][ticket_key]["signal"] = signal["level"] if signal else None
+            # The planned chance itself, for the metrics dashboard
+            ticket["outcomes"][ticket_key]["value"] = round(float(value), 6)
         ticket["plans"] = {
             SINGLE_KEY: {"doubles": 0, "triples": 0, "bets": 1},
             PLANNED_KEY: {
@@ -2171,7 +2173,259 @@ def _upcoming_view(
         logger.info("The draw of jornada %d is saved: its ticket is not current", ticket.jornada)
         return None
     matches, predictions, info = predict_upcoming(ticket)
-    return ticket, season_payload(matches, predictions, prizes=prizes), info
+    payload = season_payload(matches, predictions, prizes=prizes)
+    # The metrics of its 14 matches, for metrics.html (current.html does not use them)
+    from quiniela.data.women import ticket_season
+    from quiniela.evaluation.ticket_metrics import upcoming_matches
+    from quiniela.prediction.planner import PLANNER_MODEL
+
+    rows = upcoming_matches(
+        matches, predictions, PLANNER_MODEL, ticket_season(ticket.closes), ticket.jornada
+    )
+    payload["ticket_metrics"] = _records(rows)
+    return ticket, payload, info
+
+
+# Metrics split by quintile in the validation tables of metrics.html, with the KPIs they
+# should predict: per match (v3 hits) and per draw (the tickets' hits and money)
+MATCH_VALIDATION = ["fav_prob", "entropy", "strength_gap", "edge_market", "spread"]
+PUBLIC_VALIDATION = ["edge_public", "value"]
+DRAW_VALIDATION = [
+    "p_big_v3b",
+    "p_hits_v3d",
+    "p_hits_v3s",
+    "expected_hits",
+    "entropy",
+    "expected_return",
+    "jackpot",
+]
+DRAW_KPIS = {
+    "hits_v3s": "hits_v3s",
+    "hit12_v3d": "hit12_v3d",
+    "hit13_v3b": "hit13_v3b",
+    "return_v3d": "return_v3d",
+    "return_v3b": "return_v3b",
+    "big_v3b": "big_v3b",
+}
+
+
+def _upcoming_draw(
+    rows: pd.DataFrame, current: dict[str, Any], expected_bets: float
+) -> dict[str, Any]:
+    """Metrics, planned chances, lights and verdict of the next official ticket."""
+    from quiniela.evaluation.ticket_metrics import draw_metrics, verdicts
+
+    draw = draw_metrics(rows.assign(draw_id="next"), {"next": expected_bets})
+    out = draw.iloc[0].to_dict() if not draw.empty else {}
+    keys = {"market_blend": "v3s", "v3d": "v3d", "v3r": "v3r", "v3b": "v3b"}
+    for item in current.get("recommendations") or []:
+        if not item.get("primary") or item.get("key") not in keys:
+            continue
+        key = keys[item["key"]]
+        column = "p_big_v3b" if key == "v3b" else f"p_hits_{key}"
+        out[column] = item.get("value")
+        out[f"light_{key}"] = (item.get("signal") or {}).get("level")
+    money = ((current.get("matchday") or {}).get("summary", {}).get(MONEY_KEY) or {}).get("money")
+    if money:
+        out["cost_v3b"] = money.get("cost")
+        out["expected_payout_v3b"] = money.get("expected_payout")
+        out["jackpot"] = money.get("jackpot")
+        out["winners"] = money.get("winners")
+    out["verdict"] = verdicts(
+        [out.get("light_v3b")], [out.get("light_v3d")], [int(out.get("matched") or 0)]
+    )[0]
+    out["jornada"] = current.get("jornada")
+    out["deadline"] = current.get("deadline")
+    return _clean(out)
+
+
+def metrics_payload(
+    prizes: Any,
+    season: dict[str, Any],
+    current: dict[str, Any] | None = None,
+    upcoming: tuple[Any, dict[str, Any], dict[str, Any]] | None = None,
+    save: bool = True,
+) -> dict[str, Any]:
+    """Collect the data shown in the metrics dashboard and save the metrics dataset.
+
+    Every match of every official ticket gets its metrics (what was known before the
+    draw) and every draw its metrics and KPIs (what the tickets made of it), from the
+    backtest (2015-16 on), the season dashboard (current season) and the next ticket
+    (``quiniela.evaluation.ticket_metrics``). They are written to ``data/metrics/``.
+
+    Args:
+        prizes: Prize context (``quiniela.evaluation.money.prize_context``).
+        season: Season payload (its official ``tickets``).
+        current: Current payload (the recommendations of the next ticket).
+        upcoming: ``_upcoming_view`` of the next ticket.
+        save: Write ``data/metrics/matches.parquet`` and ``draws.parquet``.
+
+    Returns:
+        JSON-serialisable dictionary with the next ticket, every past draw and the
+        validation tables (``None`` parts without data).
+    """
+    from quiniela.data.loading import load_current, load_historical
+    from quiniela.data.women import load_public_shares
+    from quiniela.evaluation import ticket_metrics as tm
+    from quiniela.evaluation.backtest import load_backtest
+    from quiniela.evaluation.money import load_money
+    from quiniela.prediction.pipeline import load_predictions
+
+    empty: dict[str, Any] = {"info": tm.METRIC_INFO, "next": None, "draws": [], "validation": {}}
+    if prizes is None:
+        return empty
+    odds = pd.concat([load_historical(), load_current()], ignore_index=True)
+    backtest = load_backtest()
+
+    def by_model(frame: pd.DataFrame, key: str) -> pd.DataFrame | None:
+        part = frame[frame["model"] == key] if "model" in frame.columns else frame.iloc[:0]
+        return part if not part.empty else None
+
+    # Past seasons: the walk-forward backtest; current season: the stored predictions
+    past_seasons = sorted(backtest["season"].unique()) if not backtest.empty else []
+    past = tm.ticket_matches(
+        prizes.matched,
+        {
+            k: by_model(backtest, m)
+            for k, m in (("p", "market_blend"), ("m", "market"), ("v4", "pi_ratings"))
+        },
+        odds,
+        seasons=past_seasons,
+    )
+    stored = load_predictions()
+    this_season = [s for s in prizes.matched["season"].unique() if s not in past_seasons]
+    now = tm.ticket_matches(
+        prizes.matched,
+        {
+            k: stored.get(m)
+            for k, m in (("p", "market_blend"), ("m", "market"), ("v4", "pi_ratings"))
+        },
+        odds,
+        shares=load_public_shares(),
+        seasons=this_season,
+    )
+    # Bets expected before each draw: average of the five before it (as the money backtest)
+    draws = prizes.draws.sort_values("date")
+    expected = draws["bets"].where(draws["bets"] > 0).shift(1).rolling(5, min_periods=1).mean()
+    expected_bets = dict(zip(draws["draw_id"].astype(str), expected, strict=True))
+
+    past_draws = tm.past_draws(tm.draw_metrics(past, expected_bets), load_money())
+    season_draws = tm.season_draws(season.get("tickets") or [], tm.draw_metrics(now, expected_bets))
+    all_draws = pd.concat([d for d in (past_draws, season_draws) if not d.empty], ignore_index=True)
+
+    next_rows = pd.DataFrame((upcoming[1].get("ticket_metrics") or []) if upcoming else [])
+    next_draw = (
+        _upcoming_draw(next_rows, current or {}, float(prizes.bets))
+        if not next_rows.empty
+        else None
+    )
+    all_matches = pd.concat([f for f in (past, now, next_rows) if not f.empty], ignore_index=True)
+    if save:
+        tm.save_metrics(all_matches, all_draws)
+
+    # Validation: men's matches with a v3 probability and a result
+    played = pd.concat([past, now], ignore_index=True)
+    # Men's league matches only (the Liga F has its own block; other matches have no model)
+    played = played[played["hit"].notna() & (played["category"] == "M")]
+    played = played.assign(strength_gap=lambda f: f["strength"].abs())
+    match_kpis = {"hit": "hit", "log_loss": "log_loss"}
+    validation: dict[str, Any] = {
+        "matches": {m: tm.quintiles(played, m, match_kpis) for m in MATCH_VALIDATION},
+        "public": {
+            m: tm.quintiles(played, m, {"hit": "hit", "value_hit": "value_hit"}, bins=3)
+            for m in PUBLIC_VALIDATION
+        },
+        "draws": {m: tm.quintiles(all_draws, m, DRAW_KPIS) for m in DRAW_VALIDATION},
+        "verdicts": _verdict_table(all_draws),
+        "liga_f": _liga_f_validation(),
+        "counts": {
+            "matches": len(played),
+            "public_matches": int(played["edge_public"].notna().sum()),
+            "draws": int(all_draws["payout_v3b"].notna().sum()) if not all_draws.empty else 0,
+            "first_season": past_seasons[0] if past_seasons else None,
+        },
+    }
+    draw_columns = [
+        "season",
+        "jornada",
+        "date",
+        "matched",
+        "public",
+        "fav_prob",
+        "entropy",
+        "spread",
+        "expected_hits",
+        "differentiation",
+        "co_winners_14",
+        "jackpot",
+        "p_hits_v3s",
+        "p_hits_v3d",
+        "p_big_v3b",
+        "expected_return",
+        "light_v3d",
+        "light_v3b",
+        "verdict",
+        "hits_v3s",
+        "hits_v3d",
+        "hits_v3r",
+        "hits_v3b",
+        "cost_v3d",
+        "payout_v3d",
+        "cost_v3b",
+        "payout_v3b",
+        "net_v3d",
+        "net_v3b",
+        "winners",
+    ]
+    table = all_draws.reindex(columns=draw_columns).sort_values("date", ascending=False)
+    next_matches = [
+        _clean(r) for r in next_rows.reindex(columns=tm.MATCH_COLUMNS).to_dict(orient="records")
+    ]
+    return {
+        "info": tm.METRIC_INFO,
+        "next": {"draw": next_draw, "matches": next_matches} if next_draw else None,
+        "draws": [_clean(r) for r in _records(table)],
+        "validation": validation,
+    }
+
+
+def _verdict_table(draws: pd.DataFrame) -> list[dict[str, Any]]:
+    """KPIs of the draws of every verdict (complete draws only)."""
+    if draws.empty or "verdict" not in draws.columns:
+        return []
+    done = draws[draws["payout_v3b"].notna() & draws["verdict"].notna()]
+    rows = []
+    for verdict in ("big", "small", "skip"):
+        part = done[done["verdict"] == verdict]
+        if part.empty:
+            continue
+        row: dict[str, Any] = {"verdict": verdict, "n": len(part)}
+        for key in ("v3s", "v3d", "v3b"):
+            cost = pd.to_numeric(part[f"cost_{key}"], errors="coerce").sum()
+            payout = pd.to_numeric(part[f"payout_{key}"], errors="coerce").sum()
+            row[f"return_{key}"] = float(payout / cost) if cost else None
+            row[f"net_{key}"] = float(payout - cost)
+            row[f"hit12_{key}"] = float(pd.to_numeric(part[f"hit12_{key}"], errors="coerce").mean())
+        row["big_v3b"] = float(pd.to_numeric(part["big_v3b"], errors="coerce").sum())
+        rows.append(row)
+    return rows
+
+
+def _liga_f_validation() -> dict[str, list[dict[str, Any]]]:
+    """v2F hits by quintile of its favourite's probability and openness (Liga F results)."""
+    from quiniela.evaluation import ticket_metrics as tm
+    from quiniela.evaluation.women import PI_KEY, results_backtest
+    from quiniela.io.espn import load_liga_f_matches
+
+    try:
+        espn = load_liga_f_matches()
+    except (OSError, ValueError) as error:
+        logger.warning("No Liga F results for the metrics: %s", error)
+        return {}
+    rows = results_backtest(espn)
+    rows = tm.match_metrics(rows[rows["model"] == PI_KEY])
+    kpis = {"hit": "hit", "log_loss": "log_loss"}
+    return {m: tm.quintiles(rows, m, kpis) for m in ("fav_prob", "entropy")}
 
 
 def _liga_f() -> pd.DataFrame:
@@ -2199,11 +2453,14 @@ def build_dashboards(output_dir: Path = DASHBOARDS_DIR) -> list[Path]:
     prizes = prize_context()
     liga_f = _liga_f()
     season = season_payload(prizes=prizes, liga_f=liga_f)
+    upcoming = _upcoming_view(prizes)
+    current = current_payload(season=season, upcoming=upcoming)
     return [
+        render("current.html", current, output_dir / "current.html"),
         render(
-            "current.html",
-            current_payload(season=season, upcoming=_upcoming_view(prizes)),
-            output_dir / "current.html",
+            "metrics.html",
+            metrics_payload(prizes, season, current, upcoming),
+            output_dir / "metrics.html",
         ),
         render("season.html", season, output_dir / "season.html"),
         render(

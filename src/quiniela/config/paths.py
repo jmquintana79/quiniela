@@ -37,6 +37,9 @@ PUBLIC_DIR: Path = LAE_DIR / "public"
 # Liga F (women's) matches of the official tickets with results and public picks
 WOMEN_DIR: Path = DATA_DIR / "women"
 
+# Metrics and KPIs of every official ticket, per match and per draw (quiniela.evaluation.ticket_metrics)
+METRICS_DIR: Path = DATA_DIR / "metrics"
+
 # Raw files cached by soccerdata (avoids downloading completed seasons twice)
 CACHE_DIR: Path = DATA_DIR / "cache"
 
@@ -47,5 +50,5 @@ DASHBOARDS_DIR: Path = ROOT_DIR / "dashboards"
 def ensure_data_dirs() -> None:
     """Create the data folders if they do not exist yet."""
     folders = (HISTORICAL_DIR, CURRENT_DIR, PREDICTIONS_DIR, BACKTEST_DIR, LAE_DIR, CACHE_DIR)
-    for path in (*folders, PUBLIC_DIR, WOMEN_DIR):
+    for path in (*folders, PUBLIC_DIR, WOMEN_DIR, METRICS_DIR):
         path.mkdir(parents=True, exist_ok=True)

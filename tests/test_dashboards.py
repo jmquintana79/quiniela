@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -236,7 +237,7 @@ def test_current_payload_standings_and_odds_time(tmp_path: Path) -> None:
 
 
 def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("current", "season", "historical", "evaluation", "prizes"):
+    for name in ("current", "season", "historical", "evaluation", "prizes", "metrics"):
         monkeypatch.setattr(
             dashboards, f"{name}_payload", lambda *_, **__: {"leagues": [], "models": []}
         )
@@ -254,6 +255,7 @@ def test_build_removes_retired_dashboards(tmp_path: Path, monkeypatch: pytest.Mo
         "current.html",
         "evaluation.html",
         "historical.html",
+        "metrics.html",
         "prizes.html",
         "season.html",
     ]
@@ -712,3 +714,60 @@ def test_ticket_crowd_prefers_the_public() -> None:
     # A match without shares: back to the market
     partial = shared.assign(_public_H=[70.0] * 13 + [np.nan])
     assert dashboards._ticket_crowd(partial, probs, model)[2] == "market"
+
+
+def test_metrics_payload_without_draws() -> None:
+    payload = dashboards.metrics_payload(None, {})
+    assert payload["next"] is None and payload["draws"] == [] and payload["validation"] == {}
+    assert "fav_prob" in payload["info"]
+
+
+def test_verdict_table() -> None:
+    rows = []
+    for verdict, payout in (("big", 96.0), ("big", 0.0), ("skip", 12.0), (None, 0.0)):
+        row = {"verdict": verdict, "big_v3b": float(payout >= 1_000)}
+        for key, cost in (("v3s", 0.75), ("v3d", 36.0), ("v3b", 48.0)):
+            row.update({f"cost_{key}": cost, f"payout_{key}": payout, f"hit12_{key}": 0.0})
+        rows.append(row)
+    table = dashboards._verdict_table(pd.DataFrame(rows))
+    assert [r["verdict"] for r in table] == ["big", "skip"]
+    big = table[0]
+    assert big["n"] == 2
+    assert big["return_v3b"] == pytest.approx(96 / 96)
+    assert big["net_v3d"] == pytest.approx(96 - 72)
+
+
+def test_upcoming_draw_reads_the_recommendations() -> None:
+    from quiniela.evaluation import ticket_metrics as tm
+
+    rows = []
+    for position in range(1, 15):
+        rows.append(
+            {
+                "position": position,
+                "season": "2026-27",
+                "jornada": 25,
+                "category": "M",
+                "p_H": 0.5,
+                "p_D": 0.3,
+                "p_A": 0.2,
+                "s_H": 0.6,
+                "s_D": 0.25,
+                "s_A": 0.15,
+                "date": pd.Timestamp("2026-11-28"),
+            }
+        )
+    matches = tm.match_metrics(pd.DataFrame(rows))
+    current = {
+        "jornada": 25,
+        "deadline": "2026-11-28T14:00:00+01:00",
+        "recommendations": [
+            {"key": "v3b", "primary": True, "value": 0.004, "signal": {"level": "green"}},
+            {"key": "v3d", "primary": True, "value": 0.08, "signal": {"level": "amber"}},
+            {"key": "v3b", "primary": False, "value": 0.02, "signal": {"level": "red"}},
+        ],
+    }
+    draw = dashboards._upcoming_draw(matches, current, 2_000_000)
+    assert draw["p_big_v3b"] == pytest.approx(0.004) and draw["light_v3b"] == "green"
+    assert draw["verdict"] == "big" and draw["matched"] == 14
+    assert draw["differentiation"] == pytest.approx(14 * np.log(0.5 / 0.6), abs=1e-4)

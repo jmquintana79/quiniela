@@ -81,7 +81,7 @@ Tareas:
   ✔ Publicado en v0.14.0.
 
 
-2. Dataset de métricas y KPIs · PRIORIDAD ALTA
+2. Dataset de métricas y KPIs · HECHO (seguimiento)
 ==============================================================================
 Idea:
   Una tabla con un registro por partido (histórico y jornada actual) con todas las
@@ -108,12 +108,28 @@ KPIs:
   - Calidad del veredicto: retorno de las jornadas "jugar" frente a las "no jugar".
 
 Tareas:
-  ☐ Definir el esquema (data/metrics/matches.parquet y draws.parquet) desde los
-    datos que ya hay (predicciones, backtest, sorteos, data/lae/public/).
-  ☐ Construirlo en invoke update (jornada actual) y en el backtest (histórico).
-  ☐ Página metrics.html: tabla de la jornada con las métricas por partido (colores
-    por percentil) y, para el histórico, cada métrica por quintiles frente a los
-    KPIs (¿se acierta más o se gana más en el quintil alto?).
+  ✔ Esquema y módulo quiniela.evaluation.ticket_metrics (2026-11-27, v0.15.0):
+    data/metrics/matches.parquet (cada partido de cada boleto oficial) y
+    draws.parquet (cada boleto con métricas, semáforos, veredicto y KPIs), desde el
+    backtest (2015-16 a 2025-26), el season.html (temporada actual) y el próximo
+    boleto. La carga de datos guarda ahora también las cuotas máximas (Max, BbMx)
+    para la dispersión.
+  ✔ Se construye en cada invoke update / invoke dashboards.build.
+  ✔ Página metrics.html: el próximo boleto (veredicto, métricas de jornada y tabla
+    por partido sombreada por quintil), los boletos pasados, la validación por
+    quintiles (partidos, público, jornadas), los veredictos y la Liga F (v2F).
+  Primeros resultados (ver README, "Metrics and KPIs of the tickets"):
+    - Por partido (6.353): v3 acierta del 70 % (más claros) al 36 % (más
+      abiertos); diferencia de fuerza 67 % a 40 %; dispersión 61 % a 45 %.
+    - Por jornada (437 boletos): la probabilidad planificada de 12+ de ·D separa
+      bien (14 % de boletos con 12+ en el quintil alto, 2 % en el bajo); la de
+      1.000 € de ·B no ordena el dinero (ningún ·B llegó a 1.000 €).
+    - Veredictos: ·D devolvió el 79 % en "jugar ·B", 28 % en "jugar poco" y 26 %
+      en "no jugar"; pocos boletos y premios grandes raros: señal a seguir.
+    - Métricas del público: 19 partidos con resultado, demasiado pocos todavía.
+  ☐ Revisar las métricas del público y los veredictos cuando haya más jornadas
+    archivadas (y ajustar la regla del veredicto si los datos lo piden, sin
+    elegirla sobre los mismos boletos que la juzgan).
 
 
 3. Boleto que combina acierto y reparto · PRIORIDAD MEDIA

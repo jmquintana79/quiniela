@@ -11,6 +11,9 @@ and current matches can be concatenated directly:
   empty for matches not played yet.
 - Pre-match 1X2 odds (``ODDS_COLUMNS``) of the bookmakers available in the
   file; seasons without a bookmaker get empty values.
+- The highest pre-match 1X2 odds across bookmakers (``SPREAD_COLUMNS``): with the
+  market average they measure how much the bookmakers disagree (an informative
+  metric of ``quiniela.evaluation.ticket_metrics``, not a model input).
 """
 
 from pathlib import Path
@@ -36,6 +39,12 @@ MATCH_COLUMNS = [
 # bookmakers available in older seasons
 ODDS_PREFIXES = ["Avg", "BbAv", "PS", "B365", "BW", "IW", "WH", "LB"]
 ODDS_COLUMNS = [f"{prefix}{outcome}" for prefix in ODDS_PREFIXES for outcome in "HDA"]
+
+# Highest odds across bookmakers: market maximum (since 2019-20) and Betbrain maximum
+# (2005-2019), the pair of the averages Avg and BbAv. Kept apart from ODDS_PREFIXES, so
+# the market model never takes a maximum for a fair price
+SPREAD_PREFIXES = ["Max", "BbMx"]
+SPREAD_COLUMNS = [f"{prefix}{outcome}" for prefix in SPREAD_PREFIXES for outcome in "HDA"]
 
 # A league pairing (home team at its ground) is played once per season
 FIXTURE_KEY = ["league", "home_team", "away_team"]
@@ -63,7 +72,8 @@ def _read_matches(path: Path, league: str) -> pd.DataFrame:
         league: League code stored in the ``league`` column.
 
     Returns:
-        Matches with ``MATCH_COLUMNS`` plus the available ``ODDS_COLUMNS``
+        Matches with ``MATCH_COLUMNS`` plus the available ``ODDS_COLUMNS`` and
+        ``SPREAD_COLUMNS``
         (result columns are added empty if missing).
     """
     df = pd.read_parquet(path).reset_index()
@@ -75,7 +85,7 @@ def _read_matches(path: Path, league: str) -> pd.DataFrame:
     # which would turn the whole concatenated column into objects
     df["date"] = pd.to_datetime(df["date"])
     df["season"] = df["season"].astype(str).map(season_label)
-    odds = [column for column in ODDS_COLUMNS if column in df.columns]
+    odds = [column for column in ODDS_COLUMNS + SPREAD_COLUMNS if column in df.columns]
     return df[MATCH_COLUMNS + odds]
 
 
@@ -87,9 +97,9 @@ def _league_dirs(root: Path) -> list[Path]:
 def _concat(frames: list[pd.DataFrame]) -> pd.DataFrame:
     """Concatenate match frames, always returning every match and odds column."""
     if not frames:
-        return pd.DataFrame(columns=MATCH_COLUMNS + ODDS_COLUMNS)
+        return pd.DataFrame(columns=MATCH_COLUMNS + ODDS_COLUMNS + SPREAD_COLUMNS)
     matches = pd.concat(frames, ignore_index=True)
-    return matches.reindex(columns=MATCH_COLUMNS + ODDS_COLUMNS)
+    return matches.reindex(columns=MATCH_COLUMNS + ODDS_COLUMNS + SPREAD_COLUMNS)
 
 
 def load_historical(historical_dir: Path = HISTORICAL_DIR) -> pd.DataFrame:

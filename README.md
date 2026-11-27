@@ -27,6 +27,7 @@ dashboards. See [Predictive models](#predictive-models) and [Releases](#releases
   - [Macro-F1 and contingency tables](#macro-f1-and-contingency-tables)
   - [X picks](#x-picks)
   - [Confidence of a prediction](#confidence-of-a-prediction)
+  - [Metrics and KPIs of the tickets](#metrics-and-kpis-of-the-tickets)
 - [Predictive models](#predictive-models)
   - [v1 · Head-to-head benchmark (`head_to_head`)](#v1--head-to-head-benchmark-head_to_head)
   - [v2 · Dixon-Coles (`dixon_coles`)](#v2--dixon-coles-dixon_coles)
@@ -263,7 +264,7 @@ invoke update
 invoke update --backtest
 ```
 
-Five dashboards, each answering one question:
+Six dashboards, each answering one question:
 
 | Dashboard | Question | Content |
 |---|---|---|
@@ -272,6 +273,7 @@ Five dashboards, each answering one question:
 | `historical.html` | What happened in past seasons? | Results, standings and outcome shares since 1993-94. |
 | `evaluation.html` | Which model is better? | Backtest metrics over past seasons, confidence tiers, tickets with doubles and triples and real tickets in euros. |
 | `prizes.html` | What did each draw pay? | Every official draw since 2010-11: jackpot, winners and prize per winner of each category. |
+| `metrics.html` | Is this a jornada to play, and which metrics tell? | The next ticket's metrics per match and per jornada with a verdict, every past ticket with its metrics and KPIs, and which metrics predict the KPIs (see [Metrics and KPIs of the tickets](#metrics-and-kpis-of-the-tickets)). |
 
 **In every dashboard** a **table of contents** after the header links to each section. Two
 kinds of page, two kinds of figures:
@@ -289,6 +291,7 @@ kinds of page, two kinds of figures:
 | `evaluation.html` | Metrics, hit rate by result, contingency tables, confidence, calibration | The same tables for v1F, v2F and the reference, **v1F against v2F** on the common matches, the data by season and every Liga F ticket match |
 | `historical.html` | Outcomes, standings and results | Outcomes and goals by season (ESPN) and every Liga F ticket match |
 | `season.html` | Season totals of every model (tiles) | Season totals of v1F, v2F and the reference (tiles) |
+| `metrics.html` | Ticket metrics, past tickets and their validation | v2F hits by quintile of its favourite's probability and openness |
 
 The **v3+v2F tickets** use v3 on the La Liga / Segunda matches, v2F on the Liga F ones (v1F, the
 public's picks, where v2F has none) and the public's picks on the other competitions, women's
@@ -598,6 +601,59 @@ doubles and triples of [v3+v2F·D](#v3v2fd--direct-ticket-planner).
 The metrics are implemented in
 [`quiniela/evaluation/metrics.py`](src/quiniela/evaluation/metrics.py) and the backtest in
 [`quiniela/evaluation/backtest.py`](src/quiniela/evaluation/backtest.py).
+
+### Metrics and KPIs of the tickets
+
+[`quiniela/evaluation/ticket_metrics.py`](src/quiniela/evaluation/ticket_metrics.py) ·
+`metrics.html` · `data/metrics/matches.parquet` and `draws.parquet`
+
+What was known before every official ticket, per match and per jornada, and what the v3+v2F
+tickets made of it: to decide by hand whether a jornada is worth playing, and to see which
+metrics predict the **KPIs**: hits (needed, not the goal) and money won against money spent.
+Every `invoke update` (or `invoke dashboards.build`) rebuilds them: the past seasons from the
+backtest (2015-16 on, the tickets with 10+ La Liga / Segunda matches), the current season from
+the season dashboard and the next ticket from its betting page.
+
+**Per match**, with $p$ the probabilities the tickets plan on (v3; v2F on the Liga F and the
+public's picks on other competitions), $k^\ast$ its pick, $m$ the market and $s$ the public's
+share of each sign (since jornada 21 of 2026-27):
+
+| Metric | Formula | Meaning |
+|---|---|---|
+| Favourite | $p_{k^\ast}$ | how clear the match is |
+| Openness | $-\sum_k p_k \log p_k$ | entropy: 0.80 for a clear favourite, 1.10 for a toss-up |
+| Strength gap | $p^{\mathrm{v4}}_1 - p^{\mathrm{v4}}_2$ | the teams' gap by results alone (pi-ratings) |
+| v3 vs market | $\log(p_{k^\ast} / m_{k^\ast})$ | how much more v3 believes its pick than the market |
+| v3 vs public | $\log(p_{k^\ast} / s_{k^\ast})$ | above 0: the pick is less marked than it is likely |
+| Best value | $\max_k p_k / s_k$ | the sign the public underrates most |
+| Bookmaker spread | $\frac{1}{3}\sum_k \log(\text{Max}_k / \text{Avg}_k)$ | how much the bookmakers disagree (informative only) |
+
+**Per jornada**: the means of the match metrics, the hits the single ticket expects
+($\sum_i p_{i,k^\ast}$), its **differentiation** $D = \sum_i \log(p_{i,k^\ast} / s_{i,k^\ast})$
+and the other bets expected to share its 14 hits $\hat W_{14} = B \prod_i s_{i,k^\ast}$ (with the
+public's shares of the 14 matches), the planned chances the traffic lights rank (12+ hits of the
+single ticket and of v3+v2F·D, 1,000 € or more of v3+v2F·B), the expected return of v3+v2F·E
+and the jackpot. **KPIs**: the best hits, cost, payout and net of every ticket.
+
+**Verdict** (a first rule, judged on the past tickets): *play v3+v2F·B* when its light on 1,000 €
+or more is green, *play small* (the single or the v3+v2F·D ticket) when only the light on 12+ hits
+of v3+v2F·D is green, *skip* otherwise; none with fewer than 10 La Liga / Segunda matches. In the
+past seasons each light ranks a ticket only among the tickets before it.
+
+**Validation**: every metric split in quintiles, with the KPI means in each. First results (the
+page has them all):
+
+- **Per match** (6,353 La Liga / Segunda ticket matches): v3 hits 70% of the matches in the
+  clearest quintile (favourite above 0.59) and 36% in the most open one; the strength gap gives
+  67% to 40%, the spread 61% to 45% (it mostly repeats the favourite), v3 against the market
+  55% to 44%.
+- **Per jornada** (437 tickets): the planned chance of 12+ hits of v3+v2F·D separates its 12+
+  tickets (14% in the top quintile, 2% in the bottom one); the chance of 1,000 € or more of
+  v3+v2F·B does not order the money (no v3+v2F·B ticket paid 1,000 € or more).
+- **Verdicts**: v3+v2F·D got back 79% of its cost on the "play v3+v2F·B" tickets, 28% on "play
+  small" and 26% on "skip"; v3+v2F·B 26%, 38% and 36%. Few tickets and rare large prizes: a
+  signal to follow, not a rule that pays.
+- **The public's metrics** have 19 ticket matches with results so far: too few to judge yet.
 
 ## Predictive models
 
@@ -1609,6 +1665,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.15.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.15.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **New `metrics.html` and metrics dataset** (`quiniela.evaluation.ticket_metrics`, `data/metrics/matches.parquet` and `draws.parquet`): every match of every official ticket with what was known before the draw (favourite, openness, strength gap, v3 against the market and the public, best value, bookmaker spread) and every ticket with its jornada metrics (expected hits, differentiation, co-winners of a 14, planned chances), traffic lights, a first verdict (play v3+v2F·B, play small, skip) and KPIs (hits, cost, payout, net), from 2015-16 to the next ticket. The page shows the next ticket, the past ones and which metrics predict the KPIs by quintile (v3 hits 70% of the clearest matches, 36% of the most open; the 12+ chance of v3+v2F·D orders its 12+ tickets, 14% to 2%), plus the Liga F (v2F). The loaders also keep the highest odds (`Max`, `BbMx`). |
 | [`v0.14.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.14.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | **v3+v2F·B counts the other winners with the public's real picks** (`PublicPrizeModel`) whenever the ticket has the shares of its 14 matches (the next ticket in `current.html`, the archived ones in `season.html`): the winners of a bet picking at random with those shares (Poisson-binomial), every match counted, the Liga F and other competitions included. On the first archived draws it matched the real winners far better than the market model (jornada 23, 14 hits: 152 real, 150 against 7.8); on the ticket of jornada 25 the chance of 1,000 € or more went from 0.19% to 0.30%. The page says which winners were used; the euro backtest keeps the market model. New `DISCARDED.todo` with the ideas discarded and their reason (Pinnacle apart and the spread between bookmakers in v3, tested and dropped); new roadmap from the brainstorming of 2026-11-27. |
 | [`v0.13.5`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.5) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | `invoke update` no longer crashes in a week whose football-data fixtures file lists no Spanish match: the empty file kept its dates as text, and the loader now always reads them as datetimes. |
 | [`v0.13.4`](https://github.com/jmquintana79/quiniela/releases/tag/v0.13.4) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks and v2F pi-ratings (Liga F), tickets v3+v2F (single), v3+v2F·D, v3+v2F·R and v3+v2F·B (v3+v2F·E in the backtest), market reference | `season.html` no longer loses its jornadas table when a draw is still being played (no scrutiny yet: the ticket takes its own date), and its hits come with their share, e.g. 7/10 (70.0%). |
@@ -1651,6 +1708,8 @@ version in `pyproject.toml`:
 │   ├── backtest/predictions.parquet         # walk-forward predictions of past seasons
 │   ├── backtest/tickets.parquet             # backtest tickets with doubles and triples
 │   ├── backtest/money.parquet               # real tickets of past draws played in euros
+│   ├── metrics/matches.parquet              # metrics of every official ticket match
+│   ├── metrics/draws.parquet                # metrics and KPIs of every official ticket
 │   ├── lae/lae_<season>.json                # official draws saved from LAE (by hand)
 │   ├── lae/upcoming.json                    # next official ticket (Quiniela bookmark)
 │   ├── lae/public/<season>_j<NN>.json       # archive of every next ticket: Liga F public picks (back it up)
@@ -1662,7 +1721,7 @@ version in `pyproject.toml`:
 │   ├── io/                  # downloads: football-data (download), Liga F from ESPN (espn), LAE one-click (lae)
 │   ├── data/                # match loaders, matchday inference, official draws (prizes), Liga F history (women)
 │   ├── prediction/          # model registry, models (v1-v4, v1F, v2F), pipeline, confidence, ticket rules, planner, reduced, money
-│   ├── evaluation/          # metrics, the multi-season backtest, the backtest in euros and the Liga F evaluation
+│   ├── evaluation/          # metrics, the multi-season backtest, the backtest in euros, the Liga F evaluation and the ticket metrics
 │   ├── visualization/       # dashboard builder and HTML templates
 │   ├── update.py            # `invoke update`: every step in one go
 │   └── scripts.py           # `quiniela` command line entry point
@@ -1743,29 +1802,25 @@ already discussed and discarded, with their reason, are in [`DISCARDED.todo`](DI
 (among them Pinnacle apart and the spread between bookmakers in v3: football-data no longer
 publishes Pinnacle, and the spread did not improve v3 in a screening test).
 
-1. **The public's real picks in the prize model: keep checking them.** v3+v2F·B now counts the
+1. **The public's real picks in the prize model, and the metrics: keep checking them.** v3+v2F·B now counts the
    winners with the public's real shares whenever the ticket has them (see
    [money tickets](#v3v2fe-and-v3v2fb--money-tickets-money)); three archived draws agree with them
    far better than with the market model. Pending: check it again with every archived draw, and
-   the ·E ticket (backtest only, with no shares before 2026-27).
-2. **A dataset of metrics and KPIs.** One record per match (history and current ticket):
-   probabilities of v3, the market and the public, entropy, bookmaker spread, rating
-   difference, model-against-market and model-against-public edges; one record per draw and
-   ticket: differentiation, expected co-winners, expected return, chances of a prize, hits and
-   money won. Shown in a new page, with each metric by quintile against the KPIs.
-3. **Tickets that weigh hits and sharing.** Doubles, triples and reductions placed where they
+   the ·E ticket (backtest only, with no shares before 2026-27); the same for the public's
+   metrics of `metrics.html` (19 ticket matches with results so far) and the verdicts.
+2. **Tickets that weigh hits and sharing.** Doubles, triples and reductions placed where they
    raise the expected prize (chance of the hits times the share of the prize, with the public's
    real picks), a small ticket for good matchdays and a verdict per matchday.
-4. **Liga F: v3F with shots on target.** Pi-ratings learned from a mix of goal and
+3. **Liga F: v3F with shots on target.** Pi-ratings learned from a mix of goal and
    shots-on-target differences. ESPN's monthly scoreboard, already downloaded, has the shots on
    target of each team (no request per match needed).
-5. **Pleno al 15 from the market.** The two expected goals fitted to the 1X2 and over/under 2.5
+4. **Pleno al 15 from the market.** The two expected goals fitted to the 1X2 and over/under 2.5
    odds give the probability of each of the 16 Pleno scores; the public's Pleno picks (also in
    `upcoming.json`) allow picking a likely but less popular score. Its own counter (v1P, v2P...).
-6. **National-team Elo** for the national-team matches of the tickets, played today with the
+5. **National-team Elo** for the national-team matches of the tickets, played today with the
    public's picks: eloratings.net (yearly files with every match and both Elo ratings),
    `martj42/international_results` and ESPN.
-7. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
+6. **A global club rating** for the European cups and the Copa del Rey: pi-ratings or Elo over
    the European leagues of football-data, linked by ESPN's European cup matches (Champions League
    since at least 2006). Matching team names between sources is the main cost.
 

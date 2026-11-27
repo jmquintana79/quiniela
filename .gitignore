@@ -183,6 +183,7 @@ data/predictions/
 data/backtest/
 data/lae/
 data/women/
+data/metrics/
 datasets/
 
 # Local preview server config
