@@ -144,9 +144,36 @@ Idea:
 
 Tareas:
   ☐ Objetivo con el público real (depende de 1) en ·D, ·R y ·B.
-  ☐ Variante pequeña (2-8 columnas) para jornadas verdes.
-  ☐ Veredicto por jornada (no jugar / jugar poco / jugar ·B) con las métricas de 2,
-    validado con la columna Rec. de season.html.
+  ✔ Prueba de boletos pequeños (2026-11-27, scripts en el scratchpad, sin tocar el
+    código): backtest en euros con presupuestos de 2, 4 y 8 apuestas (414 sorteos
+    2015-16 a 2025-26, premios reales, modelo de premios del mercado). Devuelto por
+    euro:
+                          todas (414)   ·D en verde (98)   veredicto jugar (122)
+      sencillo (1)            33 %           81 %                 67 %
+      ·D 2 apuestas           39 %           75 %                 62 %
+      ·D 4 apuestas           30 %           55 %                 47 %
+      ·D 8 apuestas           27 %           49 %                 41 %
+      ·E siempre 2/4/8     31/28/29 %     60/49/47 %           49/40/42 %
+      ·D 48 / ·R 48         35 / 49 %      37 / 54 %            58 / 61 %
+      ·B (64)                 35 %           32 %                 32 %
+    - Con 8 apuestas o menos ·R no tiene reducciones: es igual que ·D.
+    - Con presupuesto pequeño, buscar el premio esperado (·E) no mejora a buscar
+      11+ aciertos (·D).
+    - El semáforo verde de 12+ de ·D (calculado sin mirar al futuro) duplica lo
+      devuelto por los boletos pequeños (sencillo 33 % → 81 %, ·D 2 apuestas 39 % →
+      75 %), aunque sigue por debajo del 100 %; ·B no mejora en esas jornadas.
+    - Muestra pequeña: en 98 jornadas verdes hubo 11 a 16 con premio; un premio de
+      60 € cambia mucho el resultado de un boleto de 1,50 €.
+  ✔ Boleto pequeño v3+v2F·D2 (clave v3d2, v0.16.0): el planificador de ·D con 2 apuestas
+    (1,50 €), calculado en todas las jornadas como los demás, con su semáforo de 12+
+    (current.html, season.html, backtest en euros, metrics.html). Backtest: 39 %
+    devuelto (245 € de 621 €; un 13 y cuatro 12). Por su semáforo: verde 75 % (91),
+    ámbar 19 % (176), rojo 48 % (127): rojo por encima de ámbar, mucho ruido.
+  ☐ Seguir con cada jornada si el verde de ·D2 / ·D sigue separando.
+  ☐ Revisar el veredicto ("jugar ·B" no lo respaldan los datos: ·B devuelve 32 % en
+    esas jornadas); hacerlo con jornadas nuevas, no con las mismas que lo eligieron.
+  ✔ Veredicto por jornada (no jugar / jugar poco / jugar ·B) en metrics.html, con su
+    tabla de KPIs por veredicto (v0.15.0).
 
 
 4. Liga F (fútbol femenino) · PRIORIDAD MEDIA

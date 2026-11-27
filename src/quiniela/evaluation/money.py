@@ -50,8 +50,12 @@ MIN_MATCHED = 10
 # Draws whose bets are averaged to expect the bets of the next one
 VOLUME_WINDOW = 5
 
+# Budget of the small direct ticket v3+v2F·D2: the smallest ticket that can be played
+SMALL_BETS = 2
+
 MONEY_STRATEGIES: dict[str, str] = {
     "single": "One column with the v3 signs (0.75 EUR)",
+    "v3d2": "v3+v2F·D2: best chance of 11+ hits within 2 bets (1.50 EUR), every draw",
     "v3d": "v3+v2F·D: best chance of 11+ hits within 48 bets (direct), every draw",
     "v3r": "v3+v2F·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
     "v3e": "v3+v2F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
@@ -176,9 +180,11 @@ def _season_money(
 
         nan = float("nan")
         plan_d = planner.plan_ticket(probs, max_bets=max_bets, min_hits=11)
+        plan_d2 = planner.plan_ticket(probs, max_bets=SMALL_BETS, min_hits=11)
         plan_r = reduced.plan_reduced(probs, max_bets=max_bets, min_hits=11)
         plans: dict[str, tuple[planner.TicketPlan, float, float, bool, float]] = {
             "single": (planner.single_plan(probs, 11), nan, nan, True, nan),
+            "v3d2": (plan_d2, nan, nan, True, nan),
             "v3d": (plan_d, nan, nan, True, nan),
             "v3r": (plan_r, nan, nan, True, nan),
         }
@@ -187,6 +193,7 @@ def _season_money(
         single = plans["single"][0]
         p_hits = {
             "single": single.at_least(RECOMMEND_HITS),
+            "v3d2": plan_d2.at_least(RECOMMEND_HITS),
             "v3d": plan_d.at_least(RECOMMEND_HITS),
             "v3r": plan_r.at_least(RECOMMEND_HITS),
         }

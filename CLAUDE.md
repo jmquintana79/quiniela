@@ -48,14 +48,14 @@ model is evaluated with a walk-forward backtest against the betting market.
   dashboard shows men's and Liga F figures apart, after a table of contents (`data-toc`
   sections, `tableOfContents()` in `base.js`). Tickets are decision layers, not registered
   models, written as the models whose probabilities they use plus a letter: **·D** direct
-  doubles and triples (`quiniela.prediction.planner`), **·R** with the official reductions
+  doubles and triples (`quiniela.prediction.planner`; **·D2** the same with 2 bets), **·R** with the official reductions
   (`quiniela.prediction.reduced`), **·B** big win and **·E** best expected prize
   (`quiniela.prediction.money`). They use `PLANNER_MODEL` (v3) on the men's matches and
   `WOMEN_PLANNER_MODEL` (v2F, with v1F as fallback) on the Liga F ones: v3+v2F·D, ·R, ·B and
   ·E (v3+v1F·D... in v0.10-v0.11, v3·D... in v0.9,
-  v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d`, `v3r`,
+  v4, v4R and v5 until v0.8.0). Dashboard pseudo-models: `v3d2`, `v3d`, `v3r`,
   `v3b`; backtest strategies: `v3d` and `v3r` in `ticket_strategies`
-  (`data/backtest/tickets.parquet`), and `v3d`, `v3r`, `v3e`, `v3e_full`, `v3e_always`, `v3b`
+  (`data/backtest/tickets.parquet`), and `v3d2`, `v3d`, `v3r`, `v3e`, `v3e_full`, `v3e_always`, `v3b`
   in the euro backtest `quiniela.evaluation.money` (`data/backtest/money.parquet`, from the
   official draws in `data/lae/`, `quiniela.data.prizes`). A reduced ticket's hits and prizes
   come from its real columns (`TicketPlan.columns`), never from counting covered matches.

@@ -136,6 +136,7 @@
       tile("co_winners_14", count(d.co_winners_14), "if the single ticket gets 14"),
       tile("p_big_v3b", d.p_big_v3b == null ? "–" : pct(d.p_big_v3b, 2), `${light(d.light_v3b)} light`),
       tile("p_hits_v3d", d.p_hits_v3d == null ? "–" : pct(d.p_hits_v3d, 1), `${light(d.light_v3d)} light`),
+      tile("p_hits_v3d2", d.p_hits_v3d2 == null ? "–" : pct(d.p_hits_v3d2, 2), `${light(d.light_v3d2)} light · 1.50 €`),
       tile("p_hits_v3s", d.p_hits_v3s == null ? "–" : pct(d.p_hits_v3s, 2), `${light(d.light_v3s)} light`),
       tile("jackpot", d.jackpot ? `${count(d.jackpot)} €` : "–", "estimated for the Pleno al 15"),
     ].join("");
@@ -169,14 +170,14 @@
     const all = DATA.draws || [];
     const rows = which === "season" ? all.filter((d) => d.season === all[0]?.season) : all;
     const head = ["Season", "J.", "Date", "Matches", label("expected_hits"), label("entropy"), label("differentiation"),
-      "Single 12+", "·D 12+", "·B 1,000 €+", "Lights ·D / ·B", "Verdict", "Hits (single · ·D · ·B)", "·D net", "·B net"];
+      "Single 12+", "·D2 12+", "·D 12+", "·B 1,000 €+", "Lights ·D2 / ·D / ·B", "Verdict", "Hits (single · ·D2 · ·D · ·B)", "·D2 net", "·D net", "·B net"];
     const body = rows.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.jornada ?? "–"}</td><td>${fmtDate(d.date)}</td>` +
       `<td class="num">${count(d.matched)}${d.public ? ` <span class="muted" data-tip="matches with the public's shares">(${d.public})</span>` : ""}</td>` +
       `<td class="num">${num(d.expected_hits, 1)}</td><td class="num">${num(d.entropy, 3)}</td><td class="num">${signed(d.differentiation, 2)}</td>` +
-      `<td class="num">${pct(d.p_hits_v3s, 2)}</td><td class="num">${pct(d.p_hits_v3d, 1)}</td><td class="num">${pct(d.p_big_v3b, 2)}</td>` +
-      `<td>${light(d.light_v3d)} ${light(d.light_v3b)}</td><td>${d.verdict ? esc(VERDICT[d.verdict]) : "–"}</td>` +
-      `<td class="num">${d.hits_v3s ?? "–"} · ${d.hits_v3d ?? "–"} · ${d.hits_v3b ?? "–"}</td>` +
-      `<td class="num">${d.net_v3d == null ? "–" : eur(d.net_v3d)}</td><td class="num">${d.net_v3b == null ? "–" : eur(d.net_v3b)}</td></tr>`).join("");
+      `<td class="num">${pct(d.p_hits_v3s, 2)}</td><td class="num">${pct(d.p_hits_v3d2, 1)}</td><td class="num">${pct(d.p_hits_v3d, 1)}</td><td class="num">${pct(d.p_big_v3b, 2)}</td>` +
+      `<td>${light(d.light_v3d2)} ${light(d.light_v3d)} ${light(d.light_v3b)}</td><td>${d.verdict ? esc(VERDICT[d.verdict]) : "–"}</td>` +
+      `<td class="num">${d.hits_v3s ?? "–"} · ${d.hits_v3d2 ?? "–"} · ${d.hits_v3d ?? "–"} · ${d.hits_v3b ?? "–"}</td>` +
+      `<td class="num">${d.net_v3d2 == null ? "–" : eur(d.net_v3d2)}</td><td class="num">${d.net_v3d == null ? "–" : eur(d.net_v3d)}</td><td class="num">${d.net_v3b == null ? "–" : eur(d.net_v3b)}</td></tr>`).join("");
     $("draws").innerHTML = rows.length
       ? `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`
       : '<p class="empty">No past tickets.</p>';
@@ -211,7 +212,8 @@
     $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "v2F hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No Liga F results downloaded.</p>';
 
     const drawColumns = [
-      ["hits_v3s", "Single: mean hits", (v) => num(v, 2)], ["hit12_v3d", "·D 12+", (v) => pct(v, 1)],
+      ["hits_v3s", "Single: mean hits", (v) => num(v, 2)], ["return_v3d2", "·D2 back per €", (v) => pct(v, 0)],
+      ["hit12_v3d", "·D 12+", (v) => pct(v, 1)],
       ["hit13_v3b", "·B 13+", (v) => pct(v, 1)], ["return_v3d", "·D back per €", (v) => pct(v, 0)],
       ["return_v3b", "·B back per €", (v) => pct(v, 0)], ["big_v3b", "·B 1,000 €+", (v) => pct(v, 1)],
     ];
@@ -226,11 +228,11 @@
     }
 
     const verdicts = V.verdicts || [];
-    const vhead = ["Verdict", "Tickets", "Single back per €", "·D back per €", "·D 12+", "·B back per €", "·B net", "·B 1,000 €+ (tickets)"];
+    const vhead = ["Verdict", "Tickets", "Single back per €", "·D2 back per €", "·D back per €", "·D 12+", "·B back per €", "·B net", "·B 1,000 €+ (tickets)"];
     $("verdicts").innerHTML = verdicts.length
       ? `<table><thead><tr>${vhead.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
         verdicts.map((v) => `<tr><td class="verdict" data-tip="${esc(VERDICT_TIP[v.verdict])}">${esc(VERDICT[v.verdict])}</td><td class="num">${count(v.n)}</td>` +
-          `<td class="num">${pct(v.return_v3s, 0)}</td><td class="num">${pct(v.return_v3d, 0)}</td><td class="num">${pct(v.hit12_v3d, 1)}</td>` +
+          `<td class="num">${pct(v.return_v3s, 0)}</td><td class="num">${pct(v.return_v3d2, 0)}</td><td class="num">${pct(v.return_v3d, 0)}</td><td class="num">${pct(v.hit12_v3d, 1)}</td>` +
           `<td class="num">${pct(v.return_v3b, 0)}</td><td class="num">${eur(v.net_v3b)}</td><td class="num">${count(v.big_v3b)}</td></tr>`).join("") +
         "</tbody></table>"
       : '<p class="empty">No complete tickets with a verdict.</p>';

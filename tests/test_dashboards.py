@@ -276,6 +276,7 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
 
     assert [m["key"] for m in payload["models"]] == [
         "market_blend",
+        dashboards.SMALL_KEY,
         dashboards.PLANNED_KEY,
         dashboards.REDUCED_KEY,
     ]
@@ -296,6 +297,11 @@ def test_season_payload_confidence_odds_and_planned_ticket() -> None:
     reduced = summary[dashboards.REDUCED_KEY]["plan"]
     assert reduced["bets"] <= 48 and reduced["odds"]["11"] >= plan["odds"]["11"] - 1e-9
     assert summary[dashboards.REDUCED_KEY]["odds"] == reduced["odds"]
+    # v3+v2F·D2: two bets, one double on the least predictable match
+    small = summary[dashboards.SMALL_KEY]["plan"]
+    assert small["bets"] == 2 and small["doubles"] == 1
+    assert len(matches["H1"]["v3d2_sign"]) == 2 and matches["H0"]["v3d2_sign"] == "H"
+    assert plan["odds"]["11"] >= small["odds"]["11"] > odds["11"]
 
 
 def test_planned_ticket_counts_doubles_as_hits() -> None:
@@ -450,10 +456,13 @@ def test_season_payload_money_ticket_and_euros() -> None:
     keys = [m["key"] for m in payload["models"]]
     assert keys == [
         "market_blend",
+        dashboards.SMALL_KEY,
         dashboards.PLANNED_KEY,
         dashboards.REDUCED_KEY,
         dashboards.MONEY_KEY,
     ]
+    # The small ticket is valued in euros too (two bets, 1.50 EUR)
+    assert payload["matchdays"][0]["summary"][dashboards.SMALL_KEY]["euros"]["cost"] == 1.5
     summary = payload["matchdays"][0]["summary"]
     plan = summary[dashboards.MONEY_KEY]["money"]
     # Big-win mode: within 50 EUR, with the distribution of what can happen
@@ -668,12 +677,13 @@ def test_ticket_notice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_recommendations_rank_every_ticket() -> None:
     rows = []
-    for strategy in ("single", "v3d", "v3r", "v3b"):
+    for strategy in ("single", "v3d2", "v3d", "v3r", "v3b"):
         for i in range(100):
             rows.append({"strategy": strategy, "p_hits": i / 100, "p_big": i / 1000})
     history = pd.DataFrame(rows)
     summary = {
         "market_blend": {"odds": {"12": 0.9}},
+        dashboards.SMALL_KEY: {"odds": {"12": 0.85}},
         dashboards.PLANNED_KEY: {"odds": {"12": 0.5}},
         dashboards.REDUCED_KEY: {"odds": {"12": 0.1}},
         dashboards.MONEY_KEY: {"money": {"chance": 0.09, "chance_13": 0.05}},
@@ -681,6 +691,7 @@ def test_recommendations_rank_every_ticket() -> None:
     out = dashboards._recommendations(summary, history)
     levels = {(r["key"], r["measure"]): r["signal"]["level"] for r in out}
     assert levels[("market_blend", "12+ hits")] == "green"
+    assert levels[(dashboards.SMALL_KEY, "12+ hits")] == "green"
     assert levels[(dashboards.PLANNED_KEY, "12+ hits")] == "amber"
     assert levels[(dashboards.REDUCED_KEY, "12+ hits")] == "red"
     assert levels[(dashboards.MONEY_KEY, "1,000 € or more")] == "green"

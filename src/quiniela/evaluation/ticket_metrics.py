@@ -52,7 +52,7 @@ from quiniela.data.prizes import BET_PRICE
 OUTCOMES = ["H", "D", "A"]
 
 # Ticket keys of the dashboards and their strategies in the money backtest
-TICKETS = {"v3s": "single", "v3d": "v3d", "v3r": "v3r", "v3b": "v3b"}
+TICKETS = {"v3s": "single", "v3d2": "v3d2", "v3d": "v3d", "v3r": "v3r", "v3b": "v3b"}
 
 # Traffic light thresholds (percentiles) and fewest earlier draws to rank against
 GREEN_AT = 75
@@ -124,6 +124,7 @@ METRIC_INFO: dict[str, tuple[str, str]] = {
     "co_winners_14": ("Co-winners if 14", "bets expected to share a 14 of the single ticket"),
     "p_big_v3b": ("v3+v2F·B 1,000 €+", "planned chance of a prize of 1,000 € or more"),
     "p_hits_v3d": ("v3+v2F·D 12+", "planned chance of 12 or more hits"),
+    "p_hits_v3d2": ("v3+v2F·D2 12+", "planned chance of 12 or more hits of the 2-bet ticket"),
     "p_hits_v3s": ("Single 12+", "planned chance of 12 or more hits of the single ticket"),
     "expected_return": ("Expected return", "v3+v2F·E expected prize over its cost (prudent)"),
     "jackpot": ("Jackpot", "jackpot announced for the Pleno al 15 (EUR)"),
@@ -415,8 +416,8 @@ def money_kpis(money: pd.DataFrame) -> pd.DataFrame:
         money: Output of ``quiniela.evaluation.money.load_money``.
 
     Returns:
-        ``draw_id``, ``jackpot`` and, for every ticket key ``v3s``, ``v3d``,
-        ``v3r`` and ``v3b``: ``cost_*``, ``payout_*``, ``net_*``, ``hits_*``
+        ``draw_id``, ``jackpot`` and, for every ticket key ``v3s``, ``v3d2``,
+        ``v3d``, ``v3r`` and ``v3b``: ``cost_*``, ``payout_*``, ``net_*``, ``hits_*``
         (best column) and the planned chance its light ranks (``p_hits_*`` of 12+
         hits, ``p_big_v3b`` of 1,000 € or more); ``expected_return`` of v3+v2F·E.
     """
@@ -512,6 +513,7 @@ def past_draws(draw_rows: pd.DataFrame, money: pd.DataFrame) -> pd.DataFrame:
     out = draw_rows.merge(kpis, on="draw_id", how="inner").sort_values("date", ignore_index=True)
     out["light_v3b"] = walk_forward_lights(out, "p_big_v3b")
     out["light_v3d"] = walk_forward_lights(out, "p_hits_v3d")
+    out["light_v3d2"] = walk_forward_lights(out, "p_hits_v3d2")
     out["verdict"] = verdicts(list(out["light_v3b"]), list(out["light_v3d"]))
     return add_kpis(out)
 
@@ -540,7 +542,7 @@ def season_draws(tickets: list[dict[str, Any]], draw_rows: pd.DataFrame) -> pd.D
             row[f"hits_{key}"] = outcome.get("hits")
             value_column = "p_big_v3b" if key == "v3b" else f"p_hits_{key}"
             row[value_column] = outcome.get("value")
-            if key in ("v3b", "v3d"):
+            if key in ("v3b", "v3d", "v3d2"):
                 row[f"light_{key}"] = outcome.get("signal")
         row["winners"] = ticket.get("winners")
         rows.append(row)

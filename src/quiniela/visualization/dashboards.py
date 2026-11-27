@@ -252,6 +252,22 @@ PLANNED_SPEC = {
     "ticket": True,
 }
 
+# The small direct ticket v3+v2F·D2: the same planner as v3+v2F·D with the smallest budget
+# that can be played (2 bets, 1.50 EUR), for the jornadas worth playing a little
+SMALL_KEY = "v3d2"
+SMALL_BETS = 2
+SMALL_SPEC = {
+    "key": SMALL_KEY,
+    "name": "Small ticket",
+    "version": "v3+v2F·D2",
+    "reference": False,
+    "description": "Like v3+v2F·D with the smallest ticket that can be played: 2 bets (1.50 EUR), "
+    "one double where it most raises the chance of 11 or more hits. In the euro backtest it got "
+    "back about twice as much on the jornadas with the v3+v2F·D light green as on the rest. "
+    "Outside the ticket, the v3 sign.",
+    "ticket": True,
+}
+
 # The direct ticket that may also play one of the official reductions (v3+v2F·R), next to v3+v2F·D
 REDUCED_KEY = "v3r"
 REDUCED_SPEC = {
@@ -485,7 +501,7 @@ SINGLE_SPEC = {
 }
 
 # The v3+v2F tickets of the official ticket views, cheapest first
-TICKET_KEYS = [SINGLE_KEY, PLANNED_KEY, REDUCED_KEY, MONEY_KEY]
+TICKET_KEYS = [SINGLE_KEY, SMALL_KEY, PLANNED_KEY, REDUCED_KEY, MONEY_KEY]
 
 
 def _ticket_outcome(
@@ -645,6 +661,7 @@ def _season_tickets(
             crowd_array, winners_model = archived, PublicPrizeModel(prizes.model)
         ticket["winners"] = "public" if archived is not None else "market"
         plan_d = plan_ticket(probs_array, max_bets=DEFAULT_MAX_BETS)
+        plan_d2 = plan_ticket(probs_array, max_bets=SMALL_BETS)
         plan_r = plan_reduced(probs_array, max_bets=DEFAULT_MAX_BETS)
         plan_b = plan_big_win(
             probs_array,
@@ -658,10 +675,17 @@ def _season_tickets(
         )
         plan_s = single_plan(probs_array)
         first14 = [m for m in ticket["matches"] if m["position"] <= 14]
-        for match, single_picks, planned_picks, reduced_picks, money_picks in zip(
-            first14, plan_s.picks, plan_d.picks, plan_r.picks, plan_b.plan.picks, strict=True
+        for match, single_picks, small_picks, planned_picks, reduced_picks, money_picks in zip(
+            first14,
+            plan_s.picks,
+            plan_d2.picks,
+            plan_d.picks,
+            plan_r.picks,
+            plan_b.plan.picks,
+            strict=True,
         ):
             match["picks"][SINGLE_KEY] = single_picks
+            match["picks"][SMALL_KEY] = small_picks
             match["picks"][PLANNED_KEY] = planned_picks
             match["picks"][REDUCED_KEY] = reduced_picks
             match["picks"][MONEY_KEY] = money_picks
@@ -674,6 +698,7 @@ def _season_tickets(
             ticket_key: _ticket_outcome(plan, results, draw, pleno)
             for ticket_key, plan in (
                 (SINGLE_KEY, plan_s),
+                (SMALL_KEY, plan_d2),
                 (PLANNED_KEY, plan_d),
                 (REDUCED_KEY, plan_r),
                 (MONEY_KEY, plan_b.plan),
@@ -684,6 +709,7 @@ def _season_tickets(
         # (not "key": that is the planner model of the whole function)
         for ticket_key, value, strategy, column in (
             (SINGLE_KEY, plan_s.at_least(RECOMMEND_HITS), "single", "p_hits"),
+            (SMALL_KEY, plan_d2.at_least(RECOMMEND_HITS), "v3d2", "p_hits"),
             (PLANNED_KEY, plan_d.at_least(RECOMMEND_HITS), "v3d", "p_hits"),
             (REDUCED_KEY, plan_r.at_least(RECOMMEND_HITS), "v3r", "p_hits"),
             (MONEY_KEY, plan_b.chance, "v3b", "p_big"),
@@ -694,6 +720,11 @@ def _season_tickets(
             ticket["outcomes"][ticket_key]["value"] = round(float(value), 6)
         ticket["plans"] = {
             SINGLE_KEY: {"doubles": 0, "triples": 0, "bets": 1},
+            SMALL_KEY: {
+                "doubles": plan_d2.doubles,
+                "triples": plan_d2.triples,
+                "bets": plan_d2.bets,
+            },
             PLANNED_KEY: {
                 "doubles": plan_d.doubles,
                 "triples": plan_d.triples,
@@ -773,7 +804,9 @@ def _plan_summary(plan: Any) -> dict[str, Any]:
 TICKET_SIZE_HITS = 14
 
 
-def _plan_matchday(group: pd.DataFrame, key: str, reduced: bool = False) -> dict[str, Any] | None:
+def _plan_matchday(
+    group: pd.DataFrame, key: str, reduced: bool = False, max_bets: int | None = None
+) -> dict[str, Any] | None:
     """Plan the v3+v2F·D ticket of a matchday from the probabilities of model ``key``.
 
     Args:
@@ -782,6 +815,7 @@ def _plan_matchday(group: pd.DataFrame, key: str, reduced: bool = False) -> dict
         key: Model whose probabilities choose the signs.
         reduced: Plan v3+v2F·R (direct or with an official reduction) instead of
             v3+v2F·D (direct only).
+        max_bets: Budget in bets (48 by default; 2 for v3+v2F·D2).
 
     Returns:
         The picks and coverage per match index, the matches of the reduction,
@@ -797,11 +831,8 @@ def _plan_matchday(group: pd.DataFrame, key: str, reduced: bool = False) -> dict
     if len(ticket) < TICKET_SIZE or ticket[columns].isna().any().any():
         return None
     probs = ticket[columns].to_numpy(dtype=float)
-    plan = (
-        plan_reduced(probs, max_bets=DEFAULT_MAX_BETS)
-        if reduced
-        else plan_ticket(probs, max_bets=DEFAULT_MAX_BETS)
-    )
+    budget = DEFAULT_MAX_BETS if max_bets is None else max_bets
+    plan = plan_reduced(probs, max_bets=budget) if reduced else plan_ticket(probs, max_bets=budget)
     return {
         "picks": dict(zip(ticket.index, plan.picks, strict=True)),
         "coverage": dict(zip(ticket.index, plan.coverage, strict=True)),
@@ -1020,11 +1051,12 @@ def season_payload(
     planned = PLANNER_MODEL in keys
     if planned:
         position = len(models)
-        models.insert(position, PLANNED_SPEC)
-        models.insert(position + 1, REDUCED_SPEC)
+        models.insert(position, SMALL_SPEC)
+        models.insert(position + 1, PLANNED_SPEC)
+        models.insert(position + 2, REDUCED_SPEC)
     with_money = planned and prizes is not None
     if with_money:
-        models.insert(position + 2, MONEY_SPEC)
+        models.insert(position + 3, MONEY_SPEC)
 
     # One column per model: predicted sign, its probability and, for models
     # that predict goals, the exact score and Pleno al 15 picks
@@ -1095,6 +1127,19 @@ def season_payload(
         played = group["FTR"].notna()
         in_ticket = group["ticket"].notna()
 
+        small_plan = _plan_matchday(group, PLANNER_MODEL, max_bets=SMALL_BETS) if planned else None
+        if planned:
+            # v3+v2F·D2: the small ticket's picks on the ticket, the planner model's sign elsewhere
+            group[f"{SMALL_KEY}_sign"] = group[f"{PLANNER_MODEL}_sign"]
+            group[f"{SMALL_KEY}_prob"] = group[f"{PLANNER_MODEL}_prob"]
+            if small_plan is not None:
+                picks = pd.Series(small_plan["picks"], dtype=object)
+                group.loc[picks.index, f"{SMALL_KEY}_sign"] = picks
+                group.loc[picks.index, f"{SMALL_KEY}_prob"] = (
+                    pd.Series(small_plan["coverage"]).round(4).to_numpy()
+                )
+            group[f"{SMALL_KEY}_conf"] = group[f"{SMALL_KEY}_prob"]
+            group[f"{SMALL_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
         plan = _plan_matchday(group, PLANNER_MODEL) if planned else None
         if planned:
             # v3+v2F·D: the planned picks on the ticket, the planner model's sign elsewhere
@@ -1174,6 +1219,8 @@ def season_payload(
             }
             if key == PLANNED_KEY and plan is not None:
                 summary[key]["plan"] = plan["summary"]
+            if key == SMALL_KEY and small_plan is not None:
+                summary[key]["plan"] = small_plan["summary"]
             if key == REDUCED_KEY and reduced_plan is not None:
                 summary[key]["plan"] = reduced_plan["summary"]
                 summary[key]["odds"] = reduced_plan["summary"]["odds"]
@@ -1266,7 +1313,7 @@ def _matchday_euros(
     from quiniela.prediction.planner import PLANNER_MODEL
     from quiniela.prediction.ticket import TICKET_SIZE
 
-    if key not in (PLANNER_MODEL, PLANNED_KEY, REDUCED_KEY, MONEY_KEY):
+    if key not in (PLANNER_MODEL, SMALL_KEY, PLANNED_KEY, REDUCED_KEY, MONEY_KEY):
         return None
     ticket = group.dropna(subset=["ticket"]).sort_values("ticket")
     if (
@@ -1377,7 +1424,12 @@ def _recommendations(
                 }
             )
 
-    for key, strategy in ((PLANNER_MODEL, "single"), (PLANNED_KEY, "v3d"), (REDUCED_KEY, "v3r")):
+    for key, strategy in (
+        (PLANNER_MODEL, "single"),
+        (SMALL_KEY, "v3d2"),
+        (PLANNED_KEY, "v3d"),
+        (REDUCED_KEY, "v3r"),
+    ):
         odds = (summary.get(key) or {}).get("odds") or {}
         hits = str(RECOMMEND_HITS)
         add(key, f"{hits}+ hits", odds.get(hits), strategy, "p_hits", True)
@@ -1493,6 +1545,11 @@ def current_payload(
         odds = summary[PLANNED_KEY].get("odds") or {}
         planned_plan["hits_signal"] = percentile_signal(
             odds.get("11"), money_results, "v3d", "p_hits"
+        )
+    small_summary = summary.get(SMALL_KEY, {}).get("plan")
+    if small_summary is not None:
+        small_summary["hits_signal"] = percentile_signal(
+            small_summary["odds"].get("11"), money_results, "v3d2", "p_hits"
         )
     reduced_summary = summary.get(REDUCED_KEY, {}).get("plan")
     if reduced_summary is not None:
@@ -1843,7 +1900,7 @@ def _ticket_categories(backtest: pd.DataFrame, prizes: Any) -> dict[str, dict[st
 
 # Contingency tables of the tickets: the signs a ticket can mark in a match
 PICK_LABELS = {"H": "1", "D": "X", "A": "2", "HD": "1X", "HA": "12", "DA": "X2", "HDA": "1X2"}
-TICKET_CONTINGENCY = ["single", "v3d", "v3r", "v3b"]
+TICKET_CONTINGENCY = ["single", "v3d2", "v3d", "v3r", "v3b"]
 
 
 def _contingency(backtest: pd.DataFrame) -> dict[str, dict[str, list[list[int]]]]:
@@ -2193,6 +2250,7 @@ PUBLIC_VALIDATION = ["edge_public", "value"]
 DRAW_VALIDATION = [
     "p_big_v3b",
     "p_hits_v3d",
+    "p_hits_v3d2",
     "p_hits_v3s",
     "expected_hits",
     "entropy",
@@ -2201,6 +2259,7 @@ DRAW_VALIDATION = [
 ]
 DRAW_KPIS = {
     "hits_v3s": "hits_v3s",
+    "return_v3d2": "return_v3d2",
     "hit12_v3d": "hit12_v3d",
     "hit13_v3b": "hit13_v3b",
     "return_v3d": "return_v3d",
@@ -2217,7 +2276,7 @@ def _upcoming_draw(
 
     draw = draw_metrics(rows.assign(draw_id="next"), {"next": expected_bets})
     out = draw.iloc[0].to_dict() if not draw.empty else {}
-    keys = {"market_blend": "v3s", "v3d": "v3d", "v3r": "v3r", "v3b": "v3b"}
+    keys = {"market_blend": "v3s", "v3d2": "v3d2", "v3d": "v3d", "v3r": "v3r", "v3b": "v3b"}
     for item in current.get("recommendations") or []:
         if not item.get("primary") or item.get("key") not in keys:
             continue
@@ -2359,13 +2418,16 @@ def metrics_payload(
         "co_winners_14",
         "jackpot",
         "p_hits_v3s",
+        "p_hits_v3d2",
         "p_hits_v3d",
         "p_big_v3b",
         "expected_return",
+        "light_v3d2",
         "light_v3d",
         "light_v3b",
         "verdict",
         "hits_v3s",
+        "hits_v3d2",
         "hits_v3d",
         "hits_v3r",
         "hits_v3b",
@@ -2373,6 +2435,7 @@ def metrics_payload(
         "payout_v3d",
         "cost_v3b",
         "payout_v3b",
+        "net_v3d2",
         "net_v3d",
         "net_v3b",
         "winners",
@@ -2400,7 +2463,9 @@ def _verdict_table(draws: pd.DataFrame) -> list[dict[str, Any]]:
         if part.empty:
             continue
         row: dict[str, Any] = {"verdict": verdict, "n": len(part)}
-        for key in ("v3s", "v3d", "v3b"):
+        for key in ("v3s", "v3d2", "v3d", "v3b"):
+            if f"cost_{key}" not in part.columns:
+                continue
             cost = pd.to_numeric(part[f"cost_{key}"], errors="coerce").sum()
             payout = pd.to_numeric(part[f"payout_{key}"], errors="coerce").sum()
             row[f"return_{key}"] = float(payout / cost) if cost else None
