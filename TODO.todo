@@ -1,45 +1,9 @@
 Quiniela · tareas pendientes
 ==============================================================================
-Orden de prioridad propuesto: 3 → 1 → 2.
-  1. mejora las PROBABILIDADES (una variable más en la v3).
+Orden de prioridad propuesto: 3 → 2.
   2. mejora la DECISIÓN (el público en el modelo de premios de v3+v2F·E y v3+v2F·B).
-Formato: ☐ pendiente · ✔ hecho
+Formato: ☐ pendiente · ✔ hecho · ✗ descartado (al final, con el motivo)
 Lo ya hecho está en el README (Releases y cada modelo).
-
-
-1. Fuerza de los clubes (ClubElo) · PRIORIDAD MEDIA
-==============================================================================
-Idea:
-  La librería soccerdata incluye ClubElo: un rating Elo diario de los clubes
-  europeos, con histórico de décadas y también el valor actual. Puede ser útil como
-  medida de la fuerza del club en el presente.
-
-Estado:
-  - Pendiente de comprobar: el día que se probó la API de ClubElo daba error 502
-    (caída), así que no se verificó la cobertura.
-
-Por qué:
-  - Recoge partidos que Dixon-Coles no ve (Copa y competiciones europeas): ayuda con
-    los equipos que juegan en Europa y con los recién ascendidos.
-
-Matices:
-  - Depende de un servicio externo: guardar copias locales (como con football-data).
-  - Hay que casar los nombres de equipo entre fuentes (p. ej. "Atletico" frente a
-    "Ath Madrid").
-  - Confirmar que cubre Segunda División en todas las temporadas.
-  - No recoge los fichajes de verano (Elo solo cambia con los partidos); para eso
-    servirían más las valoraciones de SoFIFA.
-  - v3 muestra que, con las cuotas, Dixon-Coles no aporta nada: Elo hay que medirlo
-    igual, por lo que añade encima del mercado.
-
-Tareas:
-  ☐ Comprobar que la API funciona y qué cubre (Primera, Segunda, desde qué año).
-  ☐ Descargar y guardar localmente el histórico de ratings.
-  ☐ Tabla de equivalencias de nombres de equipo ClubElo ↔ football-data.
-  ☐ Usar la diferencia de Elo (víspera del partido) como variable más de la v3, no
-    como modelo aparte.
-  ☐ Medir con el backtest si aporta algo encima del mercado (que probablemente ya
-    lo incluye en buena parte).
 
 
 2. Jugar contra la mayoría con los porcentajes del público · PRIORIDAD BAJA
@@ -110,3 +74,18 @@ Otras ideas (ya en el README)
   ☐ Tiros a puerta (HST, AST) como medida de rendimiento menos ruidosa que los goles
     (por ejemplo, pi-ratings v4 aprendiendo de la diferencia de tiros a puerta).
   ☐ Usar v4 (pi-ratings) en lugar de Dixon-Coles cuando falten las cuotas en v3.
+
+
+Descartado
+==============================================================================
+  ✗ Fuerza de los clubes (ClubElo) como variable de un v5 (v3 + Elo). Descartado el
+    2026-11-27:
+    - La API (api.clubelo.com, la que usa soccerdata) está retirada: no responde y la
+      página /API de la web nueva redirige a la portada. Las páginas de cada club
+      solo traen el Elo desde diciembre de 2022 (no cubre el backtest desde 2015-16).
+    - Un Elo propio con nuestros datos (solo ligas, sin Copa ni Europa) sería casi
+      un duplicado de v4 (pi-ratings, que aprende de los mismos resultados), y v3
+      muestra que esos modelos no suman encima del mercado.
+    - Si se retoma la idea, pruebas baratas sin fuente nueva: la diferencia de
+      pi-ratings de v4 como variable de v3, y una aproximación a "juega en Europa"
+      (clasificación de la temporada anterior y calendario fijo de la UEFA).

@@ -102,7 +102,8 @@ Tests must not need network access (mock downloads, use small synthetic data fro
 - Some old source CSVs have rows longer than their header; `quiniela.io.download` replaces
   soccerdata's parser to keep them.
 - Segunda is registered in soccerdata from `quiniela.io.download` (not built in).
-- The ClubElo API (soccerdata `ClubElo`) returned 502 when last tried.
+- The ClubElo API (soccerdata `ClubElo`, api.clubelo.com) is retired (no answer, November 2026):
+  the ClubElo idea is discarded, see the end of `TODO.todo`.
 - The LAE results service answers browsers only (scripts get "Access Denied"): its JSON is
   saved by the user's own browser (Quiniela bookmark; `invoke update` opens the pages and picks
   the files up from Downloads, see the README). Do not try to get around the protection.
