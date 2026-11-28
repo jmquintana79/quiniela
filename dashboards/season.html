@@ -861,33 +861,50 @@ function recommendationsTable(rows, models) {
  * plain definition each. Every page lists the terms it shows (renderGlossary).
  */
 const GLOSSARY = {
+  // Conceptos básicos que usan los modelos y los boletos
+  quiniela: ["Conceptos", "Quiniela", "Apuesta oficial de Loterías y Apuestas del Estado: 14 partidos a los que se marca 1, X o 2, más el Pleno al 15. Cada jornada tiene su boleto oficial."],
+  LAE: ["Conceptos", "LAE", "Loterías y Apuestas del Estado, la empresa pública que organiza la quiniela. De su web salen los boletos, los premios y lo que marca el público."],
+  odds: ["Conceptos", "Cuota", "Lo que paga una casa de apuestas por cada euro apostado a un resultado (2,50 = 2,50 € por 1 €). Una cuota baja indica un resultado probable: 1 / cuota es, más o menos, su probabilidad."],
+  bookmaker: ["Conceptos", "Casa de apuestas (mercado)", "Empresa que ofrece cuotas (Bet365, William Hill...). Juntas forman «el mercado»; sus cuotas resumen mucha información (lesiones, alineaciones, dinero apostado) y son difíciles de batir."],
+  margin: ["Conceptos", "Margen", "La parte que se queda la casa de apuestas: sus probabilidades implícitas suman algo más del 100 %. Se quita repartiendo el exceso para que sumen 100 %."],
+  poisson: ["Conceptos", "Poisson", "Distribución que da la probabilidad de marcar 0, 1, 2... goles a partir de los goles esperados. Con la de cada equipo se calcula la de cada marcador y, de ahí, la de 1, X y 2."],
+  dixon_coles: ["Conceptos", "Dixon-Coles", "Modelo clásico de fútbol (Dixon y Coles, 1997): cada equipo tiene una fuerza de ataque y otra de defensa, estimadas con sus partidos (los recientes pesan más). Los goles esperados de un partido salen de enfrentar el ataque de uno con la defensa del otro, más la ventaja de jugar en casa, y se reparten con Poisson."],
+  pi_ratings: ["Conceptos", "Pi-ratings", "Sistema de valoración (Constantinou y Fenton, 2013): cada equipo tiene una nota como local y otra como visitante que, tras cada partido, sube o baja según la diferencia de goles fuera mayor o menor de lo esperado."],
+  elo: ["Conceptos", "Elo", "Sistema de valoración nacido en el ajedrez: cada equipo tiene una puntuación; al ganar sube y al perder baja, más cuanto más inesperado era el resultado. La diferencia de puntuación entre dos equipos da la probabilidad de cada resultado."],
+  ordinal: ["Conceptos", "Regresión logística ordenada", "Forma estadística de convertir una diferencia de fuerza (de Elo o de pi-ratings) en probabilidades de 1, X y 2, respetando su orden: cuanto más fuerte el local, más 1 y menos 2."],
+  pool: ["Conceptos", "Combinación log-lineal", "Mezcla de dos pronósticos multiplicando sus probabilidades con un peso para cada uno, aprendido de los resultados. Así v3 decide cuánto fiarse de Dixon-Coles y cuánto del mercado."],
+  backtest: ["Conceptos", "Backtest", "Probar un modelo o un boleto en temporadas pasadas como si se jugaran de nuevo, cada jornada solo con lo que se sabía antes (walk-forward)."],
+  football_data: ["Conceptos", "football-data", "Web football-data.co.uk: resultados y cuotas de las casas de apuestas de Liga y Segunda desde 1993. Es la fuente de los modelos masculinos."],
+  espn: ["Conceptos", "ESPN", "Medio deportivo cuya web publica resultados y estadísticas (también tiros a puerta) de muchas ligas y copas. Es la fuente de la Liga F y de las otras competiciones de clubes."],
+  martj42: ["Conceptos", "martj42", "Base de datos pública con todos los partidos internacionales de selecciones masculinas desde 1872. Es la fuente de v1N."],
+  shots: ["Conceptos", "Tiros a puerta", "Disparos que van entre los tres palos. Miden lo que generó cada equipo con menos azar que los goles."],
   // Modelos: Liga y Segunda masculinas
-  v1: ["Modelos", "v1 · Enfrentamientos directos", "Resultados anteriores entre los mismos dos equipos en el mismo campo. Una referencia básica."],
-  v2: ["Modelos", "v2 · Dixon-Coles", "Modelo de goles con el ataque y la defensa de cada equipo; los partidos recientes pesan más."],
-  v3: ["Modelos", "v3 · DC + mercado", "El modelo principal: Dixon-Coles combinado con las cuotas de las casas de apuestas. Sin cuotas todavía, Dixon-Coles combinado con v4."],
-  v4: ["Modelos", "v4 · Pi-ratings", "Valoraciones de cada equipo como local y como visitante, aprendidas de las diferencias de goles."],
-  market: ["Modelos", "Mercado", "Probabilidades que dan las cuotas de las casas de apuestas (sin su margen). La referencia a batir."],
+  v1: ["Modelos", "v1 · Enfrentamientos directos", "Cuenta los resultados anteriores entre los mismos dos equipos en el mismo campo y los suaviza hacia lo normal de la liga. Es la referencia más simple: casi siempre es el peor."],
+  v2: ["Modelos", "v2 · Dixon-Coles", "Aplica Dixon-Coles a Liga y Segunda: fuerza de ataque y defensa de cada equipo con sus partidos pasados, goles esperados de cada partido y, con Poisson, la probabilidad de 1, X y 2 y de cada marcador. Solo usa goles."],
+  v3: ["Modelos", "v3 · DC + mercado", "El modelo principal: combina (combinación log-lineal) las probabilidades de Dixon-Coles con las de las cuotas del mercado, con pesos aprendidos de los resultados. Antes de que salgan las cuotas, mezcla Dixon-Coles con los pi-ratings (v4)."],
+  v4: ["Modelos", "v4 · Pi-ratings", "Aplica los pi-ratings a Liga y Segunda: nota de local y de visitante de cada equipo, aprendida partido a partido de las diferencias de goles, convertida en 1X2 con una regresión logística ordenada."],
+  market: ["Modelos", "Mercado", "Las probabilidades que dan las cuotas de las casas de apuestas, sin su margen. No es un modelo propio: es la referencia a batir."],
   // Otras competiciones
-  v1F: ["Modelos", "v1F · Público (Liga F)", "Porcentaje de apostantes que marca 1, X y 2 en un partido de Liga F."],
-  v2F: ["Modelos", "v2F · Pi-ratings (Liga F)", "v4 aplicado a los resultados de la Liga F."],
-  v3F: ["Modelos", "v3F · Pi-ratings + tiros (Liga F)", "v2F aprendiendo también de los tiros a puerta. El modelo de los boletos para la Liga F."],
-  v1N: ["Modelos", "v1N · Elo de selecciones", "Valoración Elo de cada selección desde 1872. El modelo de los boletos para las selecciones."],
-  v1C: ["Modelos", "v1C · Elo de clubes", "Una valoración Elo de cada club de 38 ligas y copas (copas europeas, Copa del Rey, ligas extranjeras). El modelo de los boletos para esos partidos."],
-  v1P: ["Modelos", "v1P · Pleno al 15 (Dixon-Coles)", "Categorías de goles (0, 1, 2, M) más probables del partido 15 según Dixon-Coles."],
-  v2P: ["Modelos", "v2P · Pleno al 15 (mercado)", "Lo mismo a partir de las cuotas de 1X2 y de más/menos de 2,5 goles. Se usa cuando hay cuotas."],
-  shares: ["Modelos", "Proporciones de resultados", "Siempre gana el local, con las proporciones de 1, X y 2 de los partidos anteriores. La referencia más sencilla."],
-  public: ["Modelos", "Público", "Lo que marcan los apostantes de la quiniela: su porcentaje de 1, X y 2 en la página de apuestas."],
+  v1F: ["Modelos", "v1F · Público (Liga F)", "Para la Liga F, que no tiene cuotas: usa como probabilidades el porcentaje de apostantes de la quiniela que marca 1, X y 2."],
+  v2F: ["Modelos", "v2F · Pi-ratings (Liga F)", "Los pi-ratings de v4 aplicados a los resultados de la Liga F (de ESPN, desde 2022-23)."],
+  v3F: ["Modelos", "v3F · Pi-ratings + tiros (Liga F)", "Como v2F, pero cada partido enseña una mezcla de la diferencia de goles (75 %) y la de tiros a puerta (25 %). Es el modelo de los boletos para la Liga F."],
+  v1N: ["Modelos", "v1N · Elo de selecciones", "Un Elo de todas las selecciones con todos sus partidos desde 1872 (más peso a Mundiales y Eurocopas que a amistosos), convertido en 1X2 con una regresión logística ordenada. Es el modelo de los boletos para las selecciones."],
+  v1C: ["Modelos", "v1C · Elo de clubes", "Un Elo único para los clubes de 24 ligas y 14 copas de ESPN desde 2009; las copas europeas permiten comparar equipos de distintos países. Es el modelo de los boletos para Champions, Copa del Rey o ligas extranjeras."],
+  v1P: ["Modelos", "v1P · Pleno al 15 (Dixon-Coles)", "Para el Pleno al 15: las categorías de goles (0, 1, 2, M) más probables de cada equipo según los goles esperados de Dixon-Coles."],
+  v2P: ["Modelos", "v2P · Pleno al 15 (mercado)", "Lo mismo, con los goles esperados que se deducen de las cuotas de 1X2 y de más/menos de 2,5 goles. Se usa cuando hay esas cuotas; si no, v1P."],
+  shares: ["Modelos", "Proporciones de resultados", "Referencia sin modelo: da a cada partido las proporciones de 1, X y 2 de los partidos anteriores, así que su pronóstico es siempre que gana el local."],
+  public: ["Modelos", "Público", "Lo que marcan los apostantes de la quiniela: el porcentaje de 1, X y 2 que publica LAE en la página de apuestas («Pronósticos más apostados»)."],
   // Boletos: formas de jugar las probabilidades
-  single: ["Boletos", "Boleto sencillo", "Un signo por partido, el más probable. 0,75 € (una referencia: el boleto mínimo son 2 apuestas)."],
-  D2: ["Boletos", "·D2 · Boleto pequeño", "Como ·D con solo 2 apuestas (1,50 €): un doble donde más ayuda."],
-  D: ["Boletos", "·D · Boleto directo", "Dobles (1X) y triples (1X2) hasta 48 apuestas (36 €), colocados para la mayor probabilidad de 11 o más aciertos."],
-  R: ["Boletos", "·R · Boleto reducido", "Como ·D, pero puede usar una reducción oficial: más partidos cubiertos por el mismo dinero, sin jugar todas las combinaciones."],
-  B: ["Boletos", "·B · Boleto de 1.000 €", "Hasta 50 € colocados para la mayor probabilidad de un premio de 1.000 € o más (también puede usar una reducción)."],
-  E: ["Boletos", "·E · Boleto de premio esperado", "Solo en el backtest: se juega solo cuando su premio esperado supera su coste (·E completo cuenta también los 14 aciertos y el Pleno)."],
-  "v3+v3F": ["Boletos", "v3+v3F", "Los boletos usan v3 en Liga y Segunda, v3F en la Liga F, v1N en las selecciones y v1C en los demás clubes."],
-  random: ["Boletos", "Al azar / a ojo / óptimo", "Formas de colocar los mismos dobles y triples para comparar con los planificadores: al azar, en los partidos menos claros o la mejor colocación."],
-  bet: ["Boletos", "Apuesta (columna)", "Una combinación de 14 signos, 0,75 €. Un boleto con dobles y triples juega varias apuestas."],
-  reduction: ["Boletos", "Reducción oficial", "Una tabla de LAE que juega solo algunas combinaciones de sus dobles y triples y garantiza 13 (o 12) aciertos si aciertan sus signos cubiertos."],
+  single: ["Boletos", "Boleto sencillo", "Un signo por partido, el más probable según los modelos. Cuesta 0,75 € (una apuesta); sirve de referencia, porque el boleto mínimo que vende LAE son 2 apuestas."],
+  D2: ["Boletos", "·D2 · Boleto pequeño", "El más barato que se puede jugar: 2 apuestas (1,50 €), es decir, un único doble, puesto en el partido donde más sube la probabilidad de hacer 11 o más aciertos."],
+  D: ["Boletos", "·D · Boleto directo", "Hasta 48 apuestas (36 €) en dobles (dos signos en un partido, p. ej. 1X) y triples (los tres, 1X2). Un programa busca en qué partidos ponerlos para la mayor probabilidad de 11 o más aciertos; un doble multiplica las apuestas por 2 y un triple por 3."],
+  R: ["Boletos", "·R · Boleto reducido", "Como ·D, con el mismo dinero, pero puede usar una reducción oficial de LAE: cubre más partidos con dobles y triples sin jugar todas sus combinaciones. Hoy es el boleto que menos dinero pierde."],
+  B: ["Boletos", "·B · Boleto de 1.000 €", "Hasta 50 € colocados para la mayor probabilidad de un premio de 1.000 € o más: busca muchos aciertos y, a la vez, resultados que el público no espera (menos acertantes con los que repartir). Puede usar una reducción."],
+  E: ["Boletos", "·E · Boleto de premio esperado", "Solo en el backtest: elige los dobles y triples con el mayor premio medio esperado y solo se juega cuando ese premio supera lo que cuesta. ·E completo cuenta también los 14 aciertos y el Pleno al 15."],
+  "v3+v3F": ["Boletos", "v3+v3F", "Nombre de los boletos: usan v3 en Liga y Segunda, v3F en la Liga F, v1N en las selecciones, v1C en los demás clubes y el público donde no hay modelo. La letra final (·D, ·R, ·B...) dice cómo se juegan esas probabilidades."],
+  random: ["Boletos", "Al azar / a ojo / óptimo", "Formas de colocar los mismos dobles y triples, para comparar con los programas: al azar, a ojo en los partidos menos claros, o la mejor colocación posible para un número de aciertos."],
+  bet: ["Boletos", "Apuesta (columna)", "Una combinación de 14 signos; cuesta 0,75 €. Un boleto con dobles y triples juega todas sus combinaciones, una apuesta cada una."],
+  reduction: ["Boletos", "Reducción oficial", "Tabla publicada por LAE que juega solo algunas de las combinaciones de varios dobles y triples (p. ej. 4 triples con 9 apuestas en vez de 81) y garantiza 13 aciertos (o 12) si los signos cubiertos son los correctos. Más partidos cubiertos por el mismo dinero."],
   // Lo bueno que es un modelo
   hit_rate: ["Métricas de los modelos", "Aciertos", "Porcentaje de partidos cuyo signo pronosticado fue el correcto. Más es mejor; fácil de leer, pero no tiene en cuenta lo seguro que estaba el modelo."],
   log_loss: ["Métricas de los modelos", "Log-loss", "La penalización −log(probabilidad dada a lo que pasó), de media sobre los partidos. 0 sería perfecto; 1,10 es dar 1/3 a cada signo; un pronóstico muy seguro que falla cuesta mucho. Menos es mejor: la métrica principal."],
@@ -1078,7 +1095,7 @@ function renderGlossary(keys, target = "glossary") {
   $("meta").textContent = tickets.length ? `${tickets.length} boletos oficiales` : "Aún no hay boletos oficiales guardados.";
   if (tickets.length) select(selected);
   else $("jornadas").innerHTML = jornadasTable();
-  renderGlossary(["v1", "v2", "v3", "v4", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "v3+v3F", "single", "D2", "D", "R", "B", "hit_rate", "hits", "prizes_won", "net", "rec", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "jornada"]);
+  renderGlossary(["quiniela", "LAE", "odds", "bookmaker", "dixon_coles", "poisson", "pi_ratings", "elo", "shots", "football_data", "espn", "v1", "v2", "v3", "v4", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "v3+v3F", "single", "D2", "D", "R", "B", "hit_rate", "hits", "prizes_won", "net", "rec", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "jornada", "reduction", "bet", "public"]);
   tableOfContents();
 </script>
 </body>
