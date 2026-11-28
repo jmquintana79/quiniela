@@ -54,14 +54,15 @@ VOLUME_WINDOW = 5
 SMALL_BETS = 2
 
 MONEY_STRATEGIES: dict[str, str] = {
-    "single": "One column with the v3 signs (0.75 EUR)",
-    "v3d2": "v3+v3F·D2: best chance of 11+ hits within 2 bets (1.50 EUR), every draw",
-    "v3d": "v3+v3F·D: best chance of 11+ hits within 48 bets (direct), every draw",
-    "v3r": "v3+v3F·R: best chance of 11+ hits within 48 bets (direct or reduced), every draw",
-    "v3e": "v3+v3F·E (prudent): only 10-13 hit prizes count, plays only when they pay",
-    "v3e_full": "v3+v3F·E counting 14 hits and the Pleno al 15 too, only when it pays",
-    "v3e_always": "The full v3+v3F·E ticket every draw, worth it or not",
-    "v3b": "v3+v3F·B: best chance of 1,000+ EUR within 50 EUR, every draw",
+    "single": "Una columna con los signos de v3 (0,75 €)",
+    "v3d2": "v3+v3F·D2: mayor probabilidad de 11+ aciertos con 2 apuestas (1,50 €), en cada sorteo",
+    "v3d": "v3+v3F·D: mayor probabilidad de 11+ aciertos con 48 apuestas (directo), en cada sorteo",
+    "v3r": "v3+v3F·R: mayor probabilidad de 11+ aciertos con 48 apuestas (directo o reducido), en "
+    "cada sorteo",
+    "v3e": "v3+v3F·E (prudente): solo cuentan los premios de 10 a 13 aciertos; juega solo cuando pagan",
+    "v3e_full": "v3+v3F·E contando también los 14 aciertos y el Pleno al 15, solo cuando compensa",
+    "v3e_always": "El v3+v3F·E completo en cada sorteo, compense o no",
+    "v3b": "v3+v3F·B: mayor probabilidad de 1.000+ € con 50 €, en cada sorteo",
 }
 
 # Hits whose planned chance ranks the single, direct and reduced tickets in the traffic

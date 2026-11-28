@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,41 +9,42 @@
 <body>
 <main>
   <header>
-    <h1>Current season</h1>
+    <h1>Temporada actual</h1>
     <span class="meta" id="meta"></span>
   </header>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Season so far">
-    <h2>Men's leagues · Season so far</h2>
-    <p class="help">Each model and ticket on every La Liga / Segunda match of the season: share of right signs, and for the
-      tickets their prizes and euros. Hover a tile for what it is.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · La temporada hasta ahora">
+    <h2>Ligas masculinas · La temporada hasta ahora</h2>
+    <p class="help">Cada modelo y boleto en todos los partidos de Liga y Segunda de la temporada: porcentaje de signos
+      acertados y, para los boletos, sus premios y euros. Pasa el ratón por un recuadro para ver qué es.</p>
     <div class="tiles" id="totals"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Season so far">
-    <h2>Liga F · Season so far</h2>
-    <p class="help">The same for the women's league: v2F, v3F (the tickets' model) and the result shares on every Liga F
-      match; v1F (the public) only where the betting page was saved.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · La temporada hasta ahora">
+    <h2>Liga F · La temporada hasta ahora</h2>
+    <p class="help">Lo mismo para la liga femenina: v2F, v3F (el modelo de los boletos) y las proporciones de resultados en
+      todos los partidos de Liga F; v1F (el público) solo donde se guardó la página de apuestas.</p>
     <div class="tiles" id="women-totals"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Jornadas: the v3+v3F tickets">
-    <h2>Jornadas · the v3+v3F tickets on the official tickets</h2>
-    <p class="help">One row per official ticket of the season: what each ticket got on its real 14 matches. <b>Hits</b>:
-      right signs of the played matches (best column for reduced tickets). <b>Rec.</b>: whether the light was green before
-      the jornada. <b>Prize</b>: real euros of the draw, cost below. Click a row to see the ticket.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Jornadas: los boletos v3+v3F">
+    <h2>Jornadas · los boletos v3+v3F en los boletos oficiales</h2>
+    <p class="help">Una fila por boleto oficial de la temporada: lo que logró cada boleto en sus 14 partidos reales.
+      <b>Aciertos</b>: signos acertados de los partidos jugados (la mejor columna en los reducidos). <b>Rec.</b>: si el
+      semáforo estaba en verde antes de la jornada. <b>Premio</b>: euros reales del sorteo, con el coste debajo. Pulsa una
+      fila para ver el boleto.</p>
     <div class="scroll" id="jornadas"></div>
   </section>
 
-  <section class="card" data-toc="Ticket of a jornada">
-    <h2 id="ticket-title">Ticket</h2>
-    <p class="help">The 15 matches of the selected jornada and each ticket's marks (✓ hit, ✗ miss, R reduction). Footer:
-      hits of the best column and price.</p>
+  <section class="card" data-toc="El boleto de una jornada">
+    <h2 id="ticket-title">Boleto</h2>
+    <p class="help">Los 15 partidos de la jornada elegida y lo que marcó cada boleto (✓ acierto, ✗ fallo, R reducción).
+      Pie: aciertos de la mejor columna y precio.</p>
     <div class="scroll" id="ticket"></div>
   </section>
 
-  <section class="card" data-toc="Glossary" style="margin-top:16px">
-    <h2>Glossary</h2>
+  <section class="card" data-toc="Glosario" style="margin-top:16px">
+    <h2>Glosario</h2>
     <div class="glossary" id="glossary"></div>
   </section>
 </main>
@@ -61,29 +62,29 @@
 
   function totalsTiles() {
     const shown = models.filter((m) => !m.women);
-    if (!shown.length) return '<p class="empty">No predictions yet. Run <code>invoke update</code>.</p>';
+    if (!shown.length) return '<p class="empty">Aún no hay pronósticos. Ejecuta <code>invoke update</code>.</p>';
     return shown.map((m) => {
       const t = DATA.totals[m.key];
       return `<div class="tile" data-tip="${esc(m.description)}">
         <div class="label">${modelLabel(m)}</div>
         <div class="value">${pct(t.rate, 1)}</div>
-        <div class="detail">${t.hits} hits · ${t.misses} misses · ${t.missing} no prediction</div>
-        <div class="detail">Prizes: ${t.prizes} of ${t.tickets} complete tickets${["v3d", "v3r"].includes(m.key) ? " · up to 48 bets each" : m.key === "v3d2" ? " · 2 bets each" : ""}</div>
-        ${t.euros ? `<div class="detail">Euros: spent ${eur(t.euros.cost)}, won ${eur(t.euros.payout)} · net ${t.euros.payout - t.euros.cost >= 0 ? "+" : ""}${eur(t.euros.payout - t.euros.cost)}${m.key === "v3b" ? ` · played ${t.euros.played}` : ""}</div>` : ""}
+        <div class="detail">${t.hits} aciertos · ${t.misses} fallos · ${t.missing} sin pronóstico</div>
+        <div class="detail">Premios: ${t.prizes} de ${t.tickets} boletos completos${["v3d", "v3r"].includes(m.key) ? " · hasta 48 apuestas cada uno" : m.key === "v3d2" ? " · 2 apuestas cada uno" : ""}</div>
+        ${t.euros ? `<div class="detail">Euros: jugados ${eur(t.euros.cost)}, ganados ${eur(t.euros.payout)} · neto ${t.euros.payout - t.euros.cost >= 0 ? "+" : ""}${eur(t.euros.payout - t.euros.cost)}${m.key === "v3b" ? ` · jugados ${t.euros.played}` : ""}</div>` : ""}
       </div>`;
     }).join("");
   }
 
   function womenTiles() {
     const liga = DATA.liga_f;
-    if (!liga) return '<p class="empty">No Liga F history saved yet. Run <code>invoke update</code>.</p>';
+    if (!liga) return '<p class="empty">Aún no hay historial de la Liga F. Ejecuta <code>invoke update</code>.</p>';
     const rows = liga.results?.all || {};
     return (liga.models || []).map((m) => {
       const r = rows[m.key];
       return `<div class="tile" data-tip="${esc(m.description)}">
-        <div class="label">${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span></div>
+        <div class="label">${esc(m.name)} <span class="muted">${esc(m.version || "referencia")}</span></div>
         <div class="value">${r ? pct(r.hit_rate, 1) : "–"}</div>
-        <div class="detail">${r ? `${Math.round(r.hit_rate * r.matches)} hits of ${r.matches} played matches` : "No played match with its data yet"}</div>
+        <div class="detail">${r ? `${Math.round(r.hit_rate * r.matches)} aciertos de ${r.matches} partidos jugados` : "Aún no hay partidos jugados con sus datos"}</div>
       </div>`;
     }).join("");
   }
@@ -92,9 +93,9 @@
   function recCell(o) {
     const level = o?.signal;
     if (!level) return '<td class="num muted">–</td>';
-    const tip = { green: "Good matchday for this ticket (green light)", amber: "Normal matchday (amber light)", red: "Bad matchday (red light)" }[level];
+    const tip = { green: "Buena jornada para este boleto (semáforo verde)", amber: "Jornada normal (semáforo ámbar)", red: "Mala jornada (semáforo rojo)" }[level];
     const color = { green: "var(--good)", amber: "var(--warning)", red: "var(--critical)" }[level];
-    return `<td class="num" data-tip="${tip}"><strong style="color:${color}">${level === "green" ? "yes" : "no"}</strong></td>`;
+    return `<td class="num" data-tip="${tip}"><strong style="color:${color}">${level === "green" ? "sí" : "no"}</strong></td>`;
   }
 
   /** One ticket's outcome on an official ticket: hits of the played matches and its category. */
@@ -102,16 +103,16 @@
     if (!o) return `<td class="num muted">–</td>${rec}<td class="num muted">–</td>`;
     const share = o.played ? ` <span class="muted">(${pct(o.hits / o.played, 1)})</span>` : "";
     const hits = `<span class="strong">${o.hits}/${o.played}</span>${share}`;
-    const badge = o.played < 14 ? '<span class="badge">In progress</span>'
-      : o.category ? `<span class="badge prize">${esc(o.category)}</span>` : '<span class="muted">No prize</span>';
+    const badge = o.played < 14 ? '<span class="badge">En juego</span>'
+      : o.category ? `<span class="badge prize">${esc(o.category)}</span>` : '<span class="muted">Sin premio</span>';
     const prize = o.payout == null ? '<span class="muted">–</span>'
       : `<span style="${o.payout > 0 ? "font-weight:600" : ""}">${eur(o.payout)}</span>`;
     return `<td class="num">${hits}<br>${badge}</td>${rec}` +
-      `<td class="num">${prize}<br><span class="muted" style="font-size:11px">cost ${eur(o.cost)}</span></td>`;
+      `<td class="num">${prize}<br><span class="muted" style="font-size:11px">coste ${eur(o.cost)}</span></td>`;
   }
 
   function jornadasTable() {
-    if (!tickets.length) return '<p class="empty">No official tickets of this season saved in data/lae.</p>';
+    if (!tickets.length) return '<p class="empty">No hay boletos oficiales de esta temporada guardados en data/lae.</p>';
     const count = (t, cat) => t.matches.filter((m) => m.position <= 14 && m.category === cat).length;
     const totals = Object.fromEntries(tableModels.map((m) => [m.key, { cost: 0, payout: 0, prizes: 0, done: 0, yes: 0 }]));
     tickets.forEach((t) => tableModels.forEach((m) => {
@@ -121,19 +122,19 @@
       s.done += 1; s.cost += o.cost; s.payout += o.payout ?? 0; s.prizes += o.category ? 1 : 0;
       s.yes += o.signal === "green" ? 1 : 0;
     }));
-    const head = `<tr><th class="num">Jornada</th><th>Date</th><th class="num" data-tip="Men's La Liga / Segunda · women's · other competitions">M · F · O</th>
+    const head = `<tr><th class="num">Jornada</th><th>Fecha</th><th class="num" data-tip="Liga y Segunda masculinas · femenino · otras competiciones">M · F · O</th>
       ${tableModels.map((m) => `<th class="num" colspan="3" data-tip="${esc(m.description)}">${modelLabel(m)}</th>`).join("")}</tr>
-      <tr><th></th><th></th><th></th>${tableModels.map(() => '<th class="num" data-tip="Hits of the played matches and their share">Hits (%)</th><th class="num" data-tip="Recommended to play before the jornada: green traffic light (as in current.html)">Rec.</th><th class="num">Prize</th>').join("")}</tr>`;
+      <tr><th></th><th></th><th></th>${tableModels.map(() => '<th class="num" data-tip="Aciertos de los partidos jugados y su porcentaje">Aciertos (%)</th><th class="num" data-tip="Recomendado jugar antes de la jornada: semáforo verde (como en current.html)">Rec.</th><th class="num">Premio</th>').join("")}</tr>`;
     const body = tickets.map((t, i) => `<tr class="clickable ${i === selected ? "selected" : ""}" data-i="${i}">
         <td class="num strong">${t.jornada}</td><td class="muted">${fmtDate(t.date)}</td>
         <td class="num muted">${count(t, "M")} · ${count(t, "F")} · ${count(t, "O") + count(t, "U")}</td>
         ${tableModels.map((m) => outcomeCell(t.outcomes?.[m.key], recCell(t.outcomes?.[m.key]))).join("")}</tr>`).reverse().join("");
-    const foot = `<tr><td colspan="3">Season <span class="muted">(complete tickets)</span></td>${tableModels.map((m) => {
+    const foot = `<tr><td colspan="3">Temporada <span class="muted">(boletos completos)</span></td>${tableModels.map((m) => {
       const s = totals[m.key];
       const net = s.payout - s.cost;
-      return `<td class="num"><span class="strong">${s.prizes}/${s.done}</span><br><span class="muted">prizes</span></td>` +
-        `<td class="num"><span class="strong">${s.yes}</span><br><span class="muted">yes</span></td>` +
-        `<td class="num">${eur(s.payout)}<br><span class="muted" style="font-size:11px">net ${net >= 0 ? "+" : ""}${eur(net)}</span></td>`;
+      return `<td class="num"><span class="strong">${s.prizes}/${s.done}</span><br><span class="muted">premios</span></td>` +
+        `<td class="num"><span class="strong">${s.yes}</span><br><span class="muted">sí</span></td>` +
+        `<td class="num">${eur(s.payout)}<br><span class="muted" style="font-size:11px">neto ${net >= 0 ? "+" : ""}${eur(net)}</span></td>`;
     }).join("")}</tr>`;
     return `<table><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
   }
@@ -142,7 +143,7 @@
     selected = i;
     const t = tickets[i];
     $("ticket").innerHTML = officialTicketTable(t, DATA.categories, ticketModels);
-    $("ticket-title").textContent = t ? `Ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Ticket";
+    $("ticket-title").textContent = t ? `Boleto · jornada ${t.jornada} (${fmtDate(t.date)})` : "Boleto";
     $("jornadas").innerHTML = jornadasTable();
     $("jornadas").querySelectorAll("tr.clickable").forEach((row) =>
       row.addEventListener("click", () => select(Number(row.dataset.i))));
@@ -150,11 +151,10 @@
 
   $("totals").innerHTML = totalsTiles();
   $("women-totals").innerHTML = womenTiles();
-  $("meta").textContent = tickets.length ? `${tickets.length} official tickets` : "No official tickets saved yet.";
+  $("meta").textContent = tickets.length ? `${tickets.length} boletos oficiales` : "Aún no hay boletos oficiales guardados.";
   if (tickets.length) select(selected);
   else $("jornadas").innerHTML = jornadasTable();
-  renderGlossary(["v1", "v2", "v3", "v4", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "v3+v3F", "single", "D2", "D",
-    "R", "B", "hit_rate", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "jornada", "net"]);
+  renderGlossary(["v1", "v2", "v3", "v4", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "v3+v3F", "single", "D2", "D", "R", "B", "hit_rate", "hits", "prizes_won", "net", "rec", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "jornada"]);
   tableOfContents();
 </script>
 </body>

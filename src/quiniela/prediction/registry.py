@@ -72,39 +72,41 @@ class ModelSpec:
 # Registry: key (used in tasks and file names) -> model
 MODELS: dict[str, ModelSpec] = {
     "head_to_head": ModelSpec(
-        name="Head-to-head",
+        name="Enfrentamientos",
         factory=HeadToHeadModel,
-        description="Past results between the same teams at the same ground, smoothed "
-        "towards the league's home/draw/away shares.",
+        description="Resultados anteriores entre los mismos equipos en el mismo campo, suavizados "
+        "hacia las proporciones de local, empate y visitante de la liga.",
         version="v1",
     ),
     "dixon_coles": ModelSpec(
         name="Dixon-Coles",
         factory=DixonColesModel,
-        description="Poisson goals from time-weighted team attack and defence strengths, "
-        "with league goal levels, home advantage and a low-score correction.",
+        description="Goles de Poisson a partir del ataque y la defensa de cada equipo (los partidos "
+        "recientes pesan más), con el nivel de goles de cada liga, la ventaja de campo y "
+        "una corrección de los marcadores bajos.",
         version="v2",
     ),
     "market_blend": ModelSpec(
-        name="DC + Market",
+        name="DC + mercado",
         factory=MarketBlendModel,
-        description="Log-linear pool of the Dixon-Coles and market probabilities, "
-        "trained on out-of-sample forecasts; Dixon-Coles alone without odds.",
+        description="Combinación log-lineal de las probabilidades de Dixon-Coles y del mercado, "
+        "entrenada con pronósticos fuera de muestra; sin cuotas, Dixon-Coles combinado "
+        "con los pi-ratings (v4).",
         version="v3",
     ),
     "pi_ratings": ModelSpec(
         name="Pi-ratings",
         factory=PiRatingsModel,
-        description="Separate home and away ratings of every team, learned match by match "
-        "from goal differences (Constantinou & Fenton, 2013), mapped to 1X2 by an ordered "
-        "logistic regression.",
+        description="Valoraciones de cada equipo como local y como visitante, aprendidas partido a "
+        "partido de las diferencias de goles (Constantinou y Fenton, 2013) y pasadas a "
+        "1X2 con una regresión logística ordenada.",
         version="v4",
     ),
     "market": ModelSpec(
-        name="Market",
+        name="Mercado",
         factory=MarketModel,
-        description="Probabilities implied by the bookmakers' pre-match odds (margin "
-        "removed): the reference every model is compared against.",
+        description="Probabilidades que dan las cuotas previas al partido de las casas de apuestas "
+        "(sin su margen): la referencia con la que se compara cada modelo.",
         reference=True,
         show_in_matchday=False,
     ),
@@ -117,26 +119,29 @@ DEFAULT_MODEL = "head_to_head"
 # the official tickets (quiniela.data.women)
 WOMEN_MODELS: dict[str, ModelSpec] = {
     "public_picks": ModelSpec(
-        name="Public picks",
+        name="Público",
         factory=PublicPicksModel,
-        description='Liga F: the share of quiniela bettors marking each sign ("Pronósticos más '
-        'apostados"), normalised to probabilities; the most marked sign is the prediction.',
+        description="Liga F: el porcentaje de apostantes de la quiniela que marca cada signo "
+        "(«Pronósticos más apostados»), normalizado a probabilidades; el signo más "
+        "marcado es el pronóstico.",
         version="v1F",
     ),
     "pi_ratings_f": ModelSpec(
         name="Pi-ratings",
         factory=PiRatingsModel,
-        description="Liga F: home and away pi-ratings of every team learned from the goal "
-        "differences of every Liga F match since 2022-23 (ESPN), mapped to 1X2 by an ordered "
-        "logistic regression; the v4 model applied to the women's league.",
+        description="Liga F: pi-ratings de local y visitante de cada equipo aprendidos de las "
+        "diferencias de goles de todos los partidos de Liga F desde 2022-23 (ESPN) y "
+        "pasados a 1X2 con una regresión logística ordenada; el modelo v4 aplicado a la "
+        "liga femenina.",
         version="v2F",
     ),
     "pi_ratings_shots_f": ModelSpec(
-        name="Pi-ratings + shots",
+        name="Pi-ratings + tiros",
         factory=PiRatingsShotsModel,
-        description="Liga F: the v2F pi-ratings learned from a mix of the goal difference (75%) "
-        "and the shots-on-target difference on the goal scale (25%) of every Liga F match since "
-        "2022-23 (ESPN): shots on target are a less noisy measure of a match than goals.",
+        description="Liga F: los pi-ratings de v2F aprendidos de una mezcla de la diferencia de goles "
+        "(75 %) y de la de tiros a puerta en la escala de goles (25 %) de todos los "
+        "partidos de Liga F desde 2022-23 (ESPN): los tiros a puerta miden un partido con "
+        "menos ruido que los goles.",
         version="v3F",
     ),
 }
@@ -154,9 +159,10 @@ NATIONAL_MODELS: dict[str, ModelSpec] = {
     "elo_national": ModelSpec(
         name="Elo",
         factory=NationalEloModel,
-        description="National teams: World Football Elo ratings of every men's international "
-        "since 1872 (weighted by tournament and goal difference), mapped to 1X2 by an ordered "
-        "logistic regression on the Elo difference and home advantage.",
+        description="Selecciones: valoraciones World Football Elo de todos los partidos "
+        "internacionales masculinos desde 1872 (ponderadas por torneo y diferencia de "
+        "goles), pasadas a 1X2 con una regresión logística ordenada sobre la diferencia "
+        "de Elo y la ventaja de campo.",
         version="v1N",
     ),
 }
@@ -171,11 +177,12 @@ NATIONAL_PLANNER_MODEL = "elo_national"
 # official tickets outside La Liga / Segunda (quiniela.data.clubs)
 CLUB_MODELS: dict[str, ModelSpec] = {
     "elo_clubs": ModelSpec(
-        name="Club Elo",
+        name="Elo de clubes",
         factory=ClubEloModel,
-        description="Other club competitions: one Elo rating of every club of 24 leagues and 14 "
-        "cups (ESPN, since 2009), linked by the European cups, mapped to 1X2 by an ordered "
-        "logistic regression on the Elo difference and home advantage.",
+        description="Otras competiciones de clubes: una valoración Elo de cada club de 24 ligas y 14 "
+        "copas (ESPN, desde 2009), enlazadas por las copas europeas y pasadas a 1X2 con "
+        "una regresión logística ordenada sobre la diferencia de Elo y la ventaja de "
+        "campo.",
         version="v1C",
     ),
 }

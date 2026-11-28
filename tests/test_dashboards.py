@@ -82,7 +82,7 @@ def test_season_payload_scores_models_and_tickets() -> None:
     assert [m["key"] for m in payload["models"]] == ["head_to_head"]
     summary = payload["matchdays"][0]["summary"]["head_to_head"]
     assert (summary["hits"], summary["misses"], summary["pending"]) == (11, 3, 0)
-    assert summary["ticket"]["category"] == "4th category"
+    assert summary["ticket"]["category"] == "4.ª categoría"
     assert summary["missing"] == 0
     assert payload["totals"]["head_to_head"] == {
         "hits": 11,
@@ -126,7 +126,7 @@ def test_season_payload_counts_matches_without_prediction() -> None:
     assert summary["missing_in_ticket"] == 2
     # On the ticket they are wrong lines: 12 of 14 hits
     assert summary["ticket"]["hits"] == 12
-    assert summary["ticket"]["category"] == "3rd category"
+    assert summary["ticket"]["category"] == "3.ª categoría"
     assert payload["totals"]["head_to_head"]["missing"] == 2
     missing = [m for m in payload["matchdays"][0]["matches"] if m["head_to_head_sign"] is None]
     assert len(missing) == 2
@@ -210,7 +210,7 @@ def test_current_payload_picks_the_current_matchday(
     assert payload["matchdays"] == 2
     # current.html only shows v3 and the tickets built on it (v1 and v2 stay in season.html)
     assert [m["key"] for m in payload["models"]] == []
-    assert payload["categories"]["M"].startswith("Male")
+    assert payload["categories"]["M"].startswith("Masculino")
 
 
 def test_current_matchday_in_progress() -> None:
@@ -353,7 +353,7 @@ def test_evaluation_payload_confidence_and_tickets() -> None:
             "triples": [0, 1],
             "bets": [1, 48],
             "hits": [9, 11],
-            "category": [None, "4th category"],
+            "category": [None, "4.ª categoría"],
             "p_prize": [0.1, 0.4],
             "p_top": [0.001, 0.004],
             "expected_hits": [8.0, 9.5],
@@ -644,7 +644,7 @@ def test_ticket_outcome_scores_the_real_ticket() -> None:
         "winners_10": 10000.0,
     }
     done = dashboards._ticket_outcome(plan, [*results[:13], "H"], draw, None)
-    # 12 hits: 3rd category, a share of the 12-hit pool with the real winners
+    # 12 hits: 3.ª categoría, a share of the 12-hit pool with the real winners
     assert done["hits"] == 12 and done["category"] is not None
     assert done["payout"] == pytest.approx(0.075 * 3_000_000 / 101, abs=0.01)
     assert done["cost"] == 0.75
@@ -691,12 +691,12 @@ def test_recommendations_rank_every_ticket() -> None:
     }
     out = dashboards._recommendations(summary, history)
     levels = {(r["key"], r["measure"]): r["signal"]["level"] for r in out}
-    assert levels[("market_blend", "12+ hits")] == "green"
-    assert levels[(dashboards.SMALL_KEY, "12+ hits")] == "green"
-    assert levels[(dashboards.PLANNED_KEY, "12+ hits")] == "amber"
-    assert levels[(dashboards.REDUCED_KEY, "12+ hits")] == "red"
-    assert levels[(dashboards.MONEY_KEY, "1,000 € or more")] == "green"
-    assert levels[(dashboards.MONEY_KEY, "13+ hits")] == "red"
+    assert levels[("market_blend", "12+ aciertos")] == "green"
+    assert levels[(dashboards.SMALL_KEY, "12+ aciertos")] == "green"
+    assert levels[(dashboards.PLANNED_KEY, "12+ aciertos")] == "amber"
+    assert levels[(dashboards.REDUCED_KEY, "12+ aciertos")] == "red"
+    assert levels[(dashboards.MONEY_KEY, "1.000 € o más")] == "green"
+    assert levels[(dashboards.MONEY_KEY, "13+ aciertos")] == "red"
     assert dashboards._recommendations(summary, pd.DataFrame()) == []
 
 

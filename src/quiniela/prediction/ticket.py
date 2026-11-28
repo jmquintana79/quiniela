@@ -35,11 +35,11 @@ TICKET_SIZE = 14
 
 # Minimum hits for each prize category
 PRIZE_CATEGORIES: dict[int, str] = {
-    14: "1st category",
-    13: "2nd category",
-    12: "3rd category",
-    11: "4th category",
-    10: "5th category",
+    14: "1.ª categoría",
+    13: "2.ª categoría",
+    12: "3.ª categoría",
+    11: "4.ª categoría",
+    10: "5.ª categoría",
 }
 MIN_PRIZE_HITS = min(PRIZE_CATEGORIES)
 
@@ -136,11 +136,11 @@ def evaluate_ticket(size: int, hits: int, pending: int) -> TicketResult:
             pending,
             None,
             None,
-            f"Only {size} matches this matchday: a {TICKET_SIZE}-match ticket can't be built.",
+            f"Solo {size} partidos esta jornada: no se puede formar un boleto de {TICKET_SIZE}.",
         )
     if pending:
         best = prize_category(hits + pending)
-        outlook = f"best possible: {best}" if best else "no prize possible"
+        outlook = f"lo mejor posible: {best}" if best else "ya sin premio posible"
         return TicketResult(
             "pending",
             size,
@@ -148,12 +148,18 @@ def evaluate_ticket(size: int, hits: int, pending: int) -> TicketResult:
             pending,
             None,
             best,
-            f"{hits} hits so far, {pending} matches pending ({outlook}).",
+            f"{hits} aciertos por ahora, {pending} partidos pendientes ({outlook}).",
         )
     category = prize_category(hits)
     if category:
         return TicketResult(
-            "prize", size, hits, 0, category, category, f"{hits}/{size} hits: {category} prize."
+            "prize",
+            size,
+            hits,
+            0,
+            category,
+            category,
+            f"{hits}/{size} aciertos: premio de {category}.",
         )
     return TicketResult(
         "no_prize",
@@ -162,5 +168,5 @@ def evaluate_ticket(size: int, hits: int, pending: int) -> TicketResult:
         0,
         None,
         None,
-        f"{hits}/{size} hits: no prize (at least {MIN_PRIZE_HITS} needed).",
+        f"{hits}/{size} aciertos: sin premio (hacen falta al menos {MIN_PRIZE_HITS}).",
     )

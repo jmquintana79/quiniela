@@ -427,10 +427,10 @@ def ticket_shares(ticket: UpcomingTicket) -> np.ndarray | None:
 
 # Category of every match shown in the dashboards (legend shown next to the tables)
 CATEGORY_LEGEND: dict[str, str] = {
-    "M": "Male: men's La Liga or Segunda, in football-data (the models predict them)",
-    "F": "Female: women's football (marked (F) on the official ticket)",
-    "O": "Other: another competition (national teams, cups, foreign or lower leagues)",
-    "U": "Unknown: not enough information to tell",
+    "M": "Masculino: Liga o Segunda masculinas, en football-data (los pronostican los modelos)",
+    "F": "Femenino: fútbol femenino (marcado (F) en el boleto oficial)",
+    "O": "Otro: otra competición (selecciones, copas, ligas extranjeras o inferiores)",
+    "U": "Desconocido: no hay información suficiente para saberlo",
 }
 
 

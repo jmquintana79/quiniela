@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,79 +18,82 @@
 <body>
 <main>
   <header>
-    <h1>Quiniela metrics</h1>
+    <h1>Métricas de la quiniela</h1>
     <span class="meta" id="meta"></span>
   </header>
 
-  <p class="help" style="margin:0 0 16px"><b>What this page is for:</b> deciding whether a jornada is worth
-    playing, and checking which numbers known before a draw really predict hits and money. Read it top down:
-    the next ticket, how past tickets went, which metrics matter, and how the verdicts did. <b>No metric makes
-    the quiniela profitable</b>: every ticket loses money on average; the metrics only compare jornadas.</p>
+  <p class="help" style="margin:0 0 16px"><b>Para qué sirve esta página:</b> decidir si merece la pena jugar una
+    jornada y comprobar qué números conocidos antes del sorteo predicen de verdad aciertos y dinero. Léela de arriba
+    abajo: el próximo boleto, con qué boleto apostar, cómo fueron los boletos pasados, qué métricas importan y cómo
+    acertaron los veredictos. <b>Ninguna métrica hace rentable la quiniela</b>: todos los boletos pierden dinero de
+    media; las métricas solo comparan jornadas. Todas están explicadas en el <a href="#toc-glosario">glosario</a>.</p>
 
-  <h2 class="group">Men's football and the whole ticket</h2>
+  <h2 class="group">Fútbol masculino y el boleto completo</h2>
 
-  <section data-toc="Next ticket" class="card" style="margin-bottom:16px">
-    <h2 id="next-title">Next ticket</h2>
-    <p class="help">The jornada about to be played: its verdict, its key numbers (tiles) and its 14 matches.
-      Hover any label for its meaning.</p>
+  <section data-toc="Próximo boleto" class="card" style="margin-bottom:16px">
+    <h2 id="next-title">Próximo boleto</h2>
+    <p class="help">La jornada que se va a jugar: su veredicto, sus números clave (recuadros) y sus 14 partidos. Pasa el
+      ratón por cualquier etiqueta para ver qué significa.</p>
     <div id="next"></div>
   </section>
 
-  <section data-toc="Which ticket to bet with" class="card" style="margin-bottom:16px">
-    <h2>Which ticket to bet with</h2>
-    <p class="help">Every ticket played on every past draw since 2015-16 with the real prizes. <b>Rule:</b> bet with the
-      ticket that gives back the most per euro (first row), unless another one does better steadily, in most seasons too.
-      All of them lose money: the interval shows how much luck there is in 400 draws.</p>
+  <section data-toc="Con qué boleto apostar" class="card" style="margin-bottom:16px">
+    <h2>Con qué boleto apostar</h2>
+    <p class="help">Cada boleto jugado en todos los sorteos pasados desde 2015-16, con los premios reales. <b>Regla:</b>
+      apostar con el boleto que más devuelve por euro (primera fila), salvo que otro lo haga mejor de forma estable,
+      también en la mayoría de temporadas. Todos pierden dinero: el rango muestra cuánta suerte hay en 400 sorteos.</p>
     <div class="scroll" id="choice"></div>
   </section>
 
-  <section data-toc="Past tickets" class="card" style="margin-bottom:16px">
-    <h2>Past tickets: metrics, lights, verdict and KPIs</h2>
-    <p class="help">Every official ticket: what was expected before the draw (chances, lights, verdict) and what
-      happened (hits, net euros). Useful to see whether green lights and verdicts were followed by good results.</p>
+  <section data-toc="Boletos pasados" class="card" style="margin-bottom:16px">
+    <h2>Boletos pasados: métricas, semáforos, veredicto y KPI</h2>
+    <p class="help">Cada boleto oficial: lo que se esperaba antes del sorteo (probabilidades, semáforos, veredicto) y lo
+      que pasó (aciertos, euros netos). Sirve para ver si tras los semáforos verdes y los veredictos llegaron buenos
+      resultados.</p>
     <div class="filters"><div class="segmented" id="draws-switch"></div></div>
     <div class="scroll" id="draws"></div>
     <div id="draws-note"></div>
   </section>
 
-  <section data-toc="Which match metrics matter" class="card" style="margin-bottom:16px">
-    <h2>Which match metrics matter: v3 hits by quintile</h2>
-    <p class="help">Each table splits past ticket matches into five groups by one metric (lowest to highest) and
-      shows how often v3 got them right. <b>A metric matters when the hit rate rises (or falls) steadily</b> across
-      the groups; ups and downs mean noise. Bold: the best group.</p>
+  <section data-toc="Qué métricas de partido importan" class="card" style="margin-bottom:16px">
+    <h2>Qué métricas de partido importan: aciertos de v3 por quintil</h2>
+    <p class="help">Cada tabla divide los partidos de los boletos pasados en cinco grupos según una métrica (de menor a
+      mayor) y muestra cuántos acertó v3. <b>Una métrica importa cuando los aciertos suben (o bajan) de forma constante</b>
+      entre grupos; los altibajos son ruido. En negrita: el mejor grupo.</p>
     <div class="grid two" id="match-validation"></div>
-    <h2 style="margin-top:18px">The public's picks (since 2026-27, three groups)</h2>
+    <h2 style="margin-top:18px">Lo que marca el público (desde 2026-27, tres grupos)</h2>
     <div class="grid two" id="public-validation"></div>
   </section>
 
-  <section data-toc="Which ticket metrics matter" class="card" style="margin-bottom:16px">
-    <h2>Which jornada metrics matter: the tickets' KPIs by quintile</h2>
-    <p class="help">The same for whole tickets: pick a metric of the jornada and see how each ticket did in its five
-      groups (hits, share of good results, euros back per euro).</p>
+  <section data-toc="Qué métricas de jornada importan" class="card" style="margin-bottom:16px">
+    <h2>Qué métricas de jornada importan: los KPI de los boletos por quintil</h2>
+    <p class="help">Lo mismo para boletos enteros: elige una métrica de la jornada y mira cómo le fue a cada boleto en sus
+      cinco grupos (aciertos, porcentaje de buenos resultados, euros devueltos por euro).</p>
     <div class="filters"><div class="segmented" id="draw-metric-switch"></div></div>
     <div class="scroll" id="draw-validation"></div>
 
   </section>
 
-  <section data-toc="Verdicts" class="card" style="margin-bottom:16px">
-    <h2>Verdicts: the KPIs of the tickets each verdict would have played</h2>
-    <p class="help"><b>Rule:</b> big (play ·B) when its 1,000 € light is green; small (single or ·D) when only the ·D
-      12+ light is green; skip otherwise. Each row: how the tickets of that verdict did. A good rule gives the
-      "play" rows more back per € than "skip". The lights only use earlier tickets (no look-ahead).</p>
+  <section data-toc="Veredictos" class="card" style="margin-bottom:16px">
+    <h2>Veredictos: los KPI de los boletos que habría jugado cada veredicto</h2>
+    <p class="help"><b>Regla:</b> grande (jugar ·B) cuando su semáforo de 1.000 € está en verde; pequeño (sencillo o ·D)
+      cuando solo está en verde el de 12+ del ·D; no jugar en otro caso. Cada fila: cómo les fue a los boletos de ese
+      veredicto. Una buena regla da a las filas de «jugar» más devuelto por € que a «no jugar». Los semáforos solo usan
+      boletos anteriores (sin mirar al futuro).</p>
     <div class="scroll" id="verdicts"></div>
   </section>
 
   <h2 class="group">Liga F</h2>
 
-  <section data-toc="Liga F metrics" class="card">
-    <h2>v3F hits by quintile (every Liga F match, weekly walk-forward)</h2>
-    <p class="help">The Liga F has no odds, so only v3F's own favourite and openness can be checked. Same reading as
-      above.</p>
+  <section data-toc="Métricas de la Liga F" class="card">
+    <h2>Aciertos de v3F por quintil (todos los partidos de Liga F, walk-forward semanal)</h2>
+    <p class="help">La Liga F no tiene cuotas, así que solo se puede comprobar el favorito y la apertura del propio v3F. Se
+      lee igual que arriba.</p>
     <div class="grid two" id="liga-f-validation"></div>
   </section>
 
-  <section data-toc="Glossary" class="card" style="margin-top:16px">
-    <h2>Glossary</h2>
+  <section data-toc="Glosario" class="card" style="margin-top:16px">
+    <h2>Glosario</h2>
     <div class="glossary" id="glossary"></div>
   </section>
 </main>
@@ -101,22 +104,22 @@
   const $ = (id) => document.getElementById(id);
   const INFO = DATA.info || {};
   const V = DATA.validation || {};
-  const num = (v, d = 2) => v == null ? "–" : Number(v).toFixed(d);
-  const signed = (v, d = 2) => v == null ? "–" : `${v > 0 ? "+" : ""}${Number(v).toFixed(d)}`;
-  const count = (v) => v == null ? "–" : Math.round(v).toLocaleString("en-GB");
+  const num = (v, d = 2) => v == null ? "–" : num0(v, d);
+  const signed = (v, d = 2) => v == null ? "–" : `${v > 0 ? "+" : ""}${num0(v, d)}`;
+  const count = (v) => v == null ? "–" : Math.round(v).toLocaleString("es-ES");
   const label = (m) => (INFO[m] || [m])[0];
   const meaning = (m) => (INFO[m] || [m, ""])[1];
-  const VERDICT = { big: "Play v3+v3F·B", small: "Play small (single or ·D)", skip: "Skip" };
+  const VERDICT = { big: "Jugar v3+v3F·B", small: "Jugar pequeño (sencillo o ·D)", skip: "No jugar" };
   const VERDICT_TIP = {
-    big: "The v3+v3F·B chance of 1,000 € or more is green: high among past tickets.",
-    small: "Only the v3+v3F·D chance of 12+ hits is green: many hits are likely, large prizes are not.",
-    skip: "No green light: an ordinary or poor jornada.",
+    big: "La probabilidad de 1.000 € o más del v3+v3F·B está en verde: alta entre los boletos pasados.",
+    small: "Solo está en verde la probabilidad de 12+ aciertos del v3+v3F·D: es probable acertar mucho, no los premios grandes.",
+    skip: "Ningún semáforo en verde: una jornada normal o mala.",
   };
 
   function light(level) {
     if (!level) return '<span class="muted">–</span>';
     const icon = { green: "●", amber: "◐", red: "✕" }[level];
-    return `<span class="dot-${level}" data-tip="${esc(level)}">${icon}</span>`;
+    return `<span class="dot-${level}" data-tip="${esc({ green: "verde", amber: "ámbar", red: "rojo" }[level] ?? level)}">${icon}</span>`;
   }
 
   // Heat class of a value by the quintile bounds of the validation table of its metric
@@ -137,35 +140,35 @@
   function renderNext() {
     const next = DATA.next;
     if (!next) {
-      $("next").innerHTML = '<p class="empty">No next ticket saved (or its sales closed): save it with the Quiniela bookmark from <code>invoke update</code>.</p>';
+      $("next").innerHTML = '<p class="empty">No hay próximo boleto guardado (o ya se cerraron las apuestas): guárdalo con el marcador Quiniela desde <code>invoke update</code>.</p>';
       return;
     }
     const d = next.draw;
-    $("next-title").textContent = `Next ticket · jornada ${d.jornada}${d.deadline ? " · sales close " + fmtDate(d.deadline.slice(0, 16).replace("T", " "), true) : ""}`;
+    $("next-title").textContent = `Próximo boleto · jornada ${d.jornada}${d.deadline ? " · cierre de apuestas " + fmtDate(d.deadline.slice(0, 16).replace("T", " "), true) : ""}`;
     const verdict = d.verdict
-      ? `<div class="banner ${d.verdict === "skip" ? "no_prize" : "prize"}"><strong class="verdict">Verdict: ${esc(VERDICT[d.verdict])}</strong>${esc(VERDICT_TIP[d.verdict])}</div>`
+      ? `<div class="banner ${d.verdict === "skip" ? "no_prize" : "prize"}"><strong class="verdict">Veredicto: ${esc(VERDICT[d.verdict])}</strong>${esc(VERDICT_TIP[d.verdict])}</div>`
       : "";
     const tiles = [
-      tile("expected_hits", num(d.expected_hits, 1), `of 14 · ${count(d.matched)} matches with v3`),
-      tile("fav_prob", pct(d.fav_prob, 0), "mean of the matches"),
-      tile("entropy", num(d.entropy, 2), "mean (0.80 clear · 1.10 toss-up)"),
-      tile("differentiation", signed(d.differentiation, 2), d.differentiation == null ? "needs the public's shares" : "above 0: picks less marked than likely"),
-      tile("co_winners_14", count(d.co_winners_14), "if the single ticket gets 14"),
-      tile("p_big_v3b", d.p_big_v3b == null ? "–" : pct(d.p_big_v3b, 2), `${light(d.light_v3b)} light`),
-      tile("p_hits_v3d", d.p_hits_v3d == null ? "–" : pct(d.p_hits_v3d, 1), `${light(d.light_v3d)} light`),
-      tile("p_hits_v3d2", d.p_hits_v3d2 == null ? "–" : pct(d.p_hits_v3d2, 2), `${light(d.light_v3d2)} light · 1.50 €`),
-      tile("p_hits_v3s", d.p_hits_v3s == null ? "–" : pct(d.p_hits_v3s, 2), `${light(d.light_v3s)} light`),
-      tile("jackpot", d.jackpot ? `${count(d.jackpot)} €` : "–", "estimated for the Pleno al 15"),
+      tile("expected_hits", num(d.expected_hits, 1), `de 14 · ${count(d.matched)} partidos con v3`),
+      tile("fav_prob", pct(d.fav_prob, 0), "media de los partidos"),
+      tile("entropy", num(d.entropy, 2), "media (0,80 claro · 1,10 a cara o cruz)"),
+      tile("differentiation", signed(d.differentiation, 2), d.differentiation == null ? "necesita los porcentajes del público" : "por encima de 0: signos menos marcados de lo probables que son"),
+      tile("co_winners_14", count(d.co_winners_14), "si el boleto sencillo hace 14"),
+      tile("p_big_v3b", d.p_big_v3b == null ? "–" : pct(d.p_big_v3b, 2), `semáforo ${light(d.light_v3b)}`),
+      tile("p_hits_v3d", d.p_hits_v3d == null ? "–" : pct(d.p_hits_v3d, 1), `semáforo ${light(d.light_v3d)}`),
+      tile("p_hits_v3d2", d.p_hits_v3d2 == null ? "–" : pct(d.p_hits_v3d2, 2), `semáforo ${light(d.light_v3d2)} · 1,50 €`),
+      tile("p_hits_v3s", d.p_hits_v3s == null ? "–" : pct(d.p_hits_v3s, 2), `semáforo ${light(d.light_v3s)}`),
+      tile("jackpot", d.jackpot ? `${count(d.jackpot)} €` : "–", "estimado para el Pleno al 15"),
     ].join("");
-    const winners = d.winners === "public" ? "Prizes estimated with the public's real picks." : d.winners === "market" ? "Prizes estimated with the market." : "";
+    const winners = d.winners === "public" ? "Premios estimados con lo que marca de verdad el público." : d.winners === "market" ? "Premios estimados con el mercado." : "";
     $("next").innerHTML = verdict + `<div class="tiles" style="margin:12px 0">${tiles}</div>` +
-      help(`${winners} Lights: this jornada's chance against the past tickets (green high, amber typical, red low).`) +
+      help(`${winners} Semáforos: la probabilidad de esta jornada frente a la de los boletos pasados (verde alta, ámbar normal, rojo baja).`) +
       `<div class="scroll">${nextMatchesTable(next.matches)}</div>` + outcomeLegend() +
-      help("Bars: probabilities of 1, X and 2 of the tickets' model (v3, or v3F, v1N, v1C by competition), the market and the public. Shading: darker means a higher value than in most past ticket matches.", "margin:8px 0 0");
+      help("Barras: probabilidades de 1, X y 2 del modelo de los boletos (v3, o v3F, v1N, v1C según la competición), del mercado y del público. Sombreado: más oscuro, un valor más alto que en la mayoría de partidos de boletos pasados.", "margin:8px 0 0");
   }
 
   function nextMatchesTable(rows) {
-    const head = ["#", "Match", "", "Model", "Market", "Public", "Pick", label("fav_prob"), label("entropy"),
+    const head = ["#", "Partido", "", "Modelo", "Mercado", "Público", "Signo", label("fav_prob"), label("entropy"),
       label("edge_public"), label("value")];
     const body = rows.map((r) => {
       const bar = (p) => r[`${p}_H`] == null ? '<span class="muted">–</span>' : outcomeBar(r[`${p}_H`], r[`${p}_D`], r[`${p}_A`]);
@@ -183,10 +186,10 @@
   function renderDraws(which) {
     const all = DATA.draws || [];
     const rows = which === "season" ? all.filter((d) => d.season === all[0]?.season) : all;
-    const head = ["Season", "J.", "Date", "Matches", label("expected_hits"),
-      "·D 12+", "·B 1,000 €+", "Lights ·D / ·B", "Verdict", "Hits (single · ·D · ·B)", "·D2 net", "·D net", "·B net"];
+    const head = ["Temporada", "J.", "Fecha", "Partidos", label("expected_hits"),
+      "·D 12+", "·B 1.000 €+", "Semáforos ·D / ·B", "Veredicto", "Aciertos (sencillo · ·D · ·B)", "·D2 neto", "·D neto", "·B neto"];
     const body = rows.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.jornada ?? "–"}</td><td>${fmtDate(d.date)}</td>` +
-      `<td class="num">${count(d.matched)}${d.public ? ` <span class="muted" data-tip="matches with the public's shares">(${d.public})</span>` : ""}</td>` +
+      `<td class="num">${count(d.matched)}${d.public ? ` <span class="muted" data-tip="partidos con los porcentajes del público">(${d.public})</span>` : ""}</td>` +
       `<td class="num">${num(d.expected_hits, 1)}</td>` +
       `<td class="num">${pct(d.p_hits_v3d, 1)}</td><td class="num">${pct(d.p_big_v3b, 2)}</td>` +
       `<td>${light(d.light_v3d)} ${light(d.light_v3b)}</td><td>${d.verdict ? esc(VERDICT[d.verdict]) : "–"}</td>` +
@@ -194,86 +197,84 @@
       `<td class="num">${d.net_v3d2 == null ? "–" : eur(d.net_v3d2)}</td><td class="num">${d.net_v3d == null ? "–" : eur(d.net_v3d)}</td><td class="num">${d.net_v3b == null ? "–" : eur(d.net_v3b)}</td></tr>`).join("");
     $("draws").innerHTML = rows.length
       ? `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`
-      : '<p class="empty">No past tickets.</p>';
+      : '<p class="empty">No hay boletos pasados.</p>';
     const counts = V.counts || {};
-    $("draws-note").innerHTML = help(`${rows.length} official tickets, newest first (past seasons from ${esc(counts.first_season || "–")}: those with 10+ La Liga / Segunda matches). Chances and lights: before the draw. Hits: best column. Net: won minus spent (–: not drawn yet).`, "margin:10px 0 0");
+    $("draws-note").innerHTML = help(`${rows.length} boletos oficiales, del más reciente al más antiguo (temporadas pasadas desde ${esc(counts.first_season || "–")}: las que tienen 10 o más partidos de Liga y Segunda). Probabilidades y semáforos: antes del sorteo. Aciertos: mejor columna. Neto: ganado menos jugado (–: aún sin sorteo).`, "margin:10px 0 0");
   }
 
-  function quintileTable(rows, metric, columns, unit = "Matches") {
-    if (!rows || !rows.length) return `<p class="empty">Too few ${unit.toLowerCase()} for ${esc(label(metric))}.</p>`;
+  function quintileTable(rows, metric, columns, unit = "Partidos") {
+    if (!rows || !rows.length) return `<p class="empty">Hay muy pocos ${unit.toLowerCase()} para ${esc(label(metric))}.</p>`;
     const best = {};
     for (const [key] of columns) {
       const values = rows.map((r) => r[key]).filter((v) => v != null);
       best[key] = Math.max(...values);
     }
-    const head = ["Group", "Range", unit, ...columns.map(([, l]) => l)];
-    const body = rows.map((r) => `<tr><td class="num">${r.group}</td><td class="num">${num(r.low, 3)} to ${num(r.high, 3)}</td><td class="num">${count(r.n)}</td>` +
+    const head = ["Grupo", "Rango", unit, ...columns.map(([, l]) => l)];
+    const body = rows.map((r) => `<tr><td class="num">${r.group}</td><td class="num">${num(r.low, 3)} a ${num(r.high, 3)}</td><td class="num">${count(r.n)}</td>` +
       columns.map(([key, , fmt]) => `<td class="num${r[key] === best[key] ? " best" : ""}">${fmt(r[key])}</td>`).join("") + "</tr>").join("");
-    return `<div><h2 style="font-size:14px" data-tip="${esc(meaning(metric))}">${esc(label(metric === "strength_gap" ? "strength" : metric))}${metric === "strength_gap" ? " (absolute)" : ""}</h2>` +
+    return `<div><h2 style="font-size:14px" data-tip="${esc(meaning(metric))}">${esc(label(metric === "strength_gap" ? "strength" : metric))}${metric === "strength_gap" ? " (en valor absoluto)" : ""}</h2>` +
       help(esc(meaning(metric === "strength_gap" ? "strength" : metric)), "margin:0 0 6px") +
       `<div class="scroll"><table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   }
 
-  const MATCH_COLUMNS = [["hit", "v3 hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]];
+  const MATCH_COLUMNS = [["hit", "Aciertos de v3", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]];
 
   function renderValidation() {
     const counts = V.counts || {};
     $("match-validation").innerHTML = Object.entries(V.matches || {}).map(([m, rows]) => quintileTable(rows, m, MATCH_COLUMNS)).join("") +
-      help(`${count(counts.matches)} La Liga / Segunda ticket matches with a v3 probability and a result.`, "grid-column:1/-1");
-    const publicColumns = [["hit", "v3 hit rate", (v) => pct(v, 1)], ["value_hit", "Best-value sign came up", (v) => pct(v, 1)]];
+      help(`${count(counts.matches)} partidos de Liga y Segunda de los boletos con probabilidad de v3 y resultado.`, "grid-column:1/-1");
+    const publicColumns = [["hit", "Aciertos de v3", (v) => pct(v, 1)], ["value_hit", "Salió el signo de mejor valor", (v) => pct(v, 1)]];
     $("public-validation").innerHTML = Object.entries(V.public || {}).map(([m, rows]) => quintileTable(rows, m, publicColumns)).join("") +
-      help(`${count(counts.public_matches)} ticket matches with the public's shares and a result so far: a small sample, three groups only.`, "grid-column:1/-1");
-    $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "v3F hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No Liga F results downloaded.</p>';
+      help(`${count(counts.public_matches)} partidos de boletos con los porcentajes del público y resultado hasta ahora: una muestra pequeña, solo tres grupos.`, "grid-column:1/-1");
+    $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "Aciertos de v3F", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No hay resultados de la Liga F descargados.</p>';
 
     const drawColumns = [
-      ["hits_v3s", "Single: mean hits", (v) => num(v, 2)], ["return_v3d2", "·D2 back per €", (v) => pct(v, 0)],
+      ["hits_v3s", "Sencillo: aciertos medios", (v) => num(v, 2)], ["return_v3d2", "·D2 devuelto por €", (v) => pct(v, 0)],
       ["hit12_v3d", "·D 12+", (v) => pct(v, 1)],
-      ["hit13_v3b", "·B 13+", (v) => pct(v, 1)], ["return_v3d", "·D back per €", (v) => pct(v, 0)],
-      ["return_v3b", "·B back per €", (v) => pct(v, 0)], ["big_v3b", "·B 1,000 €+", (v) => pct(v, 1)],
+      ["hit13_v3b", "·B 13+", (v) => pct(v, 1)], ["return_v3d", "·D devuelto por €", (v) => pct(v, 0)],
+      ["return_v3b", "·B devuelto por €", (v) => pct(v, 0)], ["big_v3b", "·B 1.000 €+", (v) => pct(v, 1)],
     ];
     const metrics = Object.keys(V.draws || {});
     let selected = metrics[0];
-    const draw = () => { $("draw-validation").innerHTML = quintileTable((V.draws || {})[selected], selected, drawColumns, "Tickets"); };
+    const draw = () => { $("draw-validation").innerHTML = quintileTable((V.draws || {})[selected], selected, drawColumns, "Boletos"); };
     if (metrics.length) {
       segmented($("draw-metric-switch"), metrics.map(label), metrics.indexOf(selected), (i) => { selected = metrics[i]; draw(); });
       draw();
     } else {
-      $("draw-validation").innerHTML = '<p class="empty">No past tickets.</p>';
+      $("draw-validation").innerHTML = '<p class="empty">No hay boletos pasados.</p>';
     }
 
     const verdicts = V.verdicts || [];
-    const vhead = ["Verdict", "Tickets", "Single back per €", "·D2 back per €", "·D back per €", "·D 12+", "·B back per €", "·B net", "·B 1,000 €+ (tickets)"];
+    const vhead = ["Veredicto", "Boletos", "Sencillo devuelto por €", "·D2 devuelto por €", "·D devuelto por €", "·D 12+", "·B devuelto por €", "·B neto", "·B 1.000 €+ (boletos)"];
     $("verdicts").innerHTML = verdicts.length
       ? `<table><thead><tr>${vhead.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
         verdicts.map((v) => `<tr><td class="verdict" data-tip="${esc(VERDICT_TIP[v.verdict])}">${esc(VERDICT[v.verdict])}</td><td class="num">${count(v.n)}</td>` +
           `<td class="num">${pct(v.return_v3s, 0)}</td><td class="num">${pct(v.return_v3d2, 0)}</td><td class="num">${pct(v.return_v3d, 0)}</td><td class="num">${pct(v.hit12_v3d, 1)}</td>` +
           `<td class="num">${pct(v.return_v3b, 0)}</td><td class="num">${eur(v.net_v3b)}</td><td class="num">${count(v.big_v3b)}</td></tr>`).join("") +
         "</tbody></table>"
-      : '<p class="empty">No complete tickets with a verdict.</p>';
+      : '<p class="empty">No hay boletos completos con veredicto.</p>';
   }
 
-  $("meta").textContent = `${count((DATA.draws || []).length)} official tickets · ${count((V.counts || {}).matches)} ticket matches with results`;
+  $("meta").textContent = `${count((DATA.draws || []).length)} boletos oficiales · ${count((V.counts || {}).matches)} partidos de boletos con resultado`;
   renderNext();
   let drawsView = 0;
-  segmented($("draws-switch"), ["Current season", "Every season"], drawsView, (i) => { drawsView = i; renderDraws(i === 0 ? "season" : "all"); });
+  segmented($("draws-switch"), ["Temporada actual", "Todas las temporadas"], drawsView, (i) => { drawsView = i; renderDraws(i === 0 ? "season" : "all"); });
   renderDraws("season");
   renderValidation();
   const choice = DATA.choice || [];
   $("choice").innerHTML = choice.length
-    ? `<table><thead><tr><th>Ticket</th><th class="num">Draws</th><th class="num">Spent</th><th class="num">Net</th>
-        <th class="num" data-tip="Euros won per euro spent over every draw">Back per €</th>
-        <th class="num" data-tip="90% of the resampled draws give a return in this range">Range (luck)</th>
-        <th class="num" data-tip="Return of the middle season">Median season</th>
-        <th class="num" data-tip="Seasons where this ticket gave back the most">Best season</th></tr></thead><tbody>` +
-      choice.map((r) => `<tr><td class="${r.chosen ? "strong" : ""}">${esc(r.name)}${r.chosen ? " ← bet with this one" : ""}</td>` +
+    ? `<table><thead><tr><th>Boleto</th><th class="num">Sorteos</th><th class="num">Jugado</th><th class="num">Neto</th>
+        <th class="num" data-tip="Euros ganados por euro jugado en todos los sorteos">Devuelto por €</th>
+        <th class="num" data-tip="El 90 % de los remuestreos de sorteos da un retorno en este rango">Rango (suerte)</th>
+        <th class="num" data-tip="Retorno de la temporada mediana">Temporada mediana</th>
+        <th class="num" data-tip="Temporadas en las que este boleto devolvió más">Mejor temporada</th></tr></thead><tbody>` +
+      choice.map((r) => `<tr><td class="${r.chosen ? "strong" : ""}">${esc(r.name)}${r.chosen ? " ← apostar con este" : ""}</td>` +
         `<td class="num">${count(r.draws)}</td><td class="num">${count(r.cost)} €</td><td class="num">${count(r.net)} €</td>` +
         `<td class="num ${r.chosen ? "best" : ""}">${pct(r.return, 0)}</td><td class="num muted">${pct(r.low, 0)}–${pct(r.high, 0)}</td>` +
-        `<td class="num">${pct(r.median_season, 0)}</td><td class="num">${r.best_seasons} of ${r.seasons}</td></tr>`).join("") +
+        `<td class="num">${pct(r.median_season, 0)}</td><td class="num">${r.best_seasons} de ${r.seasons}</td></tr>`).join("") +
       "</tbody></table>"
-    : '<p class="empty">No euro backtest yet: run <code>invoke backtest.run</code>.</p>';
-  renderGlossary(["v3", "v3F", "v1N", "v1C", "market", "public", "single", "D2", "D", "B", "fav_prob", "entropy",
-    "edge_public", "value", "expected_hits", "hit_rate", "log_loss", "return", "net", "quintile", "light", "verdict",
-    "M", "F", "O", "jornada", "walk_forward"]);
+    : '<p class="empty">Aún no hay backtest en euros: ejecuta <code>invoke backtest.run</code>.</p>';
+  renderGlossary(["v3", "v3F", "v1N", "v1C", "market", "public", "single", "D2", "D", "R", "B", "E", "fav_prob", "entropy", "strength", "edge_market", "edge_public", "value", "spread", "expected_hits", "differentiation", "co_winners_14", "planned_chance", "expected_return", "jackpot", "hits", "hit", "log_loss", "hit_rate", "return", "net", "hit12", "big", "quintile", "light", "verdict", "M", "F", "O", "jornada", "walk_forward"]);
   tableOfContents();
 </script>
 </body>

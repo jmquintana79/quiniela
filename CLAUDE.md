@@ -26,7 +26,11 @@ model is evaluated with a walk-forward backtest against the betting market.
 
 ## Code conventions
 
-- Everything in the code and the README is in **English**; `TODO.todo` is in Spanish.
+- Everything in the code and the README is in **English**; `TODO.todo` is in Spanish, and so is
+  **every text the dashboards show** (since v0.22.1): the templates, `base.js` (glossary included) and
+  the display strings that reach them from Python (model, ticket, metric and strategy names and
+  descriptions, messages, legends). Code, docstrings and comments stay in English; the dashboard
+  file names and `<title>`s too. Numbers and dates use the Spanish format (`num0`, `es-ES`).
 - Type hints everywhere (mypy `strict`), Google-style docstrings (`Args:`, `Returns:`,
   `Raises:`) and comments explaining the *why*. Match the style of the surrounding code.
 - Models follow the **scikit-learn estimator API** (`fit`, `predict`, `predict_proba`,

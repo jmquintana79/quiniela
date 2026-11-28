@@ -249,23 +249,23 @@ def summarize(backtest: pd.DataFrame, by: list[str] | None = None) -> pd.DataFra
 # Every strategy but "single" spends the same budget, so the prizes compare
 # where the bets go, not how many there are.
 TICKET_STRATEGIES: dict[str, tuple[str, str, int]] = {
-    "single": ("No doubles or triples (1 bet)", "single", planner.DEFAULT_MIN_HITS),
-    "random": ("Doubles and triples on random matches", "random", planner.DEFAULT_MIN_HITS),
+    "single": ("Sin dobles ni triples (1 apuesta)", "single", planner.DEFAULT_MIN_HITS),
+    "random": ("Dobles y triples en partidos al azar", "random", planner.DEFAULT_MIN_HITS),
     "heuristic": (
-        "By eye: on the least predictable matches",
+        "A ojo: en los partidos menos previsibles",
         "heuristic",
         planner.DEFAULT_MIN_HITS,
     ),
-    "optimal_14": ("Optimal placement, aiming at 14 hits", "optimal", 14),
-    "optimal_10": ("Optimal placement, aiming at 10+ hits", "optimal", MIN_PRIZE_HITS),
-    "optimal": ("Optimal placement, aiming at 11+ hits", "optimal", planner.DEFAULT_MIN_HITS),
+    "optimal_14": ("Colocación óptima, buscando 14 aciertos", "optimal", 14),
+    "optimal_10": ("Colocación óptima, buscando 10+ aciertos", "optimal", MIN_PRIZE_HITS),
+    "optimal": ("Colocación óptima, buscando 11+ aciertos", "optimal", planner.DEFAULT_MIN_HITS),
     "v3d": (
-        "v3+v3F·D: best direct mix within the budget, aiming at 11+ hits",
+        "v3+v3F·D: la mejor mezcla directa dentro del presupuesto, buscando 11+ aciertos",
         "mix",
         planner.DEFAULT_MIN_HITS,
     ),
     "v3r": (
-        "v3+v3F·R: best direct or reduced ticket within the budget, aiming at 11+ hits",
+        "v3+v3F·R: el mejor boleto directo o reducido dentro del presupuesto, buscando 11+ aciertos",
         "reduced",
         planner.DEFAULT_MIN_HITS,
     ),

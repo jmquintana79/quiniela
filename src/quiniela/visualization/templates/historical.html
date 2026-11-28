@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,50 +9,51 @@
 <body>
 <main>
   <header>
-    <h1>Historical seasons</h1>
+    <h1>Temporadas históricas</h1>
     <span class="meta" id="coverage"></span>
   </header>
 
-  <p class="help" style="margin:0 0 12px"><b>What this page is for:</b> the raw history the models learn from: every
-    past La Liga / Segunda season, the official quiniela tickets and the Liga F matches. Pick a league, season or team.</p>
+  <p class="help" style="margin:0 0 12px"><b>Para qué sirve esta página:</b> el historial del que aprenden los modelos:
+    todas las temporadas pasadas de Liga y Segunda, los boletos oficiales de la quiniela y los partidos de Liga F. Elige una
+    liga, una temporada o un equipo.</p>
 
   <!-- Only the selected league and season are rendered -->
   <div class="filters">
     <div class="segmented" id="league-switch"></div>
-    <label>Season <select id="season"></select></label>
-    <label>Team <select id="team"><option value="">All teams</option></select></label>
+    <label>Temporada <select id="season"></select></label>
+    <label>Equipo <select id="team"><option value="">Todos los equipos</option></select></label>
   </div>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Outcomes by season">
-    <h2>Men's leagues · Outcomes by season</h2>
-    <p class="help">Share of home wins, draws and away wins and goals per match in each season. Click a season to open it
-      below.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Resultados por temporada">
+    <h2>Ligas masculinas · Resultados por temporada</h2>
+    <p class="help">Porcentaje de victorias locales, empates y victorias visitantes, y goles por partido, de cada temporada.
+      Pulsa una temporada para abrirla debajo.</p>
     <div id="legend"></div>
     <div class="scroll" id="summary"></div>
   </section>
 
   <div class="grid two">
-    <section class="card" data-toc="Men's · Standings"><h2 id="standings-title">Final standings</h2><div class="scroll" id="standings"></div></section>
-    <section class="card" data-toc="Men's · Results"><h2 id="results-title">Results</h2><div class="scroll" id="results"></div></section>
+    <section class="card" data-toc="Masculino · Clasificación"><h2 id="standings-title">Clasificación final</h2><div class="scroll" id="standings"></div></section>
+    <section class="card" data-toc="Masculino · Resultados"><h2 id="results-title">Resultados</h2><div class="scroll" id="results"></div></section>
   </div>
 
-  <section class="card" style="margin-top:16px" data-toc="Official quiniela tickets">
-    <h2 id="tickets-title">Official quiniela tickets</h2>
+  <section class="card" style="margin-top:16px" data-toc="Boletos oficiales de la quiniela">
+    <h2 id="tickets-title">Boletos oficiales de la quiniela</h2>
     <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
-    <p class="help">The tickets of the season as Loterías y Apuestas del Estado published them, with every match and its
-      result.</p>
+    <p class="help">Los boletos de la temporada tal como los publicó Loterías y Apuestas del Estado, con cada partido y su
+      resultado.</p>
     <div class="scroll" id="tickets"></div>
     <div id="categories" style="margin-top:10px"></div>
   </section>
-  <section class="card" style="margin-top:16px" data-toc="Liga F · Outcomes and matches">
-    <h2>Liga F · Outcomes and matches</h2>
-    <p class="help">The Liga F matches of the official tickets: shares of 1, X and 2 and goals by season, then every match
-      with its result and, when the betting page was saved, the public's picks (v1F).</p>
+  <section class="card" style="margin-top:16px" data-toc="Liga F · Resultados y partidos">
+    <h2>Liga F · Resultados y partidos</h2>
+    <p class="help">Los partidos de Liga F de los boletos oficiales: proporciones de 1, X y 2 y goles por temporada y,
+      después, cada partido con su resultado y, si se guardó la página de apuestas, lo que marcó el público (v1F).</p>
     <div class="scroll" id="women-data"></div>
     <div class="scroll" id="women-matches" style="margin-top:12px"></div>
   </section>
-  <section class="card" data-toc="Glossary" style="margin-top:16px">
-    <h2>Glossary</h2>
+  <section class="card" data-toc="Glosario" style="margin-top:16px">
+    <h2>Glosario</h2>
     <div class="glossary" id="glossary"></div>
   </section>
 </main>
@@ -67,13 +68,13 @@
   function summaryTable(seasons) {
     const maxGoals = Math.max(...seasons.map((s) => s.summary.goals));
     return `<table><thead><tr>
-        <th>Season</th><th class="num">Matches</th><th style="width:55%">1 · X · 2</th>
-        <th class="num">Goals / match</th>
+        <th>Temporada</th><th class="num">Partidos</th><th style="width:55%">1 · X · 2</th>
+        <th class="num">Goles / partido</th>
       </tr></thead><tbody>${seasons.map((s, i) => `<tr class="clickable ${i === state.season ? "selected" : ""}" data-i="${i}">
         <td>${esc(s.season)}</td><td class="num">${s.summary.matches}</td>
         <td>${outcomeBar(s.summary.home, s.summary.draw, s.summary.away)}</td>
-        <td><div class="mini" data-tip="${s.summary.goals.toFixed(2)} goals per match">
-          ${s.summary.goals.toFixed(2)}<span style="width:${(s.summary.goals / maxGoals) * 60}px"></span>
+        <td><div class="mini" data-tip="${num0(s.summary.goals, 2)} goles por partido">
+          ${num0(s.summary.goals, 2)}<span style="width:${(s.summary.goals / maxGoals) * 60}px"></span>
         </div></td>
       </tr>`).join("")}</tbody></table>`;
   }
@@ -90,8 +91,8 @@
     const matches = state.team
       ? season.matches.filter((m) => m.home_team === state.team || m.away_team === state.team)
       : season.matches;
-    $("standings-title").textContent = `Final standings ${season.season}`;
-    $("results-title").textContent = `Results ${season.season}${state.team ? ` · ${state.team}` : ""} (${matches.length})`;
+    $("standings-title").textContent = `Clasificación final ${season.season}`;
+    $("results-title").textContent = `Resultados ${season.season}${state.team ? ` · ${state.team}` : ""} (${matches.length})`;
     $("standings").innerHTML = standingsTable(season.standings);
     $("results").innerHTML = resultsTable(matches, DATA.categories);
     renderTickets(season.season);
@@ -100,10 +101,10 @@
   // Official quiniela tickets of the selected season (all competitions)
   function renderTickets(seasonLabel, index = null) {
     const tickets = (DATA.tickets || {})[seasonLabel] || [];
-    $("tickets-title").textContent = `Official quiniela tickets ${seasonLabel} (${tickets.length})`;
+    $("tickets-title").textContent = `Boletos oficiales de la quiniela ${seasonLabel} (${tickets.length})`;
     if (!tickets.length) {
       $("ticket-select").innerHTML = "";
-      $("tickets").innerHTML = '<p class="empty">No official tickets saved for this season (data/lae).</p>';
+      $("tickets").innerHTML = '<p class="empty">No hay boletos oficiales guardados de esta temporada (data/lae).</p>';
       return;
     }
     const i = index ?? tickets.length - 1;
@@ -117,7 +118,7 @@
     $("season").value = i;
     const teams = DATA.leagues[state.league].seasons[i].standings.map((r) => r.team).sort();
     if (!teams.includes(state.team)) state.team = "";
-    $("team").innerHTML = '<option value="">All teams</option>' +
+    $("team").innerHTML = '<option value="">Todos los equipos</option>' +
       teams.map((t) => `<option ${t === state.team ? "selected" : ""}>${esc(t)}</option>`).join("");
     renderSummary();
     renderSeason();
@@ -126,7 +127,7 @@
   function selectLeague(i) {
     state.league = i;
     const seasons = DATA.leagues[i].seasons;
-    $("coverage").textContent = `${seasons[0].season} to ${seasons[seasons.length - 1].season}`;
+    $("coverage").textContent = `De ${seasons[0].season} a ${seasons[seasons.length - 1].season}`;
     $("season").innerHTML = seasons.map((s, j) => `<option value="${j}">${esc(s.season)}</option>`).join("");
     // Open the most recent season by default
     selectSeason(seasons.length - 1);
@@ -139,7 +140,7 @@
 
   $("women-data").innerHTML = ligaFDataTable(DATA.liga_f?.data);
   $("women-matches").innerHTML = ligaFMatchesTable(DATA.liga_f?.matches);
-  renderGlossary(["M", "F", "O", "U", "Q", "signs", "jornada", "v1F", "categories", "pleno"]);
+  renderGlossary(["M", "F", "O", "U", "Q", "signs", "standings", "jornada", "v1F", "categories", "pleno"]);
   tableOfContents();
 
   if (DATA.leagues.length) {
@@ -147,7 +148,7 @@
     selectLeague(0);
   } else {
     document.querySelector("main").insertAdjacentHTML("beforeend",
-      '<p class="empty">No data. Run <code>invoke download.historical --start 1993</code> first.</p>');
+      '<p class="empty">Sin datos. Ejecuta antes <code>invoke download.historical --start 1993</code>.</p>');
   }
 </script>
 </body>

@@ -42,19 +42,20 @@ PUBLIC_KEY = "national_public"
 REFERENCE_SPECS: list[dict[str, Any]] = [
     {
         "key": SHARES_KEY,
-        "name": "Result shares",
+        "name": "Proporciones",
         "version": "",
         "reference": True,
-        "description": "Shares of 1, X and 2 of the internationals of the earlier years (what the "
-        "tickets used without public picks); its sign is always the home win.",
+        "description": "Proporciones de 1, X y 2 de los partidos internacionales de los años anteriores "
+        "(lo que usaban los boletos sin lo que marca el público); su signo es siempre que gana el local.",
     },
     {
         "key": PUBLIC_KEY,
-        "name": "Public picks",
+        "name": "Público",
         "version": "",
         "reference": True,
-        "description": "Share of quiniela bettors marking each sign, normalised: what the tickets "
-        "used for the national-team matches until v0.19 (only the archived tickets have it).",
+        "description": "Porcentaje de apostantes de la quiniela que marca cada signo, normalizado: lo que "
+        "usaban los boletos en los partidos de selecciones hasta la v0.19 (solo lo tienen los boletos "
+        "archivados).",
     },
 ]
 

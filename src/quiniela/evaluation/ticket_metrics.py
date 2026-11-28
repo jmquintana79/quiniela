@@ -101,33 +101,58 @@ MATCH_COLUMNS = [
 # Name, label and meaning of every metric, shown by metrics.html
 METRIC_INFO: dict[str, tuple[str, str]] = {
     "fav_prob": (
-        "Favourite",
-        "probability of the pick (v3; v3F in the Liga F): higher, clearer match",
+        "Favorito",
+        "probabilidad del signo más probable (v3; v3F en la Liga F): más alta, partido más claro",
     ),
     "entropy": (
-        "Openness",
-        "entropy of the probabilities (v3; v3F in the Liga F): higher, more open",
+        "Apertura",
+        "entropía de las probabilidades (v3; v3F en la Liga F): más alta, más abierto",
     ),
-    "strength": ("Strength gap", "pi-ratings (v4) home-win minus away-win probability"),
-    "edge_market": ("v3 vs market", "log of v3's probability of its pick over the market's"),
+    "strength": (
+        "Diferencia de fuerza",
+        "probabilidad de que gane el local menos la de que gane el visitante según los pi-ratings (v4)",
+    ),
+    "edge_market": (
+        "v3 frente al mercado",
+        "logaritmo de la probabilidad de v3 de su signo dividida por la del mercado",
+    ),
     "edge_public": (
-        "v3 vs public",
-        "log of v3's probability of its pick over the public's share (above 0: underrated)",
+        "v3 frente al público",
+        "logaritmo de la probabilidad de v3 de su signo dividida por el porcentaje del público "
+        "(por encima de 0: infravalorado)",
     ),
-    "value": ("Best value", "highest v3 probability / public share among the three signs"),
-    "spread": ("Bookmaker spread", "mean log of the highest over the average odds"),
-    "expected_hits": ("Expected hits", "hits the single v3 ticket expects (sum of its chances)"),
+    "value": (
+        "Mejor valor",
+        "mayor probabilidad de v3 / porcentaje del público entre los tres signos",
+    ),
+    "spread": ("Dispersión de cuotas", "media del logaritmo de la cuota más alta sobre la media"),
+    "expected_hits": (
+        "Aciertos esperados",
+        "aciertos que espera el boleto sencillo (suma de sus probabilidades)",
+    ),
     "differentiation": (
-        "Differentiation",
-        "sum of the v3 vs public edges of the single ticket's picks",
+        "Diferenciación",
+        "suma de las ventajas de v3 frente al público en los signos del boleto sencillo",
     ),
-    "co_winners_14": ("Co-winners if 14", "bets expected to share a 14 of the single ticket"),
-    "p_big_v3b": ("v3+v3F·B 1,000 €+", "planned chance of a prize of 1,000 € or more"),
-    "p_hits_v3d": ("v3+v3F·D 12+", "planned chance of 12 or more hits"),
-    "p_hits_v3d2": ("v3+v3F·D2 12+", "planned chance of 12 or more hits of the 2-bet ticket"),
-    "p_hits_v3s": ("Single 12+", "planned chance of 12 or more hits of the single ticket"),
-    "expected_return": ("Expected return", "v3+v3F·E expected prize over its cost (prudent)"),
-    "jackpot": ("Jackpot", "jackpot announced for the Pleno al 15 (EUR)"),
+    "co_winners_14": (
+        "Coacertantes si hay 14",
+        "apuestas que se espera que compartan un 14 del boleto sencillo",
+    ),
+    "p_big_v3b": ("v3+v3F·B 1.000 €+", "probabilidad planificada de un premio de 1.000 € o más"),
+    "p_hits_v3d": ("v3+v3F·D 12+", "probabilidad planificada de 12 o más aciertos"),
+    "p_hits_v3d2": (
+        "v3+v3F·D2 12+",
+        "probabilidad planificada de 12 o más aciertos del boleto de 2 apuestas",
+    ),
+    "p_hits_v3s": (
+        "Sencillo 12+",
+        "probabilidad planificada de 12 o más aciertos del boleto sencillo",
+    ),
+    "expected_return": (
+        "Retorno esperado",
+        "premio esperado del v3+v3F·E dividido por su coste (prudente)",
+    ),
+    "jackpot": ("Bote", "bote anunciado para el Pleno al 15 (€)"),
 }
 
 

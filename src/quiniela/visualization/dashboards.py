@@ -243,12 +243,13 @@ def historical_payload(
 PLANNED_KEY = "v3d"
 PLANNED_SPEC = {
     "key": PLANNED_KEY,
-    "name": "Direct ticket",
+    "name": "Boleto directo",
     "version": "v3+v3F·D",
     "reference": False,
-    "description": "Probabilities of v3 on the men's matches and v3F (pi-ratings with shots on target) on the "
-    "Liga F ones (v1F, the public's picks, without it), plus the best direct doubles and triples for a 48-bet budget, chosen to "
-    "maximise the chance of 11 or more hits. Outside the ticket, the v3 sign.",
+    "description": "Probabilidades de v3 en los partidos masculinos, de v3F en los de Liga F, de v1N en "
+    "las selecciones y de v1C en los demás clubes, con los mejores dobles y triples directos para un "
+    "presupuesto de 48 apuestas, elegidos para la mayor probabilidad de 11 o más aciertos. Fuera del "
+    "boleto, el signo de v3.",
     # A way of playing, not a probability model: never "best model" in the evaluation
     "ticket": True,
 }
@@ -259,13 +260,13 @@ SMALL_KEY = "v3d2"
 SMALL_BETS = 2
 SMALL_SPEC = {
     "key": SMALL_KEY,
-    "name": "Small ticket",
+    "name": "Boleto pequeño",
     "version": "v3+v3F·D2",
     "reference": False,
-    "description": "Like v3+v3F·D with the smallest ticket that can be played: 2 bets (1.50 EUR), "
-    "one double where it most raises the chance of 11 or more hits. In the euro backtest it got "
-    "back about twice as much on the jornadas with the v3+v3F·D light green as on the rest. "
-    "Outside the ticket, the v3 sign.",
+    "description": "Como v3+v3F·D con el boleto más pequeño que se puede jugar: 2 apuestas (1,50 €), "
+    "un doble donde más sube la probabilidad de 11 o más aciertos. En el backtest en euros devolvió "
+    "más o menos el doble en las jornadas con el semáforo del v3+v3F·D en verde que en el resto. "
+    "Fuera del boleto, el signo de v3.",
     "ticket": True,
 }
 
@@ -273,13 +274,13 @@ SMALL_SPEC = {
 REDUCED_KEY = "v3r"
 REDUCED_SPEC = {
     "key": REDUCED_KEY,
-    "name": "Reduced ticket",
+    "name": "Boleto reducido",
     "version": "v3+v3F·R",
     "reference": False,
-    "description": "Like v3+v3F·D, but the 48 bets may also go to an official reduction (fewer "
-    "columns that cover more matches, guaranteeing 13 hits when every covered sign is right) "
-    "with direct doubles and triples on other matches: the best chance of 11 or more hits. "
-    "Matches marked R are in the reduction. Outside the ticket, the v3 sign.",
+    "description": "Como v3+v3F·D, pero las 48 apuestas también pueden ir a una reducción oficial (menos "
+    "columnas que cubren más partidos y garantizan 13 aciertos si aciertan todos los signos cubiertos) "
+    "con dobles y triples directos en otros partidos: la mayor probabilidad de 11 o más aciertos. Los "
+    "partidos marcados R están en la reducción. Fuera del boleto, el signo de v3.",
     "ticket": True,
 }
 
@@ -289,13 +290,13 @@ REDUCED_SPEC = {
 MONEY_KEY = "v3b"
 MONEY_SPEC = {
     "key": MONEY_KEY,
-    "name": "1,000 € ticket",
+    "name": "Boleto de 1.000 €",
     "version": "v3+v3F·B",
     "reference": False,
-    "description": "v3 on the men's matches and v3F on the Liga F ones, plus the doubles and "
-    "triples (at most 50 EUR) with the best chance "
-    "of a prize of 1,000 EUR or more: many hits and few other winners. It loses money on "
-    "average; its banner shows what can happen. Outside the ticket, the v3 sign.",
+    "description": "Los mismos modelos, con los dobles y triples (50 € como mucho) que dan la mayor "
+    "probabilidad de un premio de 1.000 € o más: muchos aciertos y pocos otros acertantes (puede usar "
+    "una reducción). Pierde dinero de media; su recuadro muestra lo que puede pasar. Fuera del "
+    "boleto, el signo de v3.",
     "ticket": True,
 }
 
@@ -496,11 +497,12 @@ def _liga_f_picks(liga_f: pd.DataFrame | None) -> dict[tuple[str, int, int], np.
 SINGLE_KEY = "v3s"
 SINGLE_SPEC = {
     "key": SINGLE_KEY,
-    "name": "Single ticket",
+    "name": "Boleto sencillo",
     "version": "v3+v3F",
     "reference": False,
-    "description": "One sign per match, the most likely one: v3 on the men's matches, v3F on "
-    "the Liga F ones (v1F without it) and the public's picks elsewhere. One bet, 0.75 EUR.",
+    "description": "Un signo por partido, el más probable: v3 en los partidos masculinos, v3F en los "
+    "de Liga F, v1N en las selecciones, v1C en los demás clubes y lo que marca el público donde no hay "
+    "modelo. Una apuesta, 0,75 €.",
     "ticket": True,
 }
 
@@ -1602,18 +1604,18 @@ def _recommendations(
     ):
         odds = (summary.get(key) or {}).get("odds") or {}
         hits = str(RECOMMEND_HITS)
-        add(key, f"{hits}+ hits", odds.get(hits), strategy, "p_hits", True)
+        add(key, f"{hits}+ aciertos", odds.get(hits), strategy, "p_hits", True)
     money = (summary.get(MONEY_KEY) or {}).get("money")
     if money is not None:
         add(
             MONEY_KEY,
-            f"{BIG_WIN_THRESHOLD:,.0f} € or more",
+            f"{BIG_WIN_THRESHOLD:,.0f} € o más".replace(",", "."),
             money.get("chance"),
             "v3b",
             "p_big",
             True,
         )
-        add(MONEY_KEY, "13+ hits", money.get("chance_13"), "v3b", "p_hits", False)
+        add(MONEY_KEY, "13+ aciertos", money.get("chance_13"), "v3b", "p_hits", False)
     return rows
 
 
@@ -1791,28 +1793,28 @@ def _model_specs(keys: list[str]) -> list[dict[str, Any]]:
 EVALUATION_METRICS: list[dict[str, str]] = [
     {
         "key": "hit_rate",
-        "label": "Hit rate",
+        "label": "Aciertos",
         "better": "higher",
         "format": "pct",
-        "description": "Share of matches whose predicted sign (1, X or 2) was the real result.",
-        "formula": "hits / N",
+        "description": "Porcentaje de partidos cuyo signo pronosticado (1, X o 2) fue el resultado real.",
+        "formula": "aciertos / N",
     },
     {
         "key": "log_loss",
         "label": "Log-loss",
         "better": "lower",
         "format": "num",
-        "description": "Average surprise: minus the log of the probability given to the real "
-        "result. Punishes confident mistakes hard. Always predicting 1/3 each scores 1.099.",
+        "description": "Sorpresa media: menos el logaritmo de la probabilidad dada al resultado real. "
+        "Castiga mucho los errores muy seguros. Dar siempre 1/3 a cada signo da 1,099.",
         "formula": "−(1/N) Σᵢ log pᵢ,real",
     },
     {
         "key": "brier",
-        "label": "Brier score",
+        "label": "Brier",
         "better": "lower",
         "format": "num",
-        "description": "Average squared distance between the three probabilities and what "
-        "happened (1 for the real result, 0 for the others). From 0 (perfect) to 2.",
+        "description": "Distancia al cuadrado media entre las tres probabilidades y lo que pasó (1 para "
+        "el resultado real, 0 para los demás). De 0 (perfecto) a 2.",
         "formula": "(1/N) Σᵢ Σₖ (pᵢₖ − oᵢₖ)²",
     },
     {
@@ -1820,9 +1822,9 @@ EVALUATION_METRICS: list[dict[str, str]] = [
         "label": "RPS",
         "better": "lower",
         "format": "num",
-        "description": "Ranked probability score: like Brier but on cumulative probabilities, "
-        "so 1 → X → 2 are ordered and predicting a draw is a smaller mistake than "
-        "predicting the opposite result. From 0 to 1.",
+        "description": "Ranked probability score: como Brier pero con probabilidades acumuladas, así que "
+        "1 → X → 2 tienen orden y pronosticar empate es un error menor que pronosticar el resultado "
+        "contrario. De 0 a 1.",
         "formula": "(1/N) Σᵢ ½ Σₖ₌₁² (Σⱼ≤ₖ pᵢⱼ − Σⱼ≤ₖ oᵢⱼ)²",
     },
     {
@@ -1830,37 +1832,36 @@ EVALUATION_METRICS: list[dict[str, str]] = [
         "label": "Macro-F1",
         "better": "info",
         "format": "num",
-        "description": "Informative, never bold: the mean over 1, X and 2 of the F1 score of "
-        "the predicted sign (2 × right predictions of the sign / (its predictions + its real "
-        "results)). A sign never predicted scores 0, so it mostly shows how a model handles "
-        "draws; the quiniela pays every hit the same, so hit rate and the probability metrics "
-        "choose the model.",
-        "formula": "⅓ Σₖ 2·hitsₖ / (predictedₖ + realₖ)",
+        "description": "Informativa, nunca en negrita: la media en 1, X y 2 del F1 del signo pronosticado "
+        "(2 × aciertos del signo / (veces pronosticado + veces real)). Un signo nunca pronosticado saca "
+        "0, así que sobre todo muestra cómo trata un modelo los empates; la quiniela paga igual cada "
+        "acierto, así que eligen el modelo los aciertos y las métricas de probabilidad.",
+        "formula": "⅓ Σₖ 2·aciertosₖ / (pronosticadosₖ + realesₖ)",
     },
     {
         "key": "draw_picks",
-        "label": "X picks",
+        "label": "X pronosticadas",
         "better": "info",
         "format": "pct",
-        "description": "Share of matches where the model predicted a draw, to compare with "
-        "the real share of draws below.",
+        "description": "Porcentaje de partidos en los que el modelo pronosticó empate, para comparar con "
+        "el porcentaje real de empates de debajo.",
         "formula": "",
     },
     {
         "key": "draw_rate",
-        "label": "Real draws",
+        "label": "Empates reales",
         "better": "info",
         "format": "pct",
-        "description": "Share of matches that ended in a draw.",
+        "description": "Porcentaje de partidos que acabaron en empate.",
         "formula": "",
     },
     {
         "key": "score_hit_rate",
-        "label": "Exact score",
+        "label": "Marcador exacto",
         "better": "higher",
         "format": "pct",
-        "description": "Share of matches whose most likely score was the real one (models "
-        "that predict goals).",
+        "description": "Porcentaje de partidos cuyo marcador más probable fue el real (modelos que "
+        "pronostican goles).",
         "formula": "",
     },
     {
@@ -1868,26 +1869,26 @@ EVALUATION_METRICS: list[dict[str, str]] = [
         "label": "Pleno al 15",
         "better": "higher",
         "format": "pct",
-        "description": "Share of matches where both teams' goals category (0, 1, 2, M) was "
-        "right, as in the Pleno al 15.",
+        "description": "Porcentaje de partidos en los que se acertó la categoría de goles (0, 1, 2, M) de "
+        "los dos equipos, como en el Pleno al 15.",
         "formula": "",
     },
     {
         "key": "prizes",
-        "label": "Prize tickets",
+        "label": "Boletos con premio",
         "better": "higher",
         "format": "int",
-        "description": "Matchdays whose 14-match ticket got 10 or more hits (5th category or "
-        "better), out of the complete tickets. Only for both leagues together.",
+        "description": "Jornadas cuyo boleto de 14 partidos hizo 10 o más aciertos (5.ª categoría o "
+        "mejor), de los boletos completos. Solo para las dos ligas juntas.",
         "formula": "",
     },
     {
         "key": "matches",
-        "label": "Matches",
+        "label": "Partidos",
         "better": "info",
         "format": "int",
-        "description": "Matches predicted (matches without a prediction, e.g. no odds for the "
-        "market, are left out of every metric).",
+        "description": "Partidos pronosticados (los que no tienen pronóstico, p. ej. sin cuotas para el "
+        "mercado, quedan fuera de todas las métricas).",
         "formula": "",
     },
 ]
@@ -2311,7 +2312,7 @@ def evaluation_payload(
     return {
         "models": models,
         "metrics": EVALUATION_METRICS,
-        "leagues": {"all": "Both leagues", **LEAGUE_NAMES},
+        "leagues": {"all": "Ambas ligas", **LEAGUE_NAMES},
         "seasons": seasons,
         "matches": int(backtest[backtest["model"] == backtest["model"].iloc[0]].shape[0]),
         "results": results,
@@ -2352,11 +2353,11 @@ def _template(name: str) -> str:
 # Prize categories of the official draws, from the top one down
 PRIZE_CATEGORIES = [
     ("special", "14 + Pleno al 15"),
-    ("14", "14 hits"),
-    ("13", "13 hits"),
-    ("12", "12 hits"),
-    ("11", "11 hits"),
-    ("10", "10 hits"),
+    ("14", "14 aciertos"),
+    ("13", "13 aciertos"),
+    ("12", "12 aciertos"),
+    ("11", "11 aciertos"),
+    ("10", "10 aciertos"),
 ]
 
 
@@ -2465,14 +2466,14 @@ def ticket_notice(now: pd.Timestamp | None = None) -> str | None:
 
     ticket = load_upcoming()
     if ticket is None:
-        return "No official ticket saved yet: run invoke update and click the Quiniela bookmark on the betting page it opens."
+        return "Aún no hay ningún boleto oficial guardado: ejecuta invoke update y pulsa el marcador Quiniela en la página de apuestas que abre."
     now = pd.Timestamp.now(tz=ticket.closes.tz) if now is None else now
     if ticket.closes >= now:
         return None
     return (
-        f"The next official ticket is not saved: the saved one (jornada {ticket.jornada}) closed. "
-        "Run invoke update and click the Quiniela bookmark on the betting page it opens (allow the "
-        "download if the browser asks)."
+        f"El próximo boleto oficial no está guardado: el guardado (jornada {ticket.jornada}) ya cerró. "
+        "Ejecuta invoke update y pulsa el marcador Quiniela en la página de apuestas que abre (permite la "
+        "descarga si el navegador lo pregunta)."
     )
 
 
@@ -2720,12 +2721,12 @@ def metrics_payload(
 
 # Tickets compared to choose the one to bet with (the euro backtest strategies played every draw)
 CHOICE_STRATEGIES = {
-    "single": "Single ticket",
-    "v3d2": "·D2 small",
-    "v3d": "·D direct",
-    "v3r": "·R reduced",
-    "v3b": "·B 1,000 €",
-    "v3e_always": "·E expected prize",
+    "single": "Boleto sencillo",
+    "v3d2": "·D2 pequeño",
+    "v3d": "·D directo",
+    "v3r": "·R reducido",
+    "v3b": "·B 1.000 €",
+    "v3e_always": "·E premio esperado",
 }
 
 

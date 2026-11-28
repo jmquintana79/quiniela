@@ -38,11 +38,11 @@ RESULT_KEYS = [key for key in WOMEN_MODELS if key != PUBLIC_KEY]
 SHARES_KEY = "liga_f_shares"
 SHARES_SPEC: dict[str, Any] = {
     "key": SHARES_KEY,
-    "name": "Result shares",
+    "name": "Proporciones",
     "version": "",
     "reference": True,
-    "description": "Shares of 1, X and 2 of the Liga F matches played before (what v1F uses "
-    "without public picks); its sign is always the most frequent result.",
+    "description": "Proporciones de 1, X y 2 de los partidos de Liga F jugados antes (lo que usa v1F "
+    "sin lo que marca el público); su signo es siempre el resultado más frecuente.",
 }
 
 PREDICTION_COLUMNS = [

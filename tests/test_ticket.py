@@ -8,11 +8,11 @@ from tests.helpers import make_matches
 @pytest.mark.parametrize(
     ("hits", "category"),
     [
-        (14, "1st category"),
-        (13, "2nd category"),
-        (12, "3rd category"),
-        (11, "4th category"),
-        (10, "5th category"),
+        (14, "1.ª categoría"),
+        (13, "2.ª categoría"),
+        (12, "3.ª categoría"),
+        (11, "4.ª categoría"),
+        (10, "5.ª categoría"),
         (9, None),
         (0, None),
     ],
@@ -54,18 +54,18 @@ def test_evaluate_ticket_statuses() -> None:
     assert evaluate_ticket(size=11, hits=8, pending=0).status == "incomplete"
 
     pending = evaluate_ticket(size=14, hits=8, pending=3)
-    assert (pending.status, pending.best_possible) == ("pending", "4th category")
+    assert (pending.status, pending.best_possible) == ("pending", "4.ª categoría")
     assert evaluate_ticket(size=14, hits=5, pending=2).best_possible is None
 
     prize = evaluate_ticket(size=14, hits=12, pending=0)
-    assert (prize.status, prize.category) == ("prize", "3rd category")
+    assert (prize.status, prize.category) == ("prize", "3.ª categoría")
 
     no_prize = evaluate_ticket(size=14, hits=9, pending=0)
     assert (no_prize.status, no_prize.category) == ("no_prize", None)
-    assert "at least 10" in no_prize.message
+    assert "al menos 10" in no_prize.message
 
 
 def test_ticket_result_to_dict() -> None:
-    assert evaluate_ticket(14, 14, 0).to_dict()["category"] == "1st category"
+    assert evaluate_ticket(14, 14, 0).to_dict()["category"] == "1.ª categoría"
     assert isinstance(evaluate_ticket(14, 14, 0).to_dict(), dict)
     assert pd.isna(ticket_positions(make_matches([])).max())

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,28 +9,30 @@
 <body>
 <main>
   <header>
-    <h1>Quiniela prizes</h1>
+    <h1>Premios de la quiniela</h1>
     <span class="meta" id="meta"></span>
   </header>
 
-  <p class="help" style="margin:0 0 12px"><b>What this page is for:</b> how much each prize category really pays, so the
-    euro figures of the other pages can be read. Every official draw saved, then how the prizes spread.
-    <a href="#distributions">Distributions ↓</a></p>
+  <p class="help" style="margin:0 0 12px"><b>Para qué sirve esta página:</b> cuánto paga de verdad cada categoría de
+    premio, para poder leer los euros de las demás páginas. Todos los sorteos oficiales guardados y, después, cómo se
+    reparten los premios. <a href="#distributions">Distribuciones ↓</a></p>
 
-  <section data-toc="Prizes of every draw" class="card" style="margin-bottom:16px">
-    <p class="help">Newest first. Each cell: euros per winning bet and, below, how many winners. Few winners mean a large
-      prize. Jackpot: money carried into the 14 + Pleno al 15 category. The 10-hit prize is not paid under 1.50 €.</p>
+  <section data-toc="Premios de cada sorteo" class="card" style="margin-bottom:16px">
+    <p class="help">Del más reciente al más antiguo. Cada celda: euros por apuesta acertante y, debajo, cuántos acertantes.
+      Pocos acertantes significan un premio grande. Bote: dinero acumulado en la categoría de 14 + Pleno al 15. El premio de
+      10 aciertos no se paga si baja de 1,50 €.</p>
     <div class="scroll" id="prizes"></div>
   </section>
 
-  <section data-toc="Prize distributions" class="card" id="distributions">
-    <h2>Distribution of the prize per winner</h2>
-    <p class="help">How often each category paid each amount. The euro axis is logarithmic (each step ten times the previous
-      one) and the same for every chart; the dashed line is the median. Hover a chart for the share of draws paying less.</p>
+  <section data-toc="Distribución de los premios" class="card" id="distributions">
+    <h2>Distribución del premio por acertante</h2>
+    <p class="help">Con qué frecuencia pagó cada categoría cada importe. El eje de euros es logarítmico (cada paso es diez
+      veces el anterior) y el mismo en todos los gráficos; la línea discontinua es la mediana. Pasa el ratón por un gráfico
+      para ver el porcentaje de sorteos que pagaron menos.</p>
     <div class="grid two" id="densities"></div>
   </section>
-  <section class="card" data-toc="Glossary" style="margin-top:16px">
-    <h2>Glossary</h2>
+  <section class="card" data-toc="Glosario" style="margin-top:16px">
+    <h2>Glosario</h2>
     <div class="glossary" id="glossary"></div>
   </section>
 </main>
@@ -39,21 +41,21 @@
 <script>/*__SCRIPT__*/</script>
 <script>
   const $ = (id) => document.getElementById(id);
-  const count = (n) => n == null ? "–" : n.toLocaleString("en-GB");
-  const money = (v) => v == null ? "–" : `${v.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const count = (n) => n == null ? "–" : n.toLocaleString("es-ES");
+  const money = (v) => v == null ? "–" : `${v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
   function prizeCell(c) {
     if (!c || c.winners == null) return '<td class="num muted">–</td>';
-    if (c.winners === 0) return '<td class="num muted">No winners</td>';
+    if (c.winners === 0) return '<td class="num muted">Sin acertantes</td>';
     const prize = c.prize ? `<span style="font-weight:600;font-size:14px">${money(c.prize)}</span>`
-      : '<span class="muted">not paid</span>';
+      : '<span class="muted">no se paga</span>';
     return `<td class="num">${prize}` +
-      `<br><span class="muted" style="font-size:11px">${count(c.winners)} ${c.winners === 1 ? "winner" : "winners"}</span></td>`;
+      `<br><span class="muted" style="font-size:11px">${count(c.winners)} ${c.winners === 1 ? "acertante" : "acertantes"}</span></td>`;
   }
 
   function jackpotCell(v) {
-    return v > 0 ? `<td><span class="badge">Jackpot</span><br><span class="muted" style="font-size:11px">${money(v)}</span></td>`
-      : '<td class="muted">No jackpot</td>';
+    return v > 0 ? `<td><span class="badge">Bote</span><br><span class="muted" style="font-size:11px">${money(v)}</span></td>`
+      : '<td class="muted">Sin bote</td>';
   }
 
   /** Gaussian kernel density of values (already on a log10 scale) at the points xs. */
@@ -81,7 +83,7 @@
     const paid = draws.map((d) => d.prizes[category.key])
       .filter((c) => c && c.winners > 0 && c.prize > 0).map((c) => c.prize).sort((a, b) => a - b);
     const skipped = draws.length - paid.length;
-    if (paid.length < 2) return `<div><h3>${esc(category.label)}</h3><p class="empty">Not enough paid draws.</p></div>`;
+    if (paid.length < 2) return `<div><h3>${esc(category.label)}</h3><p class="empty">No hay suficientes sorteos pagados.</p></div>`;
     const logs = paid.map(Math.log10);
     // The same euro axis for every category, so the charts can be compared at a glance
     const lo = Math.log10(AXIS_MIN), hi = Math.log10(AXIS_MAX);
@@ -109,45 +111,45 @@
       const value = 10 ** ((x0 + x1) / 2);
       const below = paid.filter((p) => p < value).length / paid.length;
       return `<rect x="${sx(x0).toFixed(1)}" y="${top}" width="${(pw / slices).toFixed(1)}" height="${ph}" fill="transparent"
-        data-tip="${esc(`About ${money(value)}: ${pct(below, 0)} of the draws paid less`)}"/>`;
+        data-tip="${esc(`Unos ${money(value)}: el ${pct(below, 0)} de los sorteos pagó menos`)}"/>`;
     }).join("");
     return `<div>
       <h3 style="margin:0 0 4px">${esc(category.label)}</h3>
       <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img"
-        aria-label="Density of the prize per winner, ${esc(category.label)}">
+        aria-label="Densidad del premio por acertante, ${esc(category.label)}">
         ${ticks}
         <line x1="${left}" x2="${left + pw}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--text-muted)" stroke-width="1"/>
         <path d="${area}" fill="var(--accent)" opacity="0.18"/>
         <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
         <line x1="${mx}" x2="${mx}" y1="${top}" y2="${top + ph}" stroke="var(--text-secondary)" stroke-width="1" stroke-dasharray="4 3"/>
-        <text x="${Number(mx) + 4}" y="${top + 10}" font-size="11" fill="var(--text-secondary)">median ${money(median)}</text>
+        <text x="${Number(mx) + 4}" y="${top + 10}" font-size="11" fill="var(--text-secondary)">mediana ${money(median)}</text>
         ${hover}
       </svg>
-      <p class="meta" style="margin:4px 0 0">${count(paid.length)} draws · half paid between ${money(quantile(paid, 0.25))}
-        and ${money(quantile(paid, 0.75))} · lowest ${money(paid[0])}, highest ${money(paid[paid.length - 1])}${skipped
-          ? ` · ${count(skipped)} ${skipped === 1 ? "draw" : "draws"} without winners or not paid left out` : ""}.</p>
+      <p class="help" style="margin:4px 0 0">${count(paid.length)} sorteos · la mitad pagó entre ${money(quantile(paid, 0.25))}
+        y ${money(quantile(paid, 0.75))} · mínimo ${money(paid[0])}, máximo ${money(paid[paid.length - 1])}${skipped
+          ? ` · ${count(skipped)} ${skipped === 1 ? "sorteo" : "sorteos"} sin acertantes o sin pago, fuera` : ""}.</p>
     </div>`;
   }
 
   const draws = DATA.draws || [];
   if (draws.length) {
     const seasons = [...new Set(draws.map((d) => d.season))];
-    $("meta").textContent = `${draws.length.toLocaleString("en-GB")} draws · ${seasons[seasons.length - 1]} to ${seasons[0]}`;
+    $("meta").textContent = `${draws.length.toLocaleString("es-ES")} sorteos · de ${seasons[seasons.length - 1]} a ${seasons[0]}`;
     $("prizes").innerHTML = `<table><thead><tr>
-        <th>Season</th><th class="num">Jornada</th><th>Date</th><th>Jackpot</th>
+        <th>Temporada</th><th class="num">Jornada</th><th>Fecha</th><th>Bote</th>
         ${DATA.categories.map((c) => `<th class="num">${esc(c.label)}</th>`).join("")}
       </tr></thead><tbody>${draws.map((d) => `<tr>
         <td>${esc(d.season)}</td>
         <td class="num">${d.jornada ?? "–"}</td>
-        <td class="muted">${new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+        <td class="muted">${new Date(d.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}</td>
         ${jackpotCell(d.jackpot)}
         ${DATA.categories.map((c) => prizeCell(d.prizes[c.key])).join("")}
       </tr>`).join("")}</tbody></table>`;
     $("densities").innerHTML = DATA.categories.map(densityChart).join("");
   } else {
-    $("meta").textContent = "No official draws saved in data/lae yet.";
+    $("meta").textContent = "Aún no hay sorteos oficiales guardados en data/lae.";
   }
-  renderGlossary(["categories", "pleno", "jornada"]);
+  renderGlossary(["categories", "winners", "pleno", "jackpot", "jornada"]);
   tableOfContents();
 </script>
 </body>

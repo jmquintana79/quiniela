@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,187 +9,192 @@
 <body>
 <main>
   <header>
-    <h1>Model evaluation</h1>
+    <h1>Evaluación de los modelos</h1>
     <span class="meta" id="meta"></span>
   </header>
 
-  <p class="help" style="margin:0 0 14px"><b>What this page is for:</b> how good each model is, measured honestly: every
-    past match predicted only with what was known before it (walk-forward). Each group of competitions has its own
-    models. The main metric is the <b>log-loss</b> (lower is better); the hit rate is easier to read. Tickets at the end.</p>
+  <p class="help" style="margin:0 0 14px"><b>Para qué sirve esta página:</b> lo bueno que es cada modelo, medido de forma
+    honesta: cada partido pasado se pronostica solo con lo que se sabía antes (walk-forward). Cada grupo de competiciones
+    tiene sus propios modelos. La métrica principal es el <b>log-loss</b> (menos es mejor); los aciertos son más fáciles de
+    leer. Los boletos, al final. Todo está explicado en el <a href="#toc-glosario">glosario</a>.</p>
 
   <div class="filters">
     <div class="segmented" id="league-switch"></div>
-    <label>Season <select id="season"></select></label>
+    <label>Temporada <select id="season"></select></label>
   </div>
 
-  <h2 class="group" id="mens">Men's leagues (La Liga and Segunda)</h2>
+  <h2 class="group" id="mens">Ligas masculinas (Liga y Segunda)</h2>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Metrics">
-    <h2 id="metrics-title">Metrics</h2>
-    <p class="help">Every model on the same matches. <b>Bold</b>: the best model (the market is the reference to beat, not
-      a candidate). ↑ higher is better, ↓ lower is better. ·D and ·R are ways of playing v3, so only their hits and prizes
-      are shown (a double is a hit when the result is one of its signs).</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Métricas">
+    <h2 id="metrics-title">Métricas</h2>
+    <p class="help">Todos los modelos en los mismos partidos. <b>En negrita</b>: el mejor modelo (el mercado es la
+      referencia a batir, no un candidato). ↑ más es mejor, ↓ menos es mejor. ·D y ·R son formas de jugar v3, así que solo se
+      muestran sus aciertos y premios (un doble acierta si el resultado es uno de sus signos).</p>
     <div class="scroll" id="metrics"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by season">
-    <h2>Hit rate by season</h2>
-    <p class="help">Whether a model is steadily good or only in some seasons. Click a season to filter the page.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Aciertos por temporada">
+    <h2>Aciertos por temporada</h2>
+    <p class="help">Si un modelo es bueno de forma constante o solo en algunas temporadas. Pulsa una temporada para filtrar la
+      página.</p>
     <div class="scroll" id="by-season"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by result">
-    <h2 id="by-result-title">Hit rate by result</h2>
-    <p class="help">For the matches that ended 1, X or 2, how many each model got right. Every model misses most draws:
-      a draw is rarely the most likely result.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Aciertos por resultado">
+    <h2 id="by-result-title">Aciertos por resultado</h2>
+    <p class="help">De los partidos que acabaron 1, X o 2, cuántos acertó cada modelo. Todos fallan casi todos los empates: un
+      empate rara vez es el resultado más probable.</p>
     <div class="scroll" id="by-result"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Contingency tables">
-    <h2 id="contingency-title">Contingency tables</h2>
-    <p class="help">Rows: what happened; columns: what the model said. The diagonal (bold) are the hits; the share under
-      each count is of its row.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Tablas de contingencia">
+    <h2 id="contingency-title">Tablas de contingencia</h2>
+    <p class="help">Filas: lo que pasó; columnas: lo que dijo el modelo. La diagonal (en negrita) son los aciertos; el
+      porcentaje bajo cada número es de su fila.</p>
     <div class="grid two" id="contingency"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by confidence">
-    <h2>Hit rate by confidence</h2>
-    <p class="help">Matches split by the probability of the predicted sign (high, medium, low). If the probabilities can
-      be trusted, each group's hit rate is close to its confidence. Each cell: hit rate and share of matches.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Aciertos por confianza">
+    <h2>Aciertos por confianza</h2>
+    <p class="help">Partidos separados por la probabilidad del signo pronosticado (alta, media, baja). Si las probabilidades
+      son fiables, los aciertos de cada grupo se parecen a su confianza. Cada celda: aciertos y porcentaje de partidos.</p>
     <div class="scroll" id="confidence"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Calibration">
-    <h2>Calibration</h2>
-    <p class="help">Predicted probability (in 10% bins) against how often it happened. On the diagonal: well calibrated;
-      below: over-confident; above: under-confident. Every season of the selected league.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Masculino · Calibración">
+    <h2>Calibración</h2>
+    <p class="help">Probabilidad pronosticada (en tramos del 10 %) frente a lo a menudo que pasó. Sobre la diagonal: bien
+      calibrado; por debajo: demasiado seguro; por encima: poco seguro. Todas las temporadas de la liga elegida.</p>
     <div class="tiles" id="calibration"></div>
   </section>
 
-  <h2 class="group" id="liga-f">Liga F (women's league)</h2>
-  <p class="help" style="margin:-4px 0 12px">Every Liga F match since 2023-24, predicted week by week. v2F and v3F learn
-    from the results (v3F, the tickets' model, from shots on target too); v1F (the public) only exists where the betting
-    page was saved. Season filter only.</p>
+  <h2 class="group" id="liga-f">Liga F (liga femenina)</h2>
+  <p class="help" style="margin:-4px 0 12px">Todos los partidos de Liga F desde 2023-24, pronosticados semana a semana. v2F y
+    v3F aprenden de los resultados (v3F, el modelo de los boletos, también de los tiros a puerta); v1F (el público) solo
+    existe donde se guardó la página de apuestas. Solo se filtra por temporada.</p>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Metrics">
-    <h2 id="women-metrics-title">Liga F · Metrics</h2>
-    <p class="help">Each model on the matches where it has its input.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Métricas">
+    <h2 id="women-metrics-title">Liga F · Métricas</h2>
+    <p class="help">Cada modelo en los partidos en los que tiene sus datos.</p>
     <div class="scroll" id="women-metrics"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Models against the public">
-    <h2 id="women-common-title">Liga F · v1F against v2F</h2>
-    <p class="help">Every Liga F model on the <b>same</b> matches (those with the public's picks): the fair comparison
-      with the public. It grows by about four matches a week.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Modelos frente al público">
+    <h2 id="women-common-title">Liga F · Modelos frente al público</h2>
+    <p class="help">Todos los modelos de Liga F en los <b>mismos</b> partidos (los que tienen lo que marca el público): la
+      comparación justa con el público. Crece unos cuatro partidos por semana.</p>
     <div class="scroll" id="women-common"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Hit rate by result">
-    <h2 id="women-by-result-title">Liga F · Hit rate by result</h2>
-    <p class="help">As for the men's leagues.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Aciertos por resultado">
+    <h2 id="women-by-result-title">Liga F · Aciertos por resultado</h2>
+    <p class="help">Igual que en las ligas masculinas.</p>
     <div class="scroll" id="women-by-result"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Contingency tables">
-    <h2 id="women-contingency-title">Liga F · Contingency tables</h2>
-    <p class="help">Rows: what happened; columns: what the model said.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Tablas de contingencia">
+    <h2 id="women-contingency-title">Liga F · Tablas de contingencia</h2>
+    <p class="help">Filas: lo que pasó; columnas: lo que dijo el modelo.</p>
     <div class="grid two" id="women-contingency"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Data and matches">
-    <h2>Liga F · Data and matches</h2>
-    <p class="help">How much Liga F data there is per season, and every Liga F match of the official tickets with each
-      model's pick.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Datos y partidos">
+    <h2>Liga F · Datos y partidos</h2>
+    <p class="help">Cuántos datos de Liga F hay por temporada y cada partido de Liga F de los boletos oficiales con el
+      pronóstico de cada modelo.</p>
     <div class="scroll" id="women-data"></div>
-    <h3 style="margin:14px 0 6px;font-size:14px">Every Liga F match of the official tickets</h3>
+    <h3 style="margin:14px 0 6px;font-size:14px">Todos los partidos de Liga F de los boletos oficiales</h3>
     <div class="scroll" id="women-matches"></div>
   </section>
 
-  <h2 class="group" id="national">National teams (men's)</h2>
-  <p class="help" style="margin:-4px 0 12px">v1N on every international since 2010 and on the national-team matches of
-    the tickets, against the result shares and the public (what the tickets used until v0.19). No season filter.</p>
+  <h2 class="group" id="national">Selecciones (masculinas)</h2>
+  <p class="help" style="margin:-4px 0 12px">v1N en todos los partidos internacionales desde 2010 y en los partidos de
+    selecciones de los boletos, frente a las proporciones de resultados y al público (lo que usaban los boletos hasta la
+    v0.19). Sin filtro de temporada.</p>
 
-  <section class="card" style="margin-bottom:16px" data-toc="National teams · Metrics">
-    <h2>National teams · Metrics</h2>
+  <section class="card" style="margin-bottom:16px" data-toc="Selecciones · Métricas">
+    <h2>Selecciones · Métricas</h2>
     <div class="scroll" id="national-metrics"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="National teams · By year">
-    <h2>National teams · Hit rate and log-loss by year</h2>
-    <p class="help">Every international of the year, with the ratings before each match.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Selecciones · Por año">
+    <h2>Selecciones · Aciertos y log-loss por año</h2>
+    <p class="help">Todos los partidos internacionales del año, con las valoraciones de antes de cada partido.</p>
     <div class="scroll" id="national-years"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="National teams · Contingency tables">
-    <h2>National teams · Contingency tables on the official tickets</h2>
-    <p class="help">Rows: what happened; columns: what the model said.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Selecciones · Tablas de contingencia">
+    <h2>Selecciones · Tablas de contingencia en los boletos oficiales</h2>
+    <p class="help">Filas: lo que pasó; columnas: lo que dijo el modelo.</p>
     <div class="grid two" id="national-contingency"></div>
   </section>
 
-  <h2 class="group" id="clubs">Other club competitions</h2>
-  <p class="help" style="margin:-4px 0 12px">The club matches of the tickets outside La Liga and Segunda (European cups,
-    Copa del Rey, foreign leagues). v1C on every ESPN match since 2011 and on those ticket matches, against the result
-    shares and the public (what the tickets used until v0.20). No season filter.</p>
+  <h2 class="group" id="clubs">Otras competiciones de clubes</h2>
+  <p class="help" style="margin:-4px 0 12px">Los partidos de clubes de los boletos que no son de Liga ni Segunda (copas
+    europeas, Copa del Rey, ligas extranjeras). v1C en todos los partidos de ESPN desde 2011 y en esos partidos de los
+    boletos, frente a las proporciones de resultados y al público (lo que usaban los boletos hasta la v0.20). Sin filtro de
+    temporada.</p>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Metrics">
-    <h2>Other club competitions · Metrics</h2>
+  <section class="card" style="margin-bottom:16px" data-toc="Otros clubes · Métricas">
+    <h2>Otras competiciones de clubes · Métricas</h2>
     <div class="scroll" id="clubs-metrics"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · By year">
-    <h2>Other club competitions · Hit rate and log-loss by year</h2>
-    <p class="help">Every ESPN club match of the year, with the ratings before each match.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Otros clubes · Por año">
+    <h2>Otras competiciones de clubes · Aciertos y log-loss por año</h2>
+    <p class="help">Todos los partidos de clubes de ESPN del año, con las valoraciones de antes de cada partido.</p>
     <div class="scroll" id="clubs-years"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Contingency tables">
-    <h2>Other club competitions · Contingency tables on the official tickets</h2>
-    <p class="help">Rows: what happened; columns: what the model said.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Otros clubes · Tablas de contingencia">
+    <h2>Otras competiciones de clubes · Tablas de contingencia en los boletos oficiales</h2>
+    <p class="help">Filas: lo que pasó; columnas: lo que dijo el modelo.</p>
     <div class="grid two" id="clubs-contingency"></div>
   </section>
 
-  <h2 class="group">Tickets</h2>
-  <p class="help" style="margin:-4px 0 12px">The ways of playing the probabilities on the real quiniela tickets of past
-    seasons (those with 10+ La Liga / Segunda matches), with the real prizes of each draw.</p>
+  <h2 class="group">Boletos</h2>
+  <p class="help" style="margin:-4px 0 12px">Las formas de jugar las probabilidades, en los boletos reales de la quiniela de
+    las temporadas pasadas (los que tienen 10 o más partidos de Liga y Segunda), con los premios reales de cada sorteo.</p>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Euros">
-    <h2>Real tickets in euros</h2>
-    <p class="help">Each ticket played on every past draw (·E only when it expects to win), paid with the real prizes and
-      sharing them with the real winners. <b>Back per €</b> below 100% loses money; the quiniela returns 55% on average.
-      ·B is judged by how many 1,000 € prizes it got against how many its plans expected.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Boletos · Euros">
+    <h2>Boletos reales en euros</h2>
+    <p class="help">Cada boleto jugado en todos los sorteos pasados (·E solo cuando espera ganar), cobrado con los premios
+      reales y repartiéndolos con los acertantes reales. <b>Devuelto por €</b> por debajo del 100 % pierde dinero; la
+      quiniela devuelve el 55 % de media. El ·B se juzga por cuántos premios de 1.000 € logró frente a los que esperaban sus
+      planes.</p>
     <div class="scroll" id="money"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Doubles and triples">
-    <h2>Quiniela tickets with doubles and triples</h2>
+  <section class="card" style="margin-bottom:16px" data-toc="Boletos · Dobles y triples">
+    <h2>Boletos de quiniela con dobles y triples</h2>
     <div id="tickets-note"></div>
     <div class="scroll" id="tickets"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · By category">
-    <h2>Official tickets by category</h2>
-    <p class="help">How many matches of each kind the official tickets had (M, F, O), and how v3 did on the La Liga /
-      Segunda ones.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Boletos · Por categoría">
+    <h2>Boletos oficiales por categoría</h2>
+    <p class="help">Cuántos partidos de cada tipo tenían los boletos oficiales (M, F, O) y cómo le fue a v3 en los de Liga y
+      Segunda.</p>
     <div class="scroll" id="ticket-categories"></div>
     <div id="category-legend" style="margin-top:8px"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
-    <h2 id="ticket-contingency-title">Contingency tables of the v3 tickets</h2>
-    <p class="help">What each ticket marked on the 14 matches (one sign, a double or the triple) against what happened.
-      Bold: hits. Season filter only.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Boletos · Tablas de contingencia">
+    <h2 id="ticket-contingency-title">Tablas de contingencia de los boletos v3</h2>
+    <p class="help">Lo que marcó cada boleto en los 14 partidos (un signo, un doble o el triple) frente a lo que pasó. En
+      negrita: aciertos. Solo se filtra por temporada.</p>
     <div class="grid two" id="ticket-contingency"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="How to read the metrics">
-    <h2>How to read the metrics</h2>
-    <p class="help">Formulas of every metric. N matches, p<sub>ik</sub> the probability given to outcome k (1, X, 2) in
-      match i, o<sub>ik</sub> = 1 if that outcome happened, else 0.</p>
+  <section class="card" style="margin-bottom:16px" data-toc="Cómo leer las métricas">
+    <h2>Cómo leer las métricas</h2>
+    <p class="help">Fórmula de cada métrica. N partidos, p<sub>ik</sub> la probabilidad dada al resultado k (1, X, 2) en el
+      partido i, o<sub>ik</sub> = 1 si ese resultado pasó y 0 si no.</p>
     <div id="definitions"></div>
   </section>
 
-  <section class="card" data-toc="Glossary">
-    <h2>Glossary</h2>
+  <section class="card" data-toc="Glosario">
+    <h2>Glosario</h2>
     <div class="glossary" id="glossary"></div>
   </section>
 </main>
@@ -205,12 +210,12 @@
     if (value == null) return "–";
     if (format === "pct") return pct(value, 1);
     if (format === "int") return String(Math.round(value));
-    return value.toFixed(4);
+    return num0(value, 4);
   }
 
   function modelHeader(m) {
-    const label = m.reference ? `${esc(m.name)} <span class="muted">(reference)</span>`
-      : m.ticket ? `${esc(m.name)} <span class="muted">${esc(m.version)} · ≤ 48 bets</span>`
+    const label = m.reference ? `${esc(m.name)} <span class="muted">(referencia)</span>`
+      : m.ticket ? `${esc(m.name)} <span class="muted">${esc(m.version)} · ≤ 48 apuestas</span>`
       : `${esc(m.name)} <span class="muted">${esc(m.version)}</span>`;
     return `<th class="num" data-tip="${esc(m.description)}">${label}</th>`;
   }
@@ -232,7 +237,7 @@
     const rows = DATA.results[`${state.league}|${state.season}`] || {};
     const metrics = DATA.metrics.filter((metric) =>
       models.some((m) => rows[m.key]?.[metric.key] != null));
-    return `<table><thead><tr><th>Metric</th>${models.map(modelHeader).join("")}</tr></thead>
+    return `<table><thead><tr><th>Métrica</th>${models.map(modelHeader).join("")}</tr></thead>
       <tbody>${metrics.map((metric) => {
         const best = bestModel(rows, metric);
         const arrow = { higher: " ↑", lower: " ↓" }[metric.better] ?? "";
@@ -248,7 +253,7 @@
 
   function bySeasonTable() {
     const metric = DATA.metrics.find((m) => m.key === "hit_rate");
-    return `<table><thead><tr><th>Season</th>${models.map(modelHeader).join("")}</tr></thead>
+    return `<table><thead><tr><th>Temporada</th>${models.map(modelHeader).join("")}</tr></thead>
       <tbody>${DATA.seasons.map((season) => {
         const rows = DATA.results[`${state.league}|${season}`] || {};
         const best = bestModel(rows, metric);
@@ -266,29 +271,30 @@
     const ticks = [0, 0.25, 0.5, 0.75, 1];
     const points = rows.map((r) => `${x(r.predicted).toFixed(1)},${y(r.observed).toFixed(1)}`).join(" ");
     return `<div class="tile"><div class="label">${esc(model.name)}</div>
-      <svg viewBox="0 0 ${size} ${size}" width="100%" role="img" aria-label="Calibration of ${esc(model.name)}">
+      <svg viewBox="0 0 ${size} ${size}" width="100%" role="img" aria-label="Calibración de ${esc(model.name)}">
         ${ticks.map((t) => `<line x1="${x(0)}" x2="${x(1)}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)" stroke-width="1"/>
           <text x="${pad - 6}" y="${y(t) + 3}" text-anchor="end" font-size="9" fill="var(--text-muted)">${t * 100}%</text>
           <text x="${x(t)}" y="${size - pad + 14}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${t * 100}%</text>`).join("")}
         <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--text-muted)" stroke-dasharray="3 3"/>
         <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2"/>
         ${rows.map((r) => `<circle cx="${x(r.predicted)}" cy="${y(r.observed)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"
-          data-tip="Predicted ${pct(r.predicted, 1)} → happened ${pct(r.observed, 1)} (${r.count} forecasts)"/>`).join("")}
+          data-tip="Pronosticado ${pct(r.predicted, 1)} → pasó ${pct(r.observed, 1)} (${r.count} pronósticos)"/>`).join("")}
       </svg>
-      <div class="detail">x: predicted probability · y: observed frequency</div></div>`;
+      <div class="detail">x: probabilidad pronosticada · y: frecuencia observada</div></div>`;
   }
 
   function confidenceTable() {
     const rows = DATA.confidence?.[`${state.league}|${state.season}`] || {};
     const shown = models.filter((m) => rows[m.key]);
-    if (!shown.length) return '<p class="empty">No data.</p>';
+    if (!shown.length) return '<p class="empty">Sin datos.</p>';
     const tiers = rows[shown[0].key].map((r) => r);
-    const label = (t) => ({ high: `High (≥ ${pct(t.low)})`, medium: `Medium (${pct(t.low)}–60%)`, low: "Low (below 45%)" }[t.tier]);
-    return `<table><thead><tr><th>Confidence</th>${shown.map(modelHeader).join("")}</tr></thead>
-      <tbody>${tiers.map((t, i) => `<tr><td><span class="conf ${t.tier}">${esc(t.tier)}</span> <span class="muted">${label(t)}</span></td>
+    const label = (t) => ({ high: `Alta (≥ ${pct(t.low)})`, medium: `Media (${pct(t.low)}–60 %)`, low: "Baja (menos del 45 %)" }[t.tier]);
+    const tierName = { high: "alta", medium: "media", low: "baja" };
+    return `<table><thead><tr><th>Confianza</th>${shown.map(modelHeader).join("")}</tr></thead>
+      <tbody>${tiers.map((t, i) => `<tr><td><span class="conf ${t.tier}">${esc(tierName[t.tier] ?? t.tier)}</span> <span class="muted">${label(t)}</span></td>
         ${shown.map((m) => {
           const r = rows[m.key][i];
-          return `<td class="num" data-tip="${r.matches} matches · average confidence ${pct(r.confidence, 1)}">` +
+          return `<td class="num" data-tip="${r.matches} partidos · confianza media ${pct(r.confidence, 1)}">` +
             `<span class="strong">${pct(r.hit_rate, 1)}</span> <span class="muted">· ${pct(r.share)}</span></td>`;
         }).join("")}</tr>`).join("")}</tbody></table>`;
   }
@@ -298,23 +304,23 @@
     const b = DATA.ticket_budget;
     const model = DATA.models.find((m) => m.key === b?.model);
     $("tickets-note").innerHTML = rows.length
-      ? help(`Does placing the doubles and triples well matter? The same ${esc(model?.version ?? b.model)} signs and the same budget
-        (${b.doubles} doubles + ${b.triples} triple${b.triples === 1 ? "" : "s"}, ${2 ** b.doubles * 3 ** b.triples} bets) placed at
-        random, by eye and by the planners (·D, ·R). <b>Prizes</b>: tickets with 10+ hits. <b>Planned chance</b>, computed
-        before each matchday, should match the <b>real prize rate</b>.`)
-      : '<p class="empty">No ticket results yet. Run <code>invoke backtest.run</code>.</p>';
+      ? help(`¿Importa colocar bien los dobles y triples? Los mismos signos de ${esc(model?.version ?? b.model)} y el mismo presupuesto
+        (${b.doubles} dobles + ${b.triples} triple${b.triples === 1 ? "" : "s"}, ${2 ** b.doubles * 3 ** b.triples} apuestas) colocados al
+        azar, a ojo y por los planificadores (·D, ·R). <b>Premios</b>: boletos con 10 o más aciertos. La <b>probabilidad planificada</b>,
+        calculada antes de cada jornada, debería coincidir con la <b>tasa real de premios</b>.`)
+      : '<p class="empty">Aún no hay resultados de boletos. Ejecuta <code>invoke backtest.run</code>.</p>';
     if (!rows.length) return "";
     const best = Math.max(...rows.filter((r) => r.strategy !== "single").map((r) => r.prizes));
-    const num = (v) => Number.isInteger(v) ? String(v) : v.toFixed(1);
-    return `<table><thead><tr><th>Strategy</th><th class="num">Bets</th><th class="num">Prizes ↑</th>
+    const num = (v) => Number.isInteger(v) ? String(v) : num0(v, 1);
+    return `<table><thead><tr><th>Estrategia</th><th class="num">Apuestas</th><th class="num">Premios ↑</th>
         <th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th>
-        <th class="num">Mean hits</th><th class="num">Planned chance</th><th class="num">Real prize rate</th></tr></thead>
+        <th class="num">Aciertos medios</th><th class="num">Probabilidad planificada</th><th class="num">Tasa real de premios</th></tr></thead>
       <tbody>${rows.map((r) => `<tr>
         <td data-tip="${esc(DATA.ticket_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.ticket_strategies[r.strategy] ?? r.strategy)}</td>
         <td class="num">${num(r.bets)}</td>
         <td class="num ${r.prizes === best && r.strategy !== "single" ? "strong" : ""}">${num(r.prizes)} <span class="muted">/ ${r.tickets}</span></td>
         ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${num(r[k])}</td>`).join("")}
-        <td class="num">${r.mean_hits.toFixed(2)}</td>
+        <td class="num">${num0(r.mean_hits, 2)}</td>
         <td class="num">${pct(r.planned_prize, 1)}</td>
         <td class="num">${pct(r.prize_rate, 1)}</td>
       </tr>`).join("")}</tbody></table>`;
@@ -322,11 +328,11 @@
 
   function moneyTable() {
     const rows = DATA.money?.[state.season] || [];
-    if (!rows.length) return '<p class="empty">No euro backtest yet: save the LAE draws in data/lae and run <code>invoke backtest.run</code>.</p>';
-    const eur = (v) => `${v.toLocaleString("en-GB", { maximumFractionDigits: 0 })} €`;
-    return `<table><thead><tr><th>Strategy</th><th class="num">Draws played</th><th class="num">Spent</th>
-        <th class="num">Won</th><th class="num">Net</th><th class="num">Return</th><th class="num">Winning draws</th>
-        <th class="num">Best prize</th><th class="num" data-tip="Draws that paid 1,000 € or more (expected by the ·B plans in brackets)">1,000+ €</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
+    if (!rows.length) return '<p class="empty">Aún no hay backtest en euros: guarda los sorteos de LAE en data/lae y ejecuta <code>invoke backtest.run</code>.</p>';
+    const eur = (v) => `${v.toLocaleString("es-ES", { maximumFractionDigits: 0 })} €`;
+    return `<table><thead><tr><th>Estrategia</th><th class="num">Sorteos jugados</th><th class="num">Jugado</th>
+        <th class="num">Ganado</th><th class="num">Neto</th><th class="num">Retorno</th><th class="num">Sorteos con premio</th>
+        <th class="num">Mejor premio</th><th class="num" data-tip="Sorteos que pagaron 1.000 € o más (entre paréntesis, los que esperaban los planes del ·B)">1.000+ €</th><th class="num">14</th><th class="num">13</th><th class="num">12</th><th class="num">11</th><th class="num">10</th></tr></thead>
       <tbody>${rows.map((r) => `<tr>
         <td data-tip="${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}">${esc(DATA.money_strategies[r.strategy] ?? r.strategy)}</td>
         <td class="num">${r.played} <span class="muted">/ ${r.draws}</span></td>
@@ -334,24 +340,24 @@
         <td class="num strong" style="color:var(${r.net >= 0 ? "--good" : "--critical"})">${r.net >= 0 ? "+" : ""}${eur(r.net)}</td>
         <td class="num">${pct(r.roi == null ? null : 1 + r.roi, 0)}</td>
         <td class="num">${r.winning}</td><td class="num">${eur(r.best_payout)}</td>
-        <td class="num">${r.big_wins}${r.expected_big_wins != null ? ` <span class="muted">(${r.expected_big_wins.toFixed(2)} expected)</span>` : ""}</td>
+        <td class="num">${r.big_wins}${r.expected_big_wins != null ? ` <span class="muted">(${num0(r.expected_big_wins, 2)} esperados)</span>` : ""}</td>
         ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${r[k]}</td>`).join("")}
       </tr>`).join("")}</tbody></table>
-      ${help("Draws played: of the draws of the season(s). Return: euros won per euro spent. 14 … 10: draws whose best column got that many hits.", "margin:8px 0 0")}`;
+      ${help("Sorteos jugados: de los sorteos de la temporada o temporadas. Retorno: euros ganados por euro jugado. 14 … 10: sorteos cuya mejor columna hizo esos aciertos.", "margin:8px 0 0")}`;
   }
 
   function ticketCategoriesTable() {
     const data = DATA.ticket_categories || {};
     const keys = Object.keys(data).filter((k) => k !== "all").sort();
-    if (!keys.length) return '<p class="empty">No official tickets saved (data/lae).</p>';
+    if (!keys.length) return '<p class="empty">No hay boletos oficiales guardados (data/lae).</p>';
     const row = (label, r) => `<tr><td>${esc(label)}</td><td class="num">${r.matches}</td>
       ${["M", "F", "O", "U"].map((c) => `<td class="num">${r[c]} <span class="muted">${pct(r.matches ? r[c] / r.matches : null)}</span></td>`).join("")}
       <td class="num">${r.v3_matches ? pct(r.v3_hits / r.v3_matches, 1) : "–"} <span class="muted">${r.v3_hits}/${r.v3_matches}</span></td></tr>`;
-    return `<table><thead><tr><th>Season</th><th class="num">Ticket matches</th>
+    return `<table><thead><tr><th>Temporada</th><th class="num">Partidos de boletos</th>
         ${["M", "F", "O", "U"].map((c) => `<th class="num">${categoryChip(c, DATA.categories)}</th>`).join("")}
-        <th class="num">v3 hit rate (M)</th></tr></thead>
+        <th class="num">Aciertos de v3 (M)</th></tr></thead>
       <tbody>${keys.map((k) => row(k, data[k])).join("")}</tbody>
-      <tfoot>${data.all ? row("All seasons", data.all) : ""}</tfoot></table>`;
+      <tfoot>${data.all ? row("Todas las temporadas", data.all) : ""}</tfoot></table>`;
   }
 
   function definitions() {
@@ -370,26 +376,26 @@
     const colTotals = columns.map((_, j) => table.reduce((a, row) => a + row[j], 0));
     const body = table.map((row, i) => {
       const rowTotal = row.reduce((a, b) => a + b, 0);
-      return `<tr><th scope="row">Observed ${SIGNS[i]}</th>${row.map((n, j) => {
+      return `<tr><th scope="row">Real ${SIGNS[i]}</th>${row.map((n, j) => {
         const hit = isHit(i, j);
-        return `<td class="num ${hit ? "strong" : ""}">${n.toLocaleString("en-GB")}` +
+        return `<td class="num ${hit ? "strong" : ""}">${n.toLocaleString("es-ES")}` +
           `<br><span class="muted" style="font-size:11px">${rowTotal ? pct(n / rowTotal, 0) : "–"}</span></td>`;
-      }).join("")}<td class="num muted">${rowTotal.toLocaleString("en-GB")}</td></tr>`;
+      }).join("")}<td class="num muted">${rowTotal.toLocaleString("es-ES")}</td></tr>`;
     }).join("");
     const hits = table.reduce((a, row, i) => a + row.reduce((b, n, j) => b + (isHit(i, j) ? n : 0), 0), 0);
     return `<div><h3 style="margin:0 0 6px;font-size:14px">${title}</h3>
-      <div class="scroll"><table><thead><tr><th></th><th class="num" colspan="${columns.length}">Predicted</th><th></th></tr>
+      <div class="scroll"><table><thead><tr><th></th><th class="num" colspan="${columns.length}">Pronosticado</th><th></th></tr>
         <tr><th></th>${columns.map((c) => `<th class="num">${c}</th>`).join("")}<th class="num">Total</th></tr></thead>
-        <tbody>${body}<tr><th scope="row" class="muted">Total</th>${colTotals.map((n) => `<td class="num muted">${n.toLocaleString("en-GB")}</td>`).join("")}
-        <td class="num muted">${total.toLocaleString("en-GB")}</td></tr></tbody></table></div>
-      <p class="help" style="margin:4px 0 0">Hits ${hits.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} (${pct(hits / total, 1)}).</p></div>`;
+        <tbody>${body}<tr><th scope="row" class="muted">Total</th>${colTotals.map((n) => `<td class="num muted">${n.toLocaleString("es-ES")}</td>`).join("")}
+        <td class="num muted">${total.toLocaleString("es-ES")}</td></tr></tbody></table></div>
+      <p class="help" style="margin:4px 0 0">Aciertos: ${hits.toLocaleString("es-ES")} de ${total.toLocaleString("es-ES")} (${pct(hits / total, 1)}).</p></div>`;
   }
 
   function contingencyTables() {
     const tables = DATA.contingency?.[`${state.league}|${state.season}`] || {};
     const cards = models.filter((m) => tables[m.key]).map((m) =>
-      contingencyCard(`${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`, tables[m.key], SIGNS, (i, j) => i === j));
-    return cards.join("") || '<p class="empty">No predictions for this selection.</p>';
+      contingencyCard(`${esc(m.name)} <span class="muted">${esc(m.version || "referencia")}</span>`, tables[m.key], SIGNS, (i, j) => i === j));
+    return cards.join("") || '<p class="empty">No hay pronósticos para esta selección.</p>';
   }
 
   function ticketContingencyTables() {
@@ -399,20 +405,20 @@
     const marks = { "1": "H", "X": "D", "2": "A", "1X": "HD", "12": "HA", "X2": "DA", "1X2": "HDA" };
     const cards = Object.keys(tables).map((key) => contingencyCard(esc(data.labels?.[key] ?? key), tables[key],
       data.columns, (i, j) => marks[data.columns[j]].includes(signs[i])));
-    return cards.join("") || '<p class="empty">No official tickets for this season. Run <code>invoke backtest.run</code>.</p>';
+    return cards.join("") || '<p class="empty">No hay boletos oficiales de esta temporada. Ejecuta <code>invoke backtest.run</code>.</p>';
   }
 
   /** Hit rate of the matches of every observed result (1, X, 2), one column per model. */
   function byResultTable() {
     const rows = DATA.results[`${state.league}|${state.season}`] || {};
     const shown = models.filter((m) => rows[m.key]?.hit_H != null);
-    if (!shown.length) return '<p class="empty">No predictions for this selection.</p>';
+    if (!shown.length) return '<p class="empty">No hay pronósticos para esta selección.</p>';
     const real = shown.find((m) => !m.ticket && rows[m.key].real_H != null) ?? shown[0];
-    const line = (outcome, label) => `<tr><td>Observed ${label} <span class="muted">(${pct(rows[real.key][`real_${outcome}`], 1)} of the matches)</span></td>
+    const line = (outcome, label) => `<tr><td>Real ${label} <span class="muted">(${pct(rows[real.key][`real_${outcome}`], 1)} de los partidos)</span></td>
       ${shown.map((m) => `<td class="num">${fmt(rows[m.key][`hit_${outcome}`], "pct")}</td>`).join("")}</tr>`;
-    const overall = `<tr><td class="muted">All results (hit rate)</td>${shown.map((m) =>
+    const overall = `<tr><td class="muted">Todos los resultados (aciertos)</td>${shown.map((m) =>
       `<td class="num muted">${fmt(rows[m.key].hit_rate, "pct")}</td>`).join("")}</tr>`;
-    return `<table><thead><tr><th>Result</th>${shown.map(modelHeader).join("")}</tr></thead>
+    return `<table><thead><tr><th>Resultado</th>${shown.map(modelHeader).join("")}</tr></thead>
       <tbody>${line("H", "1")}${line("D", "X")}${line("A", "2")}${overall}</tbody></table>`;
   }
 
@@ -421,31 +427,31 @@
     const liga = DATA.liga_f || {};
     const rows = liga.results?.[state.season] || {};
     const shown = (liga.models || []).filter((m) => rows[m.key]);
-    const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`;
-    const empty = '<p class="empty">No Liga F matches with this model\'s data for this season yet.</p>';
-    const head = `<tr><th>Metric</th>${(liga.models || []).map((m) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
+    const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "referencia")}</span>`;
+    const empty = '<p class="empty">Aún no hay partidos de Liga F con los datos de este modelo en esta temporada.</p>';
+    const head = `<tr><th>Métrica</th>${(liga.models || []).map((m) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
     const metrics = DATA.metrics.filter((metric) => (liga.models || []).some((m) => rows[m.key]?.[metric.key] != null));
     $("women-metrics").innerHTML = shown.length ? `<table><thead>${head}</thead><tbody>${metrics.map((metric) =>
       `<tr><td data-tip="${esc(metric.description)}">${esc(metric.label)}</td>${(liga.models || []).map((m) =>
         `<td class="num">${fmt(rows[m.key]?.[metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : empty;
-    const line = (o, l) => `<tr><td>Observed ${l}</td>${(liga.models || []).map((m) => `<td class="num">${fmt(rows[m.key]?.[`hit_${o}`], "pct")}</td>`).join("")}</tr>`;
-    $("women-by-result").innerHTML = shown.length ? `<table><thead><tr><th>Result</th>${(liga.models || []).map((m) =>
+    const line = (o, l) => `<tr><td>Real ${l}</td>${(liga.models || []).map((m) => `<td class="num">${fmt(rows[m.key]?.[`hit_${o}`], "pct")}</td>`).join("")}</tr>`;
+    $("women-by-result").innerHTML = shown.length ? `<table><thead><tr><th>Resultado</th>${(liga.models || []).map((m) =>
       `<th class="num">${label(m)}</th>`).join("")}</tr></thead><tbody>${line("H", "1")}${line("D", "X")}${line("A", "2")}</tbody></table>` : empty;
     const tables = liga.contingency?.[state.season] || {};
     $("women-contingency").innerHTML = (liga.models || []).filter((m) => tables[m.key])
       .map((m) => contingencyCard(label(m), tables[m.key], SIGNS, (i, j) => i === j)).join("") || empty;
-    const seasonLabel = state.season === "all" ? "all seasons" : state.season;
-    $("women-metrics-title").textContent = `Liga F · Metrics · ${seasonLabel}`;
-    $("women-by-result-title").textContent = `Liga F · Hit rate by result · ${seasonLabel}`;
-    $("women-contingency-title").textContent = `Liga F · Contingency tables · ${seasonLabel}`;
+    const seasonLabel = state.season === "all" ? "todas las temporadas" : state.season;
+    $("women-metrics-title").textContent = `Liga F · Métricas · ${seasonLabel}`;
+    $("women-by-result-title").textContent = `Liga F · Aciertos por resultado · ${seasonLabel}`;
+    $("women-contingency-title").textContent = `Liga F · Tablas de contingencia · ${seasonLabel}`;
     const common = liga.common?.[state.season] || {};
     const commonModels = (liga.models || []).filter((m) => common[m.key]);
-    $("women-common").innerHTML = commonModels.length ? `<table><thead><tr><th>Metric</th>${commonModels.map((m) =>
+    $("women-common").innerHTML = commonModels.length ? `<table><thead><tr><th>Métrica</th>${commonModels.map((m) =>
       `<th class="num">${label(m)}</th>`).join("")}</tr></thead><tbody>${DATA.metrics.filter((metric) =>
       commonModels.some((m) => common[m.key]?.[metric.key] != null)).map((metric) => `<tr><td>${esc(metric.label)}</td>${commonModels.map((m) =>
       `<td class="num">${fmt(common[m.key]?.[metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
-      : '<p class="empty">No ticket match with public picks and a result yet: the first is jornada 21 (archived), once its draw is saved.</p>';
-    $("women-common-title").textContent = `Liga F · v1F against v2F · ${seasonLabel}`;
+      : '<p class="empty">Aún no hay partidos de boletos con lo que marca el público y resultado: el primero es la jornada 21 (archivada), cuando se guarde su sorteo.</p>';
+    $("women-common-title").textContent = `Liga F · Modelos frente al público · ${seasonLabel}`;
     $("women-data").innerHTML = ligaFDataTable(liga.data);
     $("women-matches").innerHTML = ligaFMatchesTable((liga.matches || []).filter((m) => state.season === "all" || m.season === state.season));
   }
@@ -454,24 +460,24 @@
   function groupTables(prefix, nat, names) {
     nat = nat || {};
     const scopes = nat.scopes || {};
-    const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "reference")}</span>`;
+    const label = (m) => `${esc(m.name)} <span class="muted">${esc(m.version || "referencia")}</span>`;
     const columns = Object.keys(names).flatMap((s) => (nat.models || []).filter((m) => scopes[s]?.[m.key]).map((m) => [s, m]));
     if (!columns.length) {
-      $(`${prefix}-metrics`).innerHTML = '<p class="empty">No results yet. Run <code>invoke update</code>.</p>';
+      $(`${prefix}-metrics`).innerHTML = '<p class="empty">Aún no hay resultados. Ejecuta <code>invoke update</code>.</p>';
       $(`${prefix}-years`).innerHTML = $(`${prefix}-contingency`).innerHTML = "";
       return;
     }
     const groups = Object.keys(names).map((s) => [s, columns.filter(([c]) => c === s).length]).filter(([, n]) => n);
     const head = `<tr><th></th>${groups.map(([s, n]) => `<th class="num" colspan="${n}">${names[s]}</th>`).join("")}</tr>
-      <tr><th>Metric</th>${columns.map(([, m]) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
+      <tr><th>Métrica</th>${columns.map(([, m]) => `<th class="num" data-tip="${esc(m.description)}">${label(m)}</th>`).join("")}</tr>`;
     const metrics = DATA.metrics.filter((metric) => columns.some(([s, m]) => scopes[s][m.key][metric.key] != null));
     $(`${prefix}-metrics`).innerHTML = `<table><thead>${head}</thead><tbody>${metrics.map((metric) =>
       `<tr><td data-tip="${esc(metric.description)}">${esc(metric.label)}</td>${columns.map(([s, m]) =>
         `<td class="num">${fmt(scopes[s][m.key][metric.key], metric.format)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     const years = Object.keys(nat.by_year || {}).sort().reverse();
     const yearModels = (nat.models || []).filter((m) => years.some((y) => nat.by_year[y][m.key]));
-    $(`${prefix}-years`).innerHTML = `<table><thead><tr><th>Year</th><th class="num">Matches</th>${yearModels.map((m) =>
-      `<th class="num">${label(m)}<br><span class="muted">hits · log-loss</span></th>`).join("")}</tr></thead><tbody>${years.map((y) => {
+    $(`${prefix}-years`).innerHTML = `<table><thead><tr><th>Año</th><th class="num">Partidos</th>${yearModels.map((m) =>
+      `<th class="num">${label(m)}<br><span class="muted">aciertos · log-loss</span></th>`).join("")}</tr></thead><tbody>${years.map((y) => {
         const row = nat.by_year[y];
         const n = Object.values(row)[0]?.matches;
         return `<tr><td class="strong">${y}</td><td class="num">${n ?? "–"}</td>${yearModels.map((m) => row[m.key]
@@ -482,20 +488,20 @@
   }
 
   function render() {
-    const seasonLabel = state.season === "all" ? "all seasons" : state.season;
-    $("metrics-title").textContent = `Metrics · ${DATA.leagues[state.league]} · ${seasonLabel}`;
-    $("by-result-title").textContent = `Hit rate by result · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    const seasonLabel = state.season === "all" ? "todas las temporadas" : state.season;
+    $("metrics-title").textContent = `Métricas · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("by-result-title").textContent = `Aciertos por resultado · ${DATA.leagues[state.league]} · ${seasonLabel}`;
     $("by-result").innerHTML = byResultTable();
-    $("contingency-title").textContent = `Contingency tables · ${DATA.leagues[state.league]} · ${seasonLabel}`;
+    $("contingency-title").textContent = `Tablas de contingencia · ${DATA.leagues[state.league]} · ${seasonLabel}`;
     $("contingency").innerHTML = contingencyTables();
-    $("ticket-contingency-title").textContent = `Contingency tables of the v3 tickets · official tickets · ${seasonLabel}`;
+    $("ticket-contingency-title").textContent = `Tablas de contingencia de los boletos v3 · boletos oficiales · ${seasonLabel}`;
     $("ticket-contingency").innerHTML = ticketContingencyTables();
     $("metrics").innerHTML = metricsTable();
     womenTables();
     groupTables("national", DATA.national,
-      { all: "Every international from 2010", tickets: "Official tickets", public: "Tickets with public picks" });
+      { all: "Todos los internacionales desde 2010", tickets: "Boletos oficiales", public: "Boletos con lo que marca el público" });
     groupTables("clubs", DATA.clubs,
-      { all: "Every ESPN club match from 2011", tickets: "Official tickets", public: "Tickets with public picks" });
+      { all: "Todos los partidos de clubes de ESPN desde 2011", tickets: "Boletos oficiales", public: "Boletos con lo que marca el público" });
     $("confidence").innerHTML = confidenceTable();
     $("tickets").innerHTML = ticketsTable();
     $("money").innerHTML = moneyTable();
@@ -513,22 +519,20 @@
   }
 
   $("definitions").innerHTML = definitions();
-  renderGlossary(["v1", "v2", "v3", "v4", "market", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "public", "D", "R",
-    "B", "E", "single", "D2", "hit_rate", "log_loss", "brier", "rps", "contingency", "calibration", "confidence",
-    "return", "net", "walk_forward", "M", "F", "O", "U"]);
+  renderGlossary(["v1", "v2", "v3", "v4", "market", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "public", "single", "D2", "D", "R", "B", "E", "random", "hit_rate", "log_loss", "brier", "rps", "macro_f1", "x_picks", "hit_by_result", "contingency", "calibration", "confidence", "hits", "prizes_won", "planned_chance", "real_prize_rate", "return", "net", "winning_draws", "big", "walk_forward", "M", "F", "O", "U"]);
   tableOfContents();
   if (models.length) {
-    $("meta").textContent = `Walk-forward backtest · ${DATA.seasons[0]} to ${DATA.seasons[DATA.seasons.length - 1]} · ${DATA.matches} matches`;
+    $("meta").textContent = `Backtest walk-forward · de ${DATA.seasons[0]} a ${DATA.seasons[DATA.seasons.length - 1]} · ${DATA.matches} partidos`;
     const leagues = Object.keys(DATA.leagues);
     segmented($("league-switch"), leagues.map((l) => DATA.leagues[l]), 0, (i) => { state.league = leagues[i]; render(); });
-    $("season").innerHTML = '<option value="all">All seasons</option>' +
+    $("season").innerHTML = '<option value="all">Todas las temporadas</option>' +
       // Men's backtest seasons plus the Liga F ones (e.g. the season in progress)
       [...new Set([...DATA.seasons, ...(DATA.liga_f?.data || []).map((d) => d.season)])].sort()
         .map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
     $("season").addEventListener("change", (e) => { state.season = e.target.value; render(); });
     render();
   } else {
-    $("meta").textContent = "No backtest yet. Run invoke backtest.run first.";
+    $("meta").textContent = "Aún no hay backtest. Ejecuta antes invoke backtest.run.";
   }
 </script>
 </body>
