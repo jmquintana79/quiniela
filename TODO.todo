@@ -9,7 +9,7 @@ Orden de prioridad (brainstorming del 2026-11-27), de más a menos importante:
   5. Pleno al 15: marcador según el mercado y diferenciación con el público (hecho en v0.19.0).
   6. Elo de selecciones para los partidos "otros" (HECHO, v1N).
   7. Rating global de clubes para los partidos "otros" (HECHO, v1C).
-  8. Pendientes menores (al final).
+  8. Pendientes menores (HECHO, v0.22).
 (Pinnacle y la dispersión entre casas en v3: descartados el 2026-11-27, ver
 DISCARDED.todo.)
 Formato: ☐ pendiente · ✔ hecho
@@ -337,10 +337,30 @@ Tareas:
     pueden guardar en disco.
 
 
-8. Pendientes menores
+8. Pendientes menores · HECHO (seguimiento)
 ==============================================================================
-  ☐ Elegir el boleto v3+v2F con el que apostar (el más competitivo) cuando haya
-    suficientes boletos oficiales.
-  ☐ Probar las reducciones oficiales como candidatas del boleto ·B (con 1.000 € a
-    menudo basta un 13).
-  ☐ Usar v4 (pi-ratings) en lugar de Dixon-Coles cuando falten las cuotas en v3.
+  ✔ v4 en lugar de Dixon-Coles cuando faltan las cuotas en v3 (v0.22): media geométrica
+    de v2 y v4 a partes iguales. Backtest: log-loss 1,0174 frente a 1,0215 de v2 y 1,0178
+    de v4, y nunca peor que v2 en ninguna de las 11 temporadas (v4 solo, peor en tres).
+    El backtest de v3 no cambia (todos los partidos pasados tenían cuotas): actúa en el
+    próximo boleto hasta que salen las cuotas.
+  ✔ Reducciones oficiales como candidatas del boleto ·B (v0.22): las mejores
+    colocaciones de las reducciones 1.ª a 4.ª (caben en 50 €), contando sus columnas una
+    a una. Backtest en euros: elige reducción en 22 de 414 sorteos (5 %), un sorteo
+    ganador más, +56 € (35,1 % devuelto frente a 35,0 %), ningún premio de 1.000 € (1,40
+    esperados). Cambio pequeño.
+  ✔ Elegir el boleto con el que apostar (v0.22, tabla en metrics.html, se recalcula con
+    cada backtest). Regla: el que más devuelve por euro en todo el backtest, salvo que
+    otro le gane de forma estable (temporada mediana y la mayoría de temporadas).
+    Hoy, v3+v3F·R: 48,8 % devuelto (rango 32-68 %), temporada mediana 34 %, mejor en 4 de
+    11 temporadas; con las mismas 48 apuestas gana a ·D en 97 sorteos y pierde en
+    76. Para gastar poco, ·D2 (1,50 €).
+  ☐ Revisar la regla al final de cada temporada (los rangos se solapan mucho).
+  ✔ Explicaciones en todos los dashboards (v0.22): una frase breve en gris apagado por
+    sección y tabla, y un glosario al final de cada página (GLOSSARY en base.js) con los
+    modelos, boletos, métricas y abreviaturas que muestra. Simplificado: metrics.html
+    (menos columnas en el próximo boleto y en los boletos pasados), current.html (fuera
+    la leyenda larga y la tabla de precios repetida), evaluation.html (secciones de los
+    modelos masculinos juntas, textos cortos), season, prizes e historical.
+  ☐ Seguir simplificando cuando se use: por ejemplo, juntar en current.html los cinco
+    recuadros de los boletos y la tabla de recomendaciones en una sola tabla.

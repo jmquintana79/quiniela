@@ -22,27 +22,42 @@
     <span class="meta" id="meta"></span>
   </header>
 
-  <p class="meta" style="margin:0 0 16px">What was known before every official ticket (per match and per
-    jornada) and what the v3+v3F tickets made of it, to decide by hand and to see which metrics predict the
-    KPIs: hits (needed, not the goal) and money won against money spent. No metric makes the quiniela
-    profitable: every ticket loses money on average.</p>
+  <p class="help" style="margin:0 0 16px"><b>What this page is for:</b> deciding whether a jornada is worth
+    playing, and checking which numbers known before a draw really predict hits and money. Read it top down:
+    the next ticket, how past tickets went, which metrics matter, and how the verdicts did. <b>No metric makes
+    the quiniela profitable</b>: every ticket loses money on average; the metrics only compare jornadas.</p>
 
   <h2 class="group">Men's football and the whole ticket</h2>
 
   <section data-toc="Next ticket" class="card" style="margin-bottom:16px">
     <h2 id="next-title">Next ticket</h2>
+    <p class="help">The jornada about to be played: its verdict, its key numbers (tiles) and its 14 matches.
+      Hover any label for its meaning.</p>
     <div id="next"></div>
+  </section>
+
+  <section data-toc="Which ticket to bet with" class="card" style="margin-bottom:16px">
+    <h2>Which ticket to bet with</h2>
+    <p class="help">Every ticket played on every past draw since 2015-16 with the real prizes. <b>Rule:</b> bet with the
+      ticket that gives back the most per euro (first row), unless another one does better steadily, in most seasons too.
+      All of them lose money: the interval shows how much luck there is in 400 draws.</p>
+    <div class="scroll" id="choice"></div>
   </section>
 
   <section data-toc="Past tickets" class="card" style="margin-bottom:16px">
     <h2>Past tickets: metrics, lights, verdict and KPIs</h2>
+    <p class="help">Every official ticket: what was expected before the draw (chances, lights, verdict) and what
+      happened (hits, net euros). Useful to see whether green lights and verdicts were followed by good results.</p>
     <div class="filters"><div class="segmented" id="draws-switch"></div></div>
     <div class="scroll" id="draws"></div>
-    <p class="meta" style="margin:10px 0 0" id="draws-note"></p>
+    <div id="draws-note"></div>
   </section>
 
   <section data-toc="Which match metrics matter" class="card" style="margin-bottom:16px">
     <h2>Which match metrics matter: v3 hits by quintile</h2>
+    <p class="help">Each table splits past ticket matches into five groups by one metric (lowest to highest) and
+      shows how often v3 got them right. <b>A metric matters when the hit rate rises (or falls) steadily</b> across
+      the groups; ups and downs mean noise. Bold: the best group.</p>
     <div class="grid two" id="match-validation"></div>
     <h2 style="margin-top:18px">The public's picks (since 2026-27, three groups)</h2>
     <div class="grid two" id="public-validation"></div>
@@ -50,31 +65,33 @@
 
   <section data-toc="Which ticket metrics matter" class="card" style="margin-bottom:16px">
     <h2>Which jornada metrics matter: the tickets' KPIs by quintile</h2>
+    <p class="help">The same for whole tickets: pick a metric of the jornada and see how each ticket did in its five
+      groups (hits, share of good results, euros back per euro).</p>
     <div class="filters"><div class="segmented" id="draw-metric-switch"></div></div>
     <div class="scroll" id="draw-validation"></div>
-    <p class="meta" style="margin:10px 0 0">Quintiles of the official tickets (lowest to highest value of the
-      metric), with the mean of every KPI in each: hits of the single v3+v3F ticket, share of tickets with 12+ hits
-      (v3+v3F·D) or 13+ hits (v3+v3F·B), money back per euro spent and share of v3+v3F·B tickets paying 1,000 € or
-      more. A metric is useful when the KPI grows (or falls) steadily across its quintiles; ups and downs mean
-      noise.</p>
+
   </section>
 
   <section data-toc="Verdicts" class="card" style="margin-bottom:16px">
     <h2>Verdicts: the KPIs of the tickets each verdict would have played</h2>
+    <p class="help"><b>Rule:</b> big (play ·B) when its 1,000 € light is green; small (single or ·D) when only the ·D
+      12+ light is green; skip otherwise. Each row: how the tickets of that verdict did. A good rule gives the
+      "play" rows more back per € than "skip". The lights only use earlier tickets (no look-ahead).</p>
     <div class="scroll" id="verdicts"></div>
-    <p class="meta" style="margin:10px 0 0">Rule (a first version, judged here): <strong>big</strong> (play
-      v3+v3F·B) when its light on a prize of 1,000 € or more is green; <strong>small</strong> (play the single or
-      the v3+v3F·D ticket) when only the light on 12+ hits of v3+v3F·D is green; <strong>skip</strong> otherwise.
-      In the past seasons every light ranks the ticket among the tickets before it only (no look-ahead).</p>
   </section>
 
   <h2 class="group">Liga F</h2>
 
   <section data-toc="Liga F metrics" class="card">
     <h2>v3F hits by quintile (every Liga F match, weekly walk-forward)</h2>
+    <p class="help">The Liga F has no odds, so only v3F's own favourite and openness can be checked. Same reading as
+      above.</p>
     <div class="grid two" id="liga-f-validation"></div>
-    <p class="meta" style="margin:10px 0 0">The Liga F has no odds: only the openness of the v3F probabilities (the tickets' Liga F model).
-      Its ticket matches are in the next ticket above (category F).</p>
+  </section>
+
+  <section data-toc="Glossary" class="card" style="margin-top:16px">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
   </section>
 </main>
 
@@ -142,14 +159,14 @@
     ].join("");
     const winners = d.winners === "public" ? "Prizes estimated with the public's real picks." : d.winners === "market" ? "Prizes estimated with the market." : "";
     $("next").innerHTML = verdict + `<div class="tiles" style="margin:12px 0">${tiles}</div>` +
-      `<p class="meta" style="margin:0 0 12px">${winners} Tiles: the metrics of the jornada; the lights rank its planned chances among the 414+ past tickets (green high, amber typical, red low).</p>` +
+      help(`${winners} Lights: this jornada's chance against the past tickets (green high, amber typical, red low).`) +
       `<div class="scroll">${nextMatchesTable(next.matches)}</div>` + outcomeLegend() +
-      `<p class="meta" style="margin:8px 0 0">Cells are shaded by the quintile of the metric among past ticket matches (darker: higher). v3: the probabilities the tickets plan on (v3F on the Liga F, the public's picks on other competitions). Value: v3 probability over the public's share of its best sign (above 1: underrated by the public).</p>`;
+      help("Bars: probabilities of 1, X and 2 of the tickets' model (v3, or v3F, v1N, v1C by competition), the market and the public. Shading: darker means a higher value than in most past ticket matches.", "margin:8px 0 0");
   }
 
   function nextMatchesTable(rows) {
-    const head = ["#", "Match", "", "v3", "Market", "Public", "Pick", label("fav_prob"), label("entropy"),
-      label("strength"), label("edge_market"), label("edge_public"), label("value"), label("spread")];
+    const head = ["#", "Match", "", "Model", "Market", "Public", "Pick", label("fav_prob"), label("entropy"),
+      label("edge_public"), label("value")];
     const body = rows.map((r) => {
       const bar = (p) => r[`${p}_H`] == null ? '<span class="muted">–</span>' : outcomeBar(r[`${p}_H`], r[`${p}_D`], r[`${p}_A`]);
       const cell = (metric, text, table) => `<td class="num ${heat(metric, r[metric], table)}" data-tip="${esc(meaning(metric))}">${text}</td>`;
@@ -157,11 +174,8 @@
         `<td>${categoryChip(r.category, {})}</td><td>${bar("p")}</td><td>${bar("m")}</td><td>${bar("s")}</td>` +
         `<td class="num">${r.pick ? SIGN[r.pick] : "–"}</td>` +
         cell("fav_prob", pct(r.fav_prob, 0)) + cell("entropy", num(r.entropy, 2)) +
-        `<td class="num ${heat("strength_gap", r.strength)}">${signed(r.strength, 2)}</td>` +
-        cell("edge_market", signed(r.edge_market, 3)) +
         cell("edge_public", signed(r.edge_public, 2), V.public) +
-        `<td class="num ${heat("value", r.value, V.public)}">${r.value == null ? "–" : num(r.value, 2) + " (" + SIGN[r.value_sign] + ")"}</td>` +
-        cell("spread", num(r.spread, 3)) + "</tr>";
+        `<td class="num ${heat("value", r.value, V.public)}">${r.value == null ? "–" : num(r.value, 2) + " (" + SIGN[r.value_sign] + ")"}</td></tr>`;
     }).join("");
     return `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`;
   }
@@ -169,20 +183,20 @@
   function renderDraws(which) {
     const all = DATA.draws || [];
     const rows = which === "season" ? all.filter((d) => d.season === all[0]?.season) : all;
-    const head = ["Season", "J.", "Date", "Matches", label("expected_hits"), label("entropy"), label("differentiation"),
-      "Single 12+", "·D2 12+", "·D 12+", "·B 1,000 €+", "Lights ·D2 / ·D / ·B", "Verdict", "Hits (single · ·D2 · ·D · ·B)", "·D2 net", "·D net", "·B net"];
+    const head = ["Season", "J.", "Date", "Matches", label("expected_hits"),
+      "·D 12+", "·B 1,000 €+", "Lights ·D / ·B", "Verdict", "Hits (single · ·D · ·B)", "·D2 net", "·D net", "·B net"];
     const body = rows.map((d) => `<tr><td>${esc(d.season)}</td><td class="num">${d.jornada ?? "–"}</td><td>${fmtDate(d.date)}</td>` +
       `<td class="num">${count(d.matched)}${d.public ? ` <span class="muted" data-tip="matches with the public's shares">(${d.public})</span>` : ""}</td>` +
-      `<td class="num">${num(d.expected_hits, 1)}</td><td class="num">${num(d.entropy, 3)}</td><td class="num">${signed(d.differentiation, 2)}</td>` +
-      `<td class="num">${pct(d.p_hits_v3s, 2)}</td><td class="num">${pct(d.p_hits_v3d2, 1)}</td><td class="num">${pct(d.p_hits_v3d, 1)}</td><td class="num">${pct(d.p_big_v3b, 2)}</td>` +
-      `<td>${light(d.light_v3d2)} ${light(d.light_v3d)} ${light(d.light_v3b)}</td><td>${d.verdict ? esc(VERDICT[d.verdict]) : "–"}</td>` +
-      `<td class="num">${d.hits_v3s ?? "–"} · ${d.hits_v3d2 ?? "–"} · ${d.hits_v3d ?? "–"} · ${d.hits_v3b ?? "–"}</td>` +
+      `<td class="num">${num(d.expected_hits, 1)}</td>` +
+      `<td class="num">${pct(d.p_hits_v3d, 1)}</td><td class="num">${pct(d.p_big_v3b, 2)}</td>` +
+      `<td>${light(d.light_v3d)} ${light(d.light_v3b)}</td><td>${d.verdict ? esc(VERDICT[d.verdict]) : "–"}</td>` +
+      `<td class="num">${d.hits_v3s ?? "–"} · ${d.hits_v3d ?? "–"} · ${d.hits_v3b ?? "–"}</td>` +
       `<td class="num">${d.net_v3d2 == null ? "–" : eur(d.net_v3d2)}</td><td class="num">${d.net_v3d == null ? "–" : eur(d.net_v3d)}</td><td class="num">${d.net_v3b == null ? "–" : eur(d.net_v3b)}</td></tr>`).join("");
     $("draws").innerHTML = rows.length
       ? `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`
       : '<p class="empty">No past tickets.</p>';
     const counts = V.counts || {};
-    $("draws-note").innerHTML = `${rows.length} official tickets, newest first: the current season from season.html, the past seasons (from ${esc(counts.first_season || "–")}) from the euro backtest (tickets with 10+ La Liga / Segunda matches). Hits: best column of each ticket; net: payout minus cost (–: not drawn yet). Planned chances and lights before the draw.`;
+    $("draws-note").innerHTML = help(`${rows.length} official tickets, newest first (past seasons from ${esc(counts.first_season || "–")}: those with 10+ La Liga / Segunda matches). Chances and lights: before the draw. Hits: best column. Net: won minus spent (–: not drawn yet).`, "margin:10px 0 0");
   }
 
   function quintileTable(rows, metric, columns, unit = "Matches") {
@@ -196,7 +210,7 @@
     const body = rows.map((r) => `<tr><td class="num">${r.group}</td><td class="num">${num(r.low, 3)} to ${num(r.high, 3)}</td><td class="num">${count(r.n)}</td>` +
       columns.map(([key, , fmt]) => `<td class="num${r[key] === best[key] ? " best" : ""}">${fmt(r[key])}</td>`).join("") + "</tr>").join("");
     return `<div><h2 style="font-size:14px" data-tip="${esc(meaning(metric))}">${esc(label(metric === "strength_gap" ? "strength" : metric))}${metric === "strength_gap" ? " (absolute)" : ""}</h2>` +
-      `<p class="meta" style="margin:0 0 6px">${esc(meaning(metric === "strength_gap" ? "strength" : metric))}</p>` +
+      help(esc(meaning(metric === "strength_gap" ? "strength" : metric)), "margin:0 0 6px") +
       `<div class="scroll"><table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   }
 
@@ -205,10 +219,10 @@
   function renderValidation() {
     const counts = V.counts || {};
     $("match-validation").innerHTML = Object.entries(V.matches || {}).map(([m, rows]) => quintileTable(rows, m, MATCH_COLUMNS)).join("") +
-      `<p class="meta" style="grid-column:1/-1">${count(counts.matches)} La Liga / Segunda matches of the official tickets with a v3 probability and a result (backtest and current season).</p>`;
+      help(`${count(counts.matches)} La Liga / Segunda ticket matches with a v3 probability and a result.`, "grid-column:1/-1");
     const publicColumns = [["hit", "v3 hit rate", (v) => pct(v, 1)], ["value_hit", "Best-value sign came up", (v) => pct(v, 1)]];
     $("public-validation").innerHTML = Object.entries(V.public || {}).map(([m, rows]) => quintileTable(rows, m, publicColumns)).join("") +
-      `<p class="meta" style="grid-column:1/-1">${count(counts.public_matches)} ticket matches with the public's shares and a result so far: three groups, and still a small sample.</p>`;
+      help(`${count(counts.public_matches)} ticket matches with the public's shares and a result so far: a small sample, three groups only.`, "grid-column:1/-1");
     $("liga-f-validation").innerHTML = Object.entries(V.liga_f || {}).map(([m, rows]) => quintileTable(rows, m, [["hit", "v3F hit rate", (v) => pct(v, 1)], ["log_loss", "Log-loss", (v) => num(v, 3)]])).join("") || '<p class="empty">No Liga F results downloaded.</p>';
 
     const drawColumns = [
@@ -244,6 +258,22 @@
   segmented($("draws-switch"), ["Current season", "Every season"], drawsView, (i) => { drawsView = i; renderDraws(i === 0 ? "season" : "all"); });
   renderDraws("season");
   renderValidation();
+  const choice = DATA.choice || [];
+  $("choice").innerHTML = choice.length
+    ? `<table><thead><tr><th>Ticket</th><th class="num">Draws</th><th class="num">Spent</th><th class="num">Net</th>
+        <th class="num" data-tip="Euros won per euro spent over every draw">Back per €</th>
+        <th class="num" data-tip="90% of the resampled draws give a return in this range">Range (luck)</th>
+        <th class="num" data-tip="Return of the middle season">Median season</th>
+        <th class="num" data-tip="Seasons where this ticket gave back the most">Best season</th></tr></thead><tbody>` +
+      choice.map((r) => `<tr><td class="${r.chosen ? "strong" : ""}">${esc(r.name)}${r.chosen ? " ← bet with this one" : ""}</td>` +
+        `<td class="num">${count(r.draws)}</td><td class="num">${count(r.cost)} €</td><td class="num">${count(r.net)} €</td>` +
+        `<td class="num ${r.chosen ? "best" : ""}">${pct(r.return, 0)}</td><td class="num muted">${pct(r.low, 0)}–${pct(r.high, 0)}</td>` +
+        `<td class="num">${pct(r.median_season, 0)}</td><td class="num">${r.best_seasons} of ${r.seasons}</td></tr>`).join("") +
+      "</tbody></table>"
+    : '<p class="empty">No euro backtest yet: run <code>invoke backtest.run</code>.</p>';
+  renderGlossary(["v3", "v3F", "v1N", "v1C", "market", "public", "single", "D2", "D", "B", "fav_prob", "entropy",
+    "edge_public", "value", "expected_hits", "hit_rate", "log_loss", "return", "net", "quintile", "light", "verdict",
+    "M", "F", "O", "jornada", "walk_forward"]);
   tableOfContents();
 </script>
 </body>

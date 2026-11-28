@@ -34,8 +34,18 @@ same matches train the pool. A block's Dixon-Coles only depends on the
 matches before it, so the fitted models are cached and reused by later fits
 in the same process (every matchday of a backtest).
 
-**Without odds.** Matches without odds (e.g. fixtures whose odds are not
-published yet) get the Dixon-Coles probabilities unchanged, exactly v2.
+**Without odds.** Matches without odds (e.g. the next official ticket, known
+days before its odds are published) get the normalised geometric mean of the
+Dixon-Coles (v2) and pi-ratings (v4) probabilities,
+
+$$
+P(k) \propto (p^{\mathrm{DC}}_k)^{1 - w} \, (p^{\pi}_k)^{w}, \qquad w = 0.5,
+$$
+
+since v0.22 (v2 alone before, ``fallback_weight=0``). On the 9,262 matches of
+the backtest (2015-16 to 2025-26) the mix has a log-loss of 1.0174, against
+1.0215 for v2 and 1.0178 for v4, and is never worse than v2 in any of the 11
+seasons; equal weights, not tuned.
 """
 
 from collections import OrderedDict
@@ -49,6 +59,8 @@ from sklearn.utils.validation import check_is_fitted
 
 from quiniela.prediction.dixon_coles import DixonColesModel
 from quiniela.prediction.market import MarketModel
+from quiniela.prediction.pi_ratings import FEATURES as PI_FEATURES
+from quiniela.prediction.pi_ratings import PiRatingsModel
 
 OUTCOMES = ["H", "D", "A"]
 
@@ -133,6 +145,8 @@ class MarketBlendModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
             walk-forward.
         dixon_coles: Dixon-Coles model to combine (cloned before fitting).
             Defaults to ``DixonColesModel()``.
+        fallback_weight: Weight of the pi-ratings (v4) in the geometric mean
+            with Dixon-Coles for the matches without odds (0: Dixon-Coles alone).
     """
 
     def __init__(
@@ -140,10 +154,12 @@ class MarketBlendModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
         blend_days: int = 1825,
         refit_days: int = 7,
         dixon_coles: DixonColesModel | None = None,
+        fallback_weight: float = 0.5,
     ) -> None:
         self.blend_days = blend_days
         self.refit_days = refit_days
         self.dixon_coles = dixon_coles
+        self.fallback_weight = fallback_weight
 
     def _base(self) -> DixonColesModel:
         """New, unfitted Dixon-Coles with the configured parameters."""
@@ -171,6 +187,13 @@ class MarketBlendModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
         self.classes_ = np.array(OUTCOMES)
         self.dixon_coles_ = self._base().fit(X)
         self.market_ = MarketModel().fit(X)
+        # Pi-ratings (v4), mixed with Dixon-Coles for the matches without odds
+        # (only with its columns: without them, Dixon-Coles alone as before v0.22)
+        self.pi_ratings_ = (
+            PiRatingsModel().fit(X, X["FTR"] if y is None else y)
+            if self.fallback_weight > 0 and set(PI_FEATURES) <= set(X.columns)
+            else None
+        )
 
         results = (X["FTR"] if y is None else pd.Series(np.asarray(y), index=X.index)).rename("FTR")
         matches = X.assign(FTR=results).dropna(subset=["FTHG", "FTAG", "FTR"])
@@ -239,12 +262,24 @@ class MarketBlendModel(ClassifierMixin, BaseEstimator):  # type: ignore[misc]
 
         Returns:
             Array of shape ``(n_matches, 3)`` in ``H``, ``D``, ``A`` order: the
-            pool for matches with odds, Dixon-Coles for the rest.
+            pool for matches with odds, the mix of Dixon-Coles and pi-ratings
+            for the rest.
         """
         check_is_fitted(self, "dixon_coles_")
         probs = self.dixon_coles_.predict_proba(X)
         market = self.market_.predict_proba(X)
         with_odds = ~np.isnan(market).any(axis=1)
+        pi_ratings = getattr(self, "pi_ratings_", None)
+        if pi_ratings is not None and (~with_odds).any():
+            weight = self.fallback_weight
+            mixed = _log(probs[~with_odds]) * (1 - weight)
+            mixed += _log(pi_ratings.predict_proba(X[~with_odds])) * weight
+            mixed = np.exp(mixed - mixed.max(axis=1, keepdims=True))
+            mixed /= mixed.sum(axis=1, keepdims=True)
+            # Pi-ratings has no prediction for a team never seen: Dixon-Coles stays
+            known = ~np.isnan(mixed).any(axis=1)
+            rows = np.flatnonzero(~with_odds)[known]
+            probs[rows] = mixed[known]
         if self.weights_ is not None and with_odds.any():
             probs[with_odds] = _pool(self.weights_, _log(probs[with_odds]), _log(market[with_odds]))
         return probs

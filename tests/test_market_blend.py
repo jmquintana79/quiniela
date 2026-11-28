@@ -187,3 +187,17 @@ def test_registered_and_runs_walk_forward(matches: pd.DataFrame) -> None:
     assert len(out) == len(target)
     np.testing.assert_allclose(out[["p_H", "p_D", "p_A"]].sum(axis=1), 1)
     assert out["score_home"].isna().all()  # no exact-score picks in v3
+
+
+def test_without_odds_mixes_dixon_coles_and_pi_ratings(matches: pd.DataFrame) -> None:
+    played = matches.assign(season="2024-25")
+    model = MarketBlendModel(blend_days=120).fit(played)
+    X = _fixture("Strong", "Worst", odds=False).assign(season="2024-25", date=played["date"].max())
+    probs = model.predict_proba(X)
+    dc = model.dixon_coles_.predict_proba(X)
+    pi = model.pi_ratings_.predict_proba(X)
+    mixed = np.sqrt(dc * pi)
+    np.testing.assert_allclose(probs, mixed / mixed.sum(axis=1, keepdims=True), rtol=1e-6)
+    # fallback_weight=0: Dixon-Coles alone, as before v0.22
+    alone = MarketBlendModel(blend_days=120, fallback_weight=0).fit(played)
+    np.testing.assert_allclose(alone.predict_proba(X), alone.dixon_coles_.predict_proba(X))

@@ -11,6 +11,8 @@ dashboards. See [Predictive models](#predictive-models) and [Releases](#releases
 ## Contents
 
 - [Data source](#data-source)
+  - [National teams: every international since 1872](#national-teams-every-international-since-1872)
+  - [Other club competitions: ESPN's scoreboard](#other-club-competitions-espns-scoreboard)
   - [Official draws: real tickets, winners and prizes](#official-draws-real-tickets-winners-and-prizes)
 - [Setup](#setup)
 - [Usage](#usage)
@@ -45,6 +47,11 @@ dashboards. See [Predictive models](#predictive-models) and [Releases](#releases
   - [v2F · Pi-ratings (`pi_ratings_f`)](#v2f--pi-ratings-pi_ratings_f)
   - [v3F · Pi-ratings with shots on target (`pi_ratings_shots_f`)](#v3f--pi-ratings-with-shots-on-target-pi_ratings_shots_f)
   - [Evaluation (`quiniela.evaluation.women`)](#evaluation-quinielaevaluationwomen)
+- [National teams (men's)](#national-teams-mens)
+  - [v1N · National-team Elo (`elo_national`)](#v1n--national-team-elo-elo_national)
+- [Other club competitions](#other-club-competitions)
+  - [v1C · Club Elo (`elo_clubs`)](#v1c--club-elo-elo_clubs)
+- [Which ticket to bet with](#which-ticket-to-bet-with)
 - [Releases](#releases)
 - [Project structure](#project-structure)
 - [Notes on the data](#notes-on-the-data)
@@ -301,8 +308,11 @@ Six dashboards, each answering one question:
 | `prizes.html` | What did each draw pay? | Every official draw since 2010-11: jackpot, winners and prize per winner of each category. |
 | `metrics.html` | Is this a jornada to play, and which metrics tell? | The next ticket's metrics per match and per jornada with a verdict, every past ticket with its metrics and KPIs, and which metrics predict the KPIs (see [Metrics and KPIs of the tickets](#metrics-and-kpis-of-the-tickets)). |
 
-**In every dashboard** a **table of contents** after the header links to each section. Two
-kinds of page, two kinds of figures:
+**In every dashboard** a **table of contents** after the header links to each section, every
+section and table starts with a short explanation in muted grey (what it is for, how to read it),
+and a **glossary** at the end defines each model, ticket, metric and abbreviation the page shows
+(one list, `GLOSSARY` in `templates/base.js`, since v0.22). `metrics.html` also says **which ticket
+to bet with** ([below](#which-ticket-to-bet-with)). Two kinds of page, two kinds of figures:
 
 - **`current.html` and `season.html` are about the tickets you can play**: the five **v3+v3F
   tickets** (single, ·D2, ·D, ·R, ·B) on the **real official tickets**, with their hits on the
@@ -906,8 +916,17 @@ out-of-sample probabilities and the odds of the same matches (about 4,200) train
 Every weekly Dixon-Coles depends only on the matches before it, so it is cached and reused by
 the later matchdays of the backtest.
 
-**Without odds.** A match without odds (e.g. a matchday whose odds are not published yet) gets
-the Dixon-Coles probabilities unchanged, exactly v2.
+**Without odds.** A match without odds (e.g. the next official ticket, known days before its odds
+are published) gets the normalised geometric mean of v2 and v4 (since v0.22; v2 alone before):
+
+```math
+P(k) \propto (p^{\mathrm{DC}}_k)^{1/2} \, (p^{\pi}_k)^{1/2}
+```
+
+On the 9,262 matches of the backtest the mix has a log-loss of **1.0174**, against 1.0215 for v2 and
+1.0178 for v4, and it is never worse than v2 in any of the 11 seasons (v4 alone is worse in three);
+the weights are equal, not tuned. The backtest of v3 itself does not change (every past match had
+odds): the mix only works on the next ticket until its odds are published.
 
 **Without data: the public's picks** (since v0.6.0). The official ticket also has matches no
 model covers: women's football and other competitions (national teams, cups...). For them v3
@@ -918,15 +937,16 @@ saved in `data/lae/upcoming.json`), normalised:
 p_k = \frac{s_k}{s_1 + s_X + s_2}, \qquad k \in \{1, X, 2\}
 ```
 
-So v3 is: **Dixon-Coles + market** where there are odds, **Dixon-Coles** where there are none
-yet, and **the public's picks** where there is no data at all. v3+v3F·D, v3+v3F·R and v3+v3F·B plan their doubles and
+So v3 is: **Dixon-Coles + market** where there are odds, **Dixon-Coles mixed with v4** where there
+are none yet, and **the public's picks** where there is no data at all (since v0.18-v0.21 the Liga F,
+national-team and other club matches have their own models: v3F, v1N, v1C). v3+v3F·D, v3+v3F·R and v3+v3F·B plan their doubles and
 triples on these probabilities, so all 14 matches of the ticket count with an estimate (before,
 the matches without data got the league shares of 1, X and 2). The public's shares only exist for
 the ticket being sold (the betting page shows them; the results service does not keep them), so
 past tickets keep the league shares for those matches and the backtests do not change: the rule
 applies from the first ticket saved with the Quiniela bookmark on.
 
-**In practice.** v2 only does the work when there are no odds: v3 then uses v2 as it is. When
+**In practice.** v2 (with v4) only does the work when there are no odds. When
 the odds are available, the forecast is essentially the market's, slightly corrected (see the
 weights in the observations below): Dixon-Coles adds nothing the market does not already know.
 
@@ -938,8 +958,8 @@ matchday played Friday to Monday:
 
 | Day | What happens | v3 predicts with |
 |---|---|---|
-| Monday-Tuesday | The previous matchday ends; LAE publishes the next ticket. | Dixon-Coles only (no odds yet) |
-| Tuesday-Thursday | football-data may list the fixtures, still without odds for them. | Dixon-Coles only |
+| Monday-Tuesday | The previous matchday ends; LAE publishes the next ticket. | Dixon-Coles + v4 (no odds yet) |
+| Tuesday-Thursday | football-data may list the fixtures, still without odds for them. | Dixon-Coles + v4 |
 | **Friday afternoon** | football-data adds the odds of the weekend matches. | **Dixon-Coles + market** |
 | Friday night | First match; the ticket closes before it. | — |
 
@@ -1347,8 +1367,8 @@ draws in euros:
   almost only from 14 hits (a 13 pays less than about 9,200 € in three draws out of four, see
   `prizes.html`), and with the same bets a direct ticket concentrates more chance on the 14 (and
   pays the chained 13s and 12s that come with it), so v3+v3F·B stayed direct. Since it aims at
-  1,000 € (v0.13), a 13 is often enough, so reductions are worth testing for it again (see the
-  [Roadmap](#roadmap)).
+  1,000 € (v0.13) a 13 is often enough, so **since v0.22 it tries the reductions too** (see the
+  money tickets below): it picks one in 5% of the draws, with almost no change.
 
 ### v3+v3F·E and v3+v3F·B · Money tickets (`money`)
 
@@ -1536,6 +1556,15 @@ of a prize of at least $X$ within a weekly budget:
 ```math
 P_k = \Phi\left(\frac{\log(c_k\, s_k\, 0.75\, B / X) - \log B - a_k - b_k S}{\sigma_k}\right)
 ```
+
+**Reductions** (since v0.22): the best placements of every official reduction within the budget
+(the 1st to the 4th fit in 50 €; `reduced_candidates`, three per reduction and mix of extra
+doubles and triples, ranked by their chance of 13+ hits) compete with the direct tickets. A reduced
+ticket's columns are counted one by one in every simulated draw, and its chance of 14 is that of
+its columns, $P(\text{rest right}) \sum_{c} \prod_{i} p_{i, c_i}$, not of every combination of
+the covered signs. In the euro backtest it picks a reduction in 22 of 414 draws (5%): one more
+winning draw, 56 € more back (35.1% of the money against 35.0%) and still no 1,000 € prize
+(1.40 expected): a small change, kept because it never plans a worse chance.
 
 The ticket is chosen on one set of simulations and valued on another. $X$ is
 `BIG_WIN_THRESHOLD`: **1,000 €** since v0.13 (10,000 € before). The banner shows the chance of
@@ -1918,6 +1947,28 @@ picks cannot be compared.
 - The euro backtest does not change, as with v1N: it only plays the draws with 10 or more La Liga /
   Segunda matches.
 
+## Which ticket to bet with
+
+All the tickets lose money, so the choice is the one that loses the least for what it plays.
+`metrics.html` ranks them every build by the euro backtest (every draw since 2015-16 with 10+ La
+Liga / Segunda matches, real prizes), with a range from resampling the draws:
+
+| Ticket | Back per € | Range (90%) | Median season | Best season |
+|---|---|---|---|---|
+| **·R reduced** | **48.8%** | 32-68% | **34%** | **4 of 11** |
+| ·E expected prize (every draw) | 41.0% | 23-66% | 25% | 2 of 11 |
+| ·D2 small | 39.5% | 18-67% | 24% | 3 of 11 |
+| ·D direct | 35.4% | 22-52% | 26% | 0 of 11 |
+| ·B 1,000 € | 35.1% | 27-44% | 30% | 0 of 11 |
+| Single | 32.6% | 17-52% | 21% | 2 of 11 |
+
+**Rule: bet with the ticket that gives back the most per euro, unless another one beats it
+steadily** (its median season too, and in most seasons). Today it is **v3+v3F·R**: first in
+return, in the median season and in the number of best seasons, and with the same 48 bets it
+pays more than ·D in 97 draws and less in 76. The ranges overlap a lot: 400 draws are few, so
+the rule is reviewed at the end of every season. To spend little, ·D2 (1.50 €) loses the least
+money in euros.
+
 ## Releases
 
 Each model version is released with a git tag in commitizen's `v<version>` format, using the
@@ -1925,6 +1976,7 @@ version in `pyproject.toml`:
 
 | Tag | Models | Notes |
 |---|---|---|
+| [`v0.22.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.22.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), v1N national-team Elo, v1C club Elo, Pleno al 15 v1P (Dixon-Coles) and v2P (market), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **v3 without odds mixes v2 and v4** (normalised geometric mean, equal weights: log-loss 1.0174 against 1.0215 for v2 on the backtest, never worse in any season). **v3+v3F·B tries the official reductions** (1st to 4th within 50 €; picks one in 5% of the draws, +56 € in the euro backtest). **Which ticket to bet with**: `metrics.html` ranks the tickets by the euro backtest (rule: the best return per euro unless another wins steadily; today ·R, 49% back). **Every dashboard explained**: a short muted explanation per section and table and a glossary of its models, tickets, metrics and abbreviations (`GLOSSARY` in `base.js`); `metrics.html`, `current.html` and `evaluation.html` simplified. |
 | [`v0.21.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.21.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), v1N national-team Elo, **v1C club Elo**, Pleno al 15 v1P (Dixon-Coles) and v2P (market), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **Club model v1C** for the 4,627 ticket club matches outside La Liga / Segunda (`quiniela.prediction.elo_clubs`, its own C counter): one Elo scale of every club of 24 leagues and 14 cups of ESPN since 2009 (`quiniela.io.espn_clubs`, downloaded by `invoke update`), linked by the European cups, mapped to 1X2 as v1N. 50.8% of hits and a log-loss of 1.004 on 140,241 matches from 2011; 55.5% and 0.955 on 4,111 ticket matches (45.4% and 1.060 for the result shares). Ticket matches linked to ESPN by name similarity (`quiniela.data.clubs`, 92% found). The tickets plan them with it (`CLUB_PLANNER_MODEL`; the public's picks before), and `evaluation.html` has an other-clubs block. |
 | [`v0.20.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.20.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), **v1N national-team Elo**, Pleno al 15 v1P (Dixon-Coles) and v2P (market), tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **National-team model v1N** (`quiniela.prediction.elo_national`, its own N counter): World Football Elo of every men's international since 1872 (martj42's results, downloaded by `invoke update`, `quiniela.io.international`), mapped to 1X2 by an ordered logistic regression. 59.4% of hits and a log-loss of 0.885 on 16,512 internationals from 2010 (47.8% and 1.050 for the result shares); 60.2% and 0.874 on the 840 national-team matches of the official tickets. The tickets plan the national-team matches with it (`NATIONAL_PLANNER_MODEL`; the public's picks before), and `evaluation.html` has a national-team block. LAE names translated in `quiniela.data.national`. |
 | [`v0.19.0`](https://github.com/jmquintana79/quiniela/releases/tag/v0.19.0) | v1 head-to-head, v2 Dixon-Coles (independent), **v3 Dixon-Coles + market + public picks**, v4 pi-ratings (independent), v1F public picks, v2F pi-ratings and v3F pi-ratings with shots on target (Liga F), Pleno al 15 v1P (Dixon-Coles) and **v2P (market)**, tickets **v3+v3F** (single), v3+v3F·D2, v3+v3F·D, v3+v3F·R and v3+v3F·B (v3+v3F·E in the backtest), market reference | **The Pleno al 15 from the market (v2P)**, `quiniela.prediction.pleno`: expected goals fitted to the 1X2 and over / under 2.5 odds, Poisson with the Dixon-Coles correction ($\rho = -0.05$), the most likely pair of goals categories. It hits 15.5% of the Plenos against 14.5% for v1P on 9,241 matches (better in all 11 seasons) and is the tickets' pick (v1P without odds). The next ticket also shows its probability and the best-value pick against the public. The over / under odds are now kept in the match table. |
@@ -2082,13 +2134,9 @@ publishes Pinnacle, and the spread did not improve v3 in a screening test).
 
 Other ideas:
 
-- **v3+v3F·B with reductions.** At 1,000 € a 13 is often enough, so the official reductions
-  (more matches covered, 13 guaranteed when the covered signs are right) may now beat the direct
-  ticket for the ·B target; test them as candidates, as in v3+v3F·R.
 - **Liga F: check the switch to v3F.** The tickets plan the Liga F matches with v3F since
   v0.18 (v2F before); once the comparison with v1F on the ticket matches has enough matches, go
   back to the public if it turns out better.
-- **v4 instead of Dixon-Coles** in v3 when the odds are missing.
 - **Other clubs: check v1C against the public** once archived tickets have club matches of other
   competitions with their results, and add the competitions ESPN lacks (the Finnish league).
 - **National teams: check v1N against the public** as the archived tickets with national-team

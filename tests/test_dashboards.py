@@ -821,3 +821,22 @@ def test_clubs_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     json.dumps(payload)
     monkeypatch.setattr(dashboards, "_club_evaluation", lambda: (pd.DataFrame(), pd.DataFrame()))
     assert dashboards.clubs_payload()["scopes"] == {}
+
+
+def test_ticket_choice() -> None:
+    rows = []
+    for season in ("2020-21", "2021-22"):
+        for draw in range(5):
+            for strategy, payout in (("v3d", 10.0), ("v3r", 20.0), ("single", 0.5)):
+                rows.append(
+                    {"season": season, "draw_id": f"{season}-{draw}", "strategy": strategy,
+                     "played": True, "cost": 36.0 if strategy != "single" else 0.75,
+                     "payout": payout}
+                )  # fmt: skip
+    choice = dashboards.ticket_choice(pd.DataFrame(rows))
+    assert [r["key"] for r in choice] == ["single", "v3r", "v3d"]
+    assert choice[0]["chosen"] and not choice[1]["chosen"]
+    assert choice[1]["return"] == pytest.approx(20 / 36, abs=1e-4)
+    assert choice[0]["best_seasons"] == 2 and choice[0]["seasons"] == 2
+    assert choice[1]["low"] <= choice[1]["return"] <= choice[1]["high"]
+    assert dashboards.ticket_choice(pd.DataFrame(rows).iloc[:0]) == []

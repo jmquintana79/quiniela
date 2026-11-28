@@ -13,6 +13,9 @@
     <span class="meta" id="coverage"></span>
   </header>
 
+  <p class="help" style="margin:0 0 12px"><b>What this page is for:</b> the raw history the models learn from: every
+    past La Liga / Segunda season, the official quiniela tickets and the Liga F matches. Pick a league, season or team.</p>
+
   <!-- Only the selected league and season are rendered -->
   <div class="filters">
     <div class="segmented" id="league-switch"></div>
@@ -22,9 +25,10 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="Men's · Outcomes by season">
     <h2>Men's leagues · Outcomes by season</h2>
+    <p class="help">Share of home wins, draws and away wins and goals per match in each season. Click a season to open it
+      below.</p>
     <div id="legend"></div>
     <div class="scroll" id="summary"></div>
-    <p class="meta" style="margin:10px 0 0">Click a season to open it below.</p>
   </section>
 
   <div class="grid two">
@@ -35,18 +39,21 @@
   <section class="card" style="margin-top:16px" data-toc="Official quiniela tickets">
     <h2 id="tickets-title">Official quiniela tickets</h2>
     <div class="filters"><label>Jornada <select id="ticket-select"></select></label></div>
-    <p class="meta" style="margin:0 0 10px">The tickets of the season as Loterías y Apuestas del Estado published them
-      (data/lae), with every match: men's La Liga and Segunda (M), women's football (F) and other competitions (O).</p>
+    <p class="help">The tickets of the season as Loterías y Apuestas del Estado published them, with every match and its
+      result.</p>
     <div class="scroll" id="tickets"></div>
     <div id="categories" style="margin-top:10px"></div>
   </section>
   <section class="card" style="margin-top:16px" data-toc="Liga F · Outcomes and matches">
     <h2>Liga F · Outcomes and matches</h2>
-    <p class="meta" style="margin:0 0 10px">The women's league has no data source in the project: its history is the Liga F
-      matches of the official quiniela tickets (marked F), with their results and, when the betting page was saved, the
-      public's picks (v1F). Shares of 1, X and 2 and goals per match by season, then every match.</p>
+    <p class="help">The Liga F matches of the official tickets: shares of 1, X and 2 and goals by season, then every match
+      with its result and, when the betting page was saved, the public's picks (v1F).</p>
     <div class="scroll" id="women-data"></div>
     <div class="scroll" id="women-matches" style="margin-top:12px"></div>
+  </section>
+  <section class="card" data-toc="Glossary" style="margin-top:16px">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
   </section>
 </main>
 
@@ -126,12 +133,13 @@
   }
 
   $("legend").innerHTML = outcomeLegend();
-  $("categories").innerHTML = categoryLegend(DATA.categories || {});
+  $("categories").innerHTML = "";
   $("season").addEventListener("change", (e) => selectSeason(Number(e.target.value)));
   $("team").addEventListener("change", (e) => { state.team = e.target.value; renderSeason(); });
 
   $("women-data").innerHTML = ligaFDataTable(DATA.liga_f?.data);
   $("women-matches").innerHTML = ligaFMatchesTable(DATA.liga_f?.matches);
+  renderGlossary(["M", "F", "O", "U", "Q", "signs", "jornada", "v1F", "categories", "pleno"]);
   tableOfContents();
 
   if (DATA.leagues.length) {

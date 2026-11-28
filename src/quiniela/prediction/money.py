@@ -102,6 +102,7 @@ from quiniela.prediction.planner import (
     compositions,
     hit_distribution,
 )
+from quiniela.prediction.reduced import reduced_candidates
 
 # Prize categories (hits), best first
 CATEGORY_HITS = [14, 13, 12, 11, 10]
@@ -421,6 +422,51 @@ def column_hits(levels: np.ndarray, rank_hit: np.ndarray) -> np.ndarray:
     return out
 
 
+def reduced_column_hits(plan: TicketPlan, rank_hit: np.ndarray) -> np.ndarray:
+    """Number of columns of a reduced ticket with every number of hits, in each draw.
+
+    The direct matches multiply the columns as in :func:`column_hits`; each
+    column of the reduction adds its own hits on the reduced matches.
+
+    Args:
+        plan: A ticket with an official reduction (``plan.code`` set).
+        rank_hit: Rank of the real result among each match's signs by model
+            probability, shape ``(n_draws, n)``.
+
+    Returns:
+        Shape ``(n_draws, n + 1)``: columns with 0..n hits.
+    """
+    assert plan.code is not None
+    rank_hit = np.atleast_2d(rank_hit)
+    n = rank_hit.shape[1]
+    block = list(plan.reduced)
+    rest = [i for i in range(n) if i not in plan.reduced]
+    direct = column_hits(plan.levels[rest], rank_hit[:, rest])[0]
+    # Hits of every column of the reduction in every draw, then how many columns have each
+    hits = (plan.code[None, :, :] == rank_hit[:, None, block]).sum(axis=2)
+    reduced = np.stack([(hits == k).sum(axis=1) for k in range(len(block) + 1)], axis=1)
+    out = np.zeros((len(rank_hit), n + 1))
+    for k in range(len(block) + 1):
+        out[:, k : k + len(rest) + 1] += direct * reduced[:, [k]]
+    return out
+
+
+def _reduced_fourteen_ratio(plan: TicketPlan, probs: np.ndarray) -> float:
+    """Chance of 14 hits of a reduced ticket over that of the same signs played direct.
+
+    A reduced ticket has 14 hits only when the results of its reduced matches
+    are one of its columns, not any combination of the covered signs.
+    """
+    if plan.code is None:
+        return 1.0
+    order, cover = _sorted_signs(probs)
+    ranked = np.take_along_axis(probs, order, axis=1)
+    block = list(plan.reduced)
+    columns = ranked[np.array(block)[None, :], plan.code].prod(axis=1).sum()
+    covered = float(np.prod(cover[block, plan.levels[block]]))
+    return float(columns / covered) if covered > 0 else 0.0
+
+
 @dataclass(frozen=True)
 class MoneyPlan:
     """The ticket with the best expected net prize.
@@ -637,6 +683,7 @@ def plan_big_win(
     per_mix: int = DEFAULT_CANDIDATES,
     pleno_rate: float = PLENO_HIT_RATE,
     rng: np.random.Generator | None = None,
+    reductions: bool = True,
 ) -> BigWinPlan:
     r"""Ticket with the highest chance of a large prize (the ·B ticket, big win).
 
@@ -667,6 +714,10 @@ def plan_big_win(
             likely to reach 13+ hits).
         pleno_rate: Chance of also hitting the Pleno al 15.
         rng: Random generator (seeded for reproducible results).
+        reductions: Also try the official reductions within the budget
+            (``quiniela.prediction.reduced.reduced_candidates``, since v0.22): a
+            reduced ticket's columns are counted one by one in every simulated
+            draw, and its chance of 14 is that of its columns.
 
     Returns:
         The ticket, its chance of a large prize and its payout distribution.
@@ -687,7 +738,7 @@ def plan_big_win(
     max_bets = int(max_cost // BET_PRICE)
     # Chosen on one set of simulations, valued on another (see plan_money)
     rank_hit, shares = simulate()
-    best: tuple[float, int, int, np.ndarray] | None = None
+    best: tuple[float, TicketPlan | None, int, int, np.ndarray] | None = None
     for d, t, placements in _candidates(probs, max_bets, per_mix, min_hits=13):
         columns = column_hits(placements, rank_hit)
         chance = big_win_chance(columns, shares, model, bets, jackpot, threshold, pleno_rate).mean(
@@ -699,15 +750,48 @@ def plan_big_win(
         chance = 1 - (1 - chance) * (1 - fourteen)
         i = int(np.argmax(chance))
         if best is None or chance[i] > best[0]:
-            best = (float(chance[i]), d, t, placements[i])
+            best = (float(chance[i]), None, d, t, placements[i])
+    # The official reductions too (since v0.22): more matches covered for the same money,
+    # 13 guaranteed when the covered signs are right (often enough for 1,000 EUR)
+    for candidate in reduced_candidates(probs, max_bets, min_hits=13) if reductions else []:
+        columns = reduced_column_hits(candidate, rank_hit)[None]
+        chance_common = big_win_chance(
+            columns, shares, model, bets, jackpot, threshold, pleno_rate
+        ).mean(axis=1)[0]
+        fourteen = _fourteen_chance(
+            candidate.levels[None, :],
+            probs,
+            crowd,
+            model,
+            bets,
+            jackpot,
+            threshold,
+            pleno_rate,
+            rng,
+        )[0] * _reduced_fourteen_ratio(candidate, probs)
+        chance = 1 - (1 - chance_common) * (1 - fourteen)
+        assert best is not None
+        if chance > best[0]:
+            best = (
+                float(chance),
+                candidate,
+                candidate.doubles,
+                candidate.triples,
+                candidate.levels,
+            )
     assert best is not None
-    _, d, t, levels = best
+    _, reduced_plan_found, d, t, levels = best
     rank_hit, shares = simulate()
-    columns = column_hits(levels[None, :], rank_hit)
+    if reduced_plan_found is not None:
+        columns = reduced_column_hits(reduced_plan_found, rank_hit)[None]
+        ratio = _reduced_fourteen_ratio(reduced_plan_found, probs)
+    else:
+        columns = column_hits(levels[None, :], rank_hit)
+        ratio = 1.0
     common = float(
         big_win_chance(columns, shares, model, bets, jackpot, threshold, pleno_rate)[0].mean()
     )
-    rare = float(
+    rare = ratio * float(
         _fourteen_chance(
             levels[None, :], probs, crowd, model, bets, jackpot, threshold, pleno_rate, rng
         )[0]
@@ -720,7 +804,7 @@ def plan_big_win(
     mean_payout = (columns[0] * typical).sum(axis=1) + columns[
         0, :, 14
     ] * pleno_rate * typical_special
-    plan = _build(probs, levels, 13, d, t)
+    plan = reduced_plan_found if reduced_plan_found is not None else _build(probs, levels, 13, d, t)
     cost = BET_PRICE * plan.bets
     return BigWinPlan(
         plan=plan,
@@ -728,7 +812,7 @@ def plan_big_win(
         threshold=threshold,
         chance=1 - (1 - common) * (1 - rare),
         chance_13=float((columns[0, :, 13:].sum(axis=1) > 0).mean()),
-        chance_14=float(np.prod(_sorted_signs(probs)[1][np.arange(len(probs)), levels])),
+        chance_14=ratio * float(np.prod(_sorted_signs(probs)[1][np.arange(len(probs)), levels])),
         expected_payout=float(mean_payout.mean()),
         outcomes=_payout_outcomes(payout, cost),
     )

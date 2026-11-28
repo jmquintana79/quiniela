@@ -15,36 +15,36 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="Men's · Season so far">
     <h2>Men's leagues · Season so far</h2>
+    <p class="help">Each model and ticket on every La Liga / Segunda match of the season: share of right signs, and for the
+      tickets their prizes and euros. Hover a tile for what it is.</p>
     <div class="tiles" id="totals"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Season so far">
     <h2>Liga F · Season so far</h2>
-    <p class="meta" style="margin:0 0 10px">The Liga F matches of this season, apart from the men's models.
-      <strong>v2F</strong> (pi-ratings), <strong>v3F</strong> (pi-ratings with shots on target, the tickets' one) and the reference (result shares of the earlier matches) on every Liga F match;
-      <strong>v1F</strong> (public picks) on the ticket matches whose betting page was saved.</p>
+    <p class="help">The same for the women's league: v2F, v3F (the tickets' model) and the result shares on every Liga F
+      match; v1F (the public) only where the betting page was saved.</p>
     <div class="tiles" id="women-totals"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Jornadas: the v3+v3F tickets">
     <h2>Jornadas · the v3+v3F tickets on the official tickets</h2>
-    <p class="meta" style="margin:0 0 10px">One row per official quiniela ticket of the season (Loterías y Apuestas del
-      Estado), with what each v3+v3F ticket got on its <strong>real 14 matches</strong>: v3 on the La Liga / Segunda
-      matches, v3F on the Liga F ones (v1F without it) and the shares of 1, X and 2 on the other competitions.
-      Hits: of the matches played so far (the reduced ticket counts its best column). Rec.: whether the traffic light
-      recommended the ticket before the jornada (yes: green, as in current.html; no: amber or red). Prize: euros with the real
-      winners and takings of the draw (the Pleno al 15 counts when its pick is right), and the cost below.
-      Click a jornada to see its ticket.</p>
+    <p class="help">One row per official ticket of the season: what each ticket got on its real 14 matches. <b>Hits</b>:
+      right signs of the played matches (best column for reduced tickets). <b>Rec.</b>: whether the light was green before
+      the jornada. <b>Prize</b>: real euros of the draw, cost below. Click a row to see the ticket.</p>
     <div class="scroll" id="jornadas"></div>
   </section>
 
   <section class="card" data-toc="Ticket of a jornada">
     <h2 id="ticket-title">Ticket</h2>
-    <p class="meta" style="margin:0 0 10px">The 15 matches of the selected ticket and what each v3+v3F ticket marked
-      (✓ green: hit · ✗ red: miss · ✓ grey: an R match of the official reduction whose result was covered; not every
-      combination is played, so the best column can still miss one of them). The footer gives the hits of the best column
-      and the price of each ticket.</p>
+    <p class="help">The 15 matches of the selected jornada and each ticket's marks (✓ hit, ✗ miss, R reduction). Footer:
+      hits of the best column and price.</p>
     <div class="scroll" id="ticket"></div>
+  </section>
+
+  <section class="card" data-toc="Glossary" style="margin-top:16px">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
   </section>
 </main>
 
@@ -141,7 +141,7 @@
   function select(i) {
     selected = i;
     const t = tickets[i];
-    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, ticketModels) + categoryLegend(DATA.categories);
+    $("ticket").innerHTML = officialTicketTable(t, DATA.categories, ticketModels);
     $("ticket-title").textContent = t ? `Ticket · jornada ${t.jornada} (${fmtDate(t.date)})` : "Ticket";
     $("jornadas").innerHTML = jornadasTable();
     $("jornadas").querySelectorAll("tr.clickable").forEach((row) =>
@@ -153,6 +153,8 @@
   $("meta").textContent = tickets.length ? `${tickets.length} official tickets` : "No official tickets saved yet.";
   if (tickets.length) select(selected);
   else $("jornadas").innerHTML = jornadasTable();
+  renderGlossary(["v1", "v2", "v3", "v4", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "v3+v3F", "single", "D2", "D",
+    "R", "B", "hit_rate", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "jornada", "net"]);
   tableOfContents();
 </script>
 </body>

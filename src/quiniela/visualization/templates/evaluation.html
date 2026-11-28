@@ -13,6 +13,10 @@
     <span class="meta" id="meta"></span>
   </header>
 
+  <p class="help" style="margin:0 0 14px"><b>What this page is for:</b> how good each model is, measured honestly: every
+    past match predicted only with what was known before it (walk-forward). Each group of competitions has its own
+    models. The main metric is the <b>log-loss</b> (lower is better); the hit rate is easier to read. Tickets at the end.</p>
+
   <div class="filters">
     <div class="segmented" id="league-switch"></div>
     <label>Season <select id="season"></select></label>
@@ -22,83 +26,88 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="Men's · Metrics">
     <h2 id="metrics-title">Metrics</h2>
+    <p class="help">Every model on the same matches. <b>Bold</b>: the best model (the market is the reference to beat, not
+      a candidate). ↑ higher is better, ↓ lower is better. ·D and ·R are ways of playing v3, so only their hits and prizes
+      are shown (a double is a hit when the result is one of its signs).</p>
     <div class="scroll" id="metrics"></div>
-    <p class="meta" style="margin:10px 0 0">
-      <strong>Bold</strong>: best candidate model for the metric (the market is the reference,
-      not a candidate). ↑ higher is better · ↓ lower is better. <strong>v3+v3F·D</strong> and <strong>v3+v3F·R</strong> are not
-      probability models but ways of playing v3: the v3 signs with doubles and triples on the
-      ticket (up to 48 bets a matchday; v3+v3F·R may also play an official reduction), so only their hit
-      rate (a double or triple is a hit when the result is among its signs) and prizes are shown
-      (v3+v3F·R's prizes count the hits of its best column), and they are never bold.
-    </p>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by season">
+    <h2>Hit rate by season</h2>
+    <p class="help">Whether a model is steadily good or only in some seasons. Click a season to filter the page.</p>
+    <div class="scroll" id="by-season"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by result">
     <h2 id="by-result-title">Hit rate by result</h2>
-    <p class="meta" style="margin:0 0 10px">
-      For each <strong>observed</strong> result (1, X, 2), the share of its matches that each model got right.
-      For <strong>v3+v3F·D</strong> and <strong>v3+v3F·R</strong> a double or triple is a hit for every result it covers (a
-      triple 1X2 is a hit whether it ends 1, X or 2), on the ticket matches; elsewhere they are v3's sign.
-      Same league and season filters as the metrics. Informative: never bold.
-    </p>
+    <p class="help">For the matches that ended 1, X or 2, how many each model got right. Every model misses most draws:
+      a draw is rarely the most likely result.</p>
     <div class="scroll" id="by-result"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Men's · Contingency tables">
     <h2 id="contingency-title">Contingency tables</h2>
-    <p class="meta" style="margin:0 0 10px">
-      How many matches of each <strong>observed</strong> result (rows: what really happened) got each
-      <strong>predicted</strong> sign (columns: what the model marked). The diagonal (bold) are the hits;
-      the share under each count is of the row (how the real results of that kind were predicted).
-      Same league and season filters as the metrics.
-    </p>
+    <p class="help">Rows: what happened; columns: what the model said. The diagonal (bold) are the hits; the share under
+      each count is of its row.</p>
     <div class="grid two" id="contingency"></div>
   </section>
 
+  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by confidence">
+    <h2>Hit rate by confidence</h2>
+    <p class="help">Matches split by the probability of the predicted sign (high, medium, low). If the probabilities can
+      be trusted, each group's hit rate is close to its confidence. Each cell: hit rate and share of matches.</p>
+    <div class="scroll" id="confidence"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px" data-toc="Men's · Calibration">
+    <h2>Calibration</h2>
+    <p class="help">Predicted probability (in 10% bins) against how often it happened. On the diagonal: well calibrated;
+      below: over-confident; above: under-confident. Every season of the selected league.</p>
+    <div class="tiles" id="calibration"></div>
+  </section>
+
   <h2 class="group" id="liga-f">Liga F (women's league)</h2>
-  <p class="meta" style="margin:-4px 0 12px">Evaluated apart from the men's models, on the Liga F matches of the official
-    tickets and on every Liga F match since 2022-23 (ESPN). <strong>v1F</strong>, the public's picks, is scored only on the ticket
-    matches whose betting page was saved (data/lae/public), a history that grows every jornada; <strong>v2F</strong>, pi-ratings of
-    the Liga F results, <strong>v3F</strong>, the same learned from goals and shots on target (the tickets' Liga F model), and the reference, <strong>result shares</strong> of the earlier matches (always the most frequent result),
-    on every Liga F match, walk-forward week by week from 2023-24 (2022-23 only trains). Season filter only.</p>
+  <p class="help" style="margin:-4px 0 12px">Every Liga F match since 2023-24, predicted week by week. v2F and v3F learn
+    from the results (v3F, the tickets' model, from shots on target too); v1F (the public) only exists where the betting
+    page was saved. Season filter only.</p>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Metrics">
     <h2 id="women-metrics-title">Liga F · Metrics</h2>
+    <p class="help">Each model on the matches where it has its input.</p>
     <div class="scroll" id="women-metrics"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Liga F · v1F against v2F">
+  <section class="card" style="margin-bottom:16px" data-toc="Liga F · Models against the public">
     <h2 id="women-common-title">Liga F · v1F against v2F</h2>
-    <p class="meta" style="margin:0 0 10px">Every Liga F model on the <strong>same matches</strong>: the Liga F matches of the
-      official tickets whose betting page was saved (v1F needs the public's picks). The fair comparison of the public
-      (v1F) and the pi-ratings (v2F); it grows by about four matches a week.</p>
+    <p class="help">Every Liga F model on the <b>same</b> matches (those with the public's picks): the fair comparison
+      with the public. It grows by about four matches a week.</p>
     <div class="scroll" id="women-common"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Hit rate by result">
     <h2 id="women-by-result-title">Liga F · Hit rate by result</h2>
+    <p class="help">As for the men's leagues.</p>
     <div class="scroll" id="women-by-result"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Contingency tables">
     <h2 id="women-contingency-title">Liga F · Contingency tables</h2>
-    <p class="meta" style="margin:0 0 10px">Rows: the <strong>observed</strong> result; columns: the <strong>predicted</strong> sign.</p>
+    <p class="help">Rows: what happened; columns: what the model said.</p>
     <div class="grid two" id="women-contingency"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Liga F · Data and matches">
     <h2>Liga F · Data and matches</h2>
+    <p class="help">How much Liga F data there is per season, and every Liga F match of the official tickets with each
+      model's pick.</p>
     <div class="scroll" id="women-data"></div>
     <h3 style="margin:14px 0 6px;font-size:14px">Every Liga F match of the official tickets</h3>
     <div class="scroll" id="women-matches"></div>
   </section>
 
   <h2 class="group" id="national">National teams (men's)</h2>
-  <p class="meta" style="margin:-4px 0 12px">Evaluated apart, on every men's international since 2010 (martj42's results
-    since 1872) and on the national-team matches of the official tickets. <strong>v1N</strong> rates every team with the World
-    Football Elo system match by match and maps the Elo difference to 1X2 with an ordered logistic regression, refitted every
-    year on the earlier ones. References: the <strong>result shares</strong> of the earlier years and the <strong>public's
-    picks</strong> (what the tickets used until v0.19), only on the tickets whose betting page was saved. No season filter.</p>
+  <p class="help" style="margin:-4px 0 12px">v1N on every international since 2010 and on the national-team matches of
+    the tickets, against the result shares and the public (what the tickets used until v0.19). No season filter.</p>
 
   <section class="card" style="margin-bottom:16px" data-toc="National teams · Metrics">
     <h2>National teams · Metrics</h2>
@@ -107,23 +116,20 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="National teams · By year">
     <h2>National teams · Hit rate and log-loss by year</h2>
-    <p class="meta" style="margin:0 0 10px">Every international of the year, predicted with the ratings before each match.</p>
+    <p class="help">Every international of the year, with the ratings before each match.</p>
     <div class="scroll" id="national-years"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="National teams · Contingency tables">
     <h2>National teams · Contingency tables on the official tickets</h2>
-    <p class="meta" style="margin:0 0 10px">Rows: the <strong>observed</strong> result; columns: the <strong>predicted</strong> sign.</p>
+    <p class="help">Rows: what happened; columns: what the model said.</p>
     <div class="grid two" id="national-contingency"></div>
   </section>
 
   <h2 class="group" id="clubs">Other club competitions</h2>
-  <p class="meta" style="margin:-4px 0 12px">The club matches of the tickets outside La Liga and Segunda: European cups,
-    Copa del Rey, the Swedish, Norwegian, Brazilian, English or Italian leagues... Evaluated apart, on every match of 24 leagues
-    and 14 cups of ESPN since 2011 and on those ticket matches (linked to ESPN by the similarity of the team names).
-    <strong>v1C</strong> rates every club with one Elo scale, linked by the European cups, and maps the Elo difference to 1X2
-    as v1N; the regression is refitted every year on the earlier ones. References: the <strong>result shares</strong> of the
-    earlier years and the <strong>public's picks</strong> (what the tickets used until v0.20). No season filter.</p>
+  <p class="help" style="margin:-4px 0 12px">The club matches of the tickets outside La Liga and Segunda (European cups,
+    Copa del Rey, foreign leagues). v1C on every ESPN match since 2011 and on those ticket matches, against the result
+    shares and the public (what the tickets used until v0.20). No season filter.</p>
 
   <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Metrics">
     <h2>Other club competitions · Metrics</h2>
@@ -132,95 +138,59 @@
 
   <section class="card" style="margin-bottom:16px" data-toc="Other clubs · By year">
     <h2>Other club competitions · Hit rate and log-loss by year</h2>
-    <p class="meta" style="margin:0 0 10px">Every ESPN club match of the year, predicted with the ratings before each match.</p>
+    <p class="help">Every ESPN club match of the year, with the ratings before each match.</p>
     <div class="scroll" id="clubs-years"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Other clubs · Contingency tables">
     <h2>Other club competitions · Contingency tables on the official tickets</h2>
-    <p class="meta" style="margin:0 0 10px">Rows: the <strong>observed</strong> result; columns: the <strong>predicted</strong> sign.</p>
+    <p class="help">Rows: what happened; columns: what the model said.</p>
     <div class="grid two" id="clubs-contingency"></div>
   </section>
 
-  <h2 class="group">Tickets (v3 on the men's matches + v3F on the Liga F ones)</h2>
+  <h2 class="group">Tickets</h2>
+  <p class="help" style="margin:-4px 0 12px">The ways of playing the probabilities on the real quiniela tickets of past
+    seasons (those with 10+ La Liga / Segunda matches), with the real prizes of each draw.</p>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
-    <h2 id="ticket-contingency-title">Contingency tables of the v3 tickets</h2>
-    <p class="meta" style="margin:0 0 10px">
-      The 14 matches of the official tickets of the euro backtest (both leagues and every other match
-      of the ticket), with what each ticket marked: rows the <strong>observed</strong> result, columns the
-      <strong>marked</strong> signs (one sign, the doubles 1X, 12, X2 and the triple 1X2). Bold cells are hits
-      (the result is among the marked signs). For v3+v3F·R a hit in a reduced match is not always a hit of
-      its best column. Season filter only.
-    </p>
-    <div class="grid two" id="ticket-contingency"></div>
-  </section>
-
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by confidence">
-    <h2>Hit rate by confidence</h2>
-    <p class="meta" style="margin:0 0 10px">
-      Confidence: probability of the predicted sign. Matches grouped in three tiers (high, medium,
-      low): if the confidence is reliable, the hit rate of each tier is close to its average
-      confidence and grows from low to high. Each cell: hit rate, and the share of matches in the tier.
-    </p>
-    <div class="scroll" id="confidence"></div>
+  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Euros">
+    <h2>Real tickets in euros</h2>
+    <p class="help">Each ticket played on every past draw (·E only when it expects to win), paid with the real prizes and
+      sharing them with the real winners. <b>Back per €</b> below 100% loses money; the quiniela returns 55% on average.
+      ·B is judged by how many 1,000 € prizes it got against how many its plans expected.</p>
+    <div class="scroll" id="money"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Tickets · Doubles and triples">
     <h2>Quiniela tickets with doubles and triples</h2>
-    <p class="meta" style="margin:0 0 10px" id="tickets-note"></p>
+    <div id="tickets-note"></div>
     <div class="scroll" id="tickets"></div>
   </section>
 
   <section class="card" style="margin-bottom:16px" data-toc="Tickets · By category">
     <h2>Official tickets by category</h2>
-    <p class="meta" style="margin:0 0 10px">
-      The 14 matches of every official ticket of the backtest seasons, by category, and how v3 did on the
-      La Liga / Segunda ones (M) it could predict. Women's (F) and other matches (O) have no model: v3 uses the
-      public's picks for them, which are only known for the ticket being sold, not for past ones.
-    </p>
+    <p class="help">How many matches of each kind the official tickets had (M, F, O), and how v3 did on the La Liga /
+      Segunda ones.</p>
     <div class="scroll" id="ticket-categories"></div>
     <div id="category-legend" style="margin-top:8px"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Euros">
-    <h2>Real tickets in euros</h2>
-    <p class="meta" style="margin:0 0 10px">
-      The official tickets of past draws (Loterías y Apuestas del Estado, saved in data/lae) with at
-      least 10 La Liga / Segunda matches, played with the v3 signs (the other matches get the home
-      sign) and paid with the real prizes of each draw, sharing each pool with the real winners. v3+v3F·E
-      (prudent) plays only when the expected prize from 10 to 13 hits is above the cost; the full
-      version also counts 14 hits and the Pleno al 15, rare but large prizes that a few hundred
-      draws cannot confirm: read its net result together with the number of 13 and 14-hit tickets.
-      The ·B ticket plays every draw (at most 50 €) for the best chance of 1,000 € or more; it is
-      judged by how many such prizes came against how many its plans expected.
-    </p>
-    <div class="scroll" id="money"></div>
+  <section class="card" style="margin-bottom:16px" data-toc="Tickets · Contingency tables">
+    <h2 id="ticket-contingency-title">Contingency tables of the v3 tickets</h2>
+    <p class="help">What each ticket marked on the 14 matches (one sign, a double or the triple) against what happened.
+      Bold: hits. Season filter only.</p>
+    <div class="grid two" id="ticket-contingency"></div>
   </section>
 
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Hit rate by season">
-    <h2>Hit rate by season</h2>
-    <div class="scroll" id="by-season"></div>
-  </section>
-
-  <section class="card" style="margin-bottom:16px" data-toc="Men's · Calibration">
-    <h2>Calibration</h2>
-    <p class="meta" style="margin:0 0 10px">
-      Every predicted probability (the three outcomes of every match) grouped in 10% bins, against
-      how often the outcome happened. A calibrated model sits on the diagonal: below it, the model is
-      over-confident in that range; above it, under-confident. All seasons of the selected league.
-    </p>
-    <div class="tiles" id="calibration"></div>
-  </section>
-
-  <section class="card" data-toc="How to read the metrics">
+  <section class="card" style="margin-bottom:16px" data-toc="How to read the metrics">
     <h2>How to read the metrics</h2>
-    <p class="meta" style="margin:0 0 10px">
-      Every past season is predicted matchday by matchday, each model trained only on matches played
-      before that matchday (walk-forward backtest). Notation: N matches, p<sub>ik</sub> the probability
-      given to outcome k (1, X, 2) in match i, o<sub>ik</sub> = 1 if that outcome happened, else 0.
-    </p>
+    <p class="help">Formulas of every metric. N matches, p<sub>ik</sub> the probability given to outcome k (1, X, 2) in
+      match i, o<sub>ik</sub> = 1 if that outcome happened, else 0.</p>
     <div id="definitions"></div>
+  </section>
+
+  <section class="card" data-toc="Glossary">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
   </section>
 </main>
 
@@ -328,13 +298,11 @@
     const b = DATA.ticket_budget;
     const model = DATA.models.find((m) => m.key === b?.model);
     $("tickets-note").innerHTML = rows.length
-      ? `Every matchday's 14-match ticket with the signs of ${esc(model?.name ?? b.model)} ${esc(model?.version ?? "")}, played in
-        different ways. Every strategy except the first spends the same budget: ${b.doubles} doubles and ${b.triples}
-        triple${b.triples === 1 ? "" : "s"} (${2 ** b.doubles * 3 ** b.triples} bets); v3+v3F·D also chooses the mix within
-        ${b.max_bets} bets, and v3+v3F·R may also play an official reduction (fewer columns covering more matches) in that
-        budget. Random placements are averaged over ${b.random_draws} draws. Planned chance: average probability of
-        10+ hits computed before the matchday; it should match the real prize rate. Both leagues (the ticket mixes them).`
-      : "No ticket results yet. Run <code>invoke backtest.run</code>.";
+      ? help(`Does placing the doubles and triples well matter? The same ${esc(model?.version ?? b.model)} signs and the same budget
+        (${b.doubles} doubles + ${b.triples} triple${b.triples === 1 ? "" : "s"}, ${2 ** b.doubles * 3 ** b.triples} bets) placed at
+        random, by eye and by the planners (·D, ·R). <b>Prizes</b>: tickets with 10+ hits. <b>Planned chance</b>, computed
+        before each matchday, should match the <b>real prize rate</b>.`)
+      : '<p class="empty">No ticket results yet. Run <code>invoke backtest.run</code>.</p>';
     if (!rows.length) return "";
     const best = Math.max(...rows.filter((r) => r.strategy !== "single").map((r) => r.prizes));
     const num = (v) => Number.isInteger(v) ? String(v) : v.toFixed(1);
@@ -369,8 +337,7 @@
         <td class="num">${r.big_wins}${r.expected_big_wins != null ? ` <span class="muted">(${r.expected_big_wins.toFixed(2)} expected)</span>` : ""}</td>
         ${["14", "13", "12", "11", "10"].map((k) => `<td class="num">${r[k]}</td>`).join("")}
       </tr>`).join("")}</tbody></table>
-      <p class="meta" style="margin:8px 0 0">Return: euros won per euro spent (the quiniela gives back 55% on average).
-        14 ... 10: draws whose best column got that many hits.</p>`;
+      ${help("Draws played: of the draws of the season(s). Return: euros won per euro spent. 14 … 10: draws whose best column got that many hits.", "margin:8px 0 0")}`;
   }
 
   function ticketCategoriesTable() {
@@ -415,7 +382,7 @@
         <tr><th></th>${columns.map((c) => `<th class="num">${c}</th>`).join("")}<th class="num">Total</th></tr></thead>
         <tbody>${body}<tr><th scope="row" class="muted">Total</th>${colTotals.map((n) => `<td class="num muted">${n.toLocaleString("en-GB")}</td>`).join("")}
         <td class="num muted">${total.toLocaleString("en-GB")}</td></tr></tbody></table></div>
-      <p class="meta" style="margin:4px 0 0">Hits ${hits.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} (${pct(hits / total, 1)}).</p></div>`;
+      <p class="help" style="margin:4px 0 0">Hits ${hits.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} (${pct(hits / total, 1)}).</p></div>`;
   }
 
   function contingencyTables() {
@@ -533,7 +500,7 @@
     $("tickets").innerHTML = ticketsTable();
     $("money").innerHTML = moneyTable();
     $("ticket-categories").innerHTML = ticketCategoriesTable();
-    $("category-legend").innerHTML = categoryLegend(DATA.categories || {});
+    $("category-legend").innerHTML = "";
     $("by-season").innerHTML = bySeasonTable();
     $("by-season").querySelectorAll("tr.clickable").forEach((row) => row.addEventListener("click", () => {
       state.season = row.dataset.season === state.season ? "all" : row.dataset.season;
@@ -546,6 +513,9 @@
   }
 
   $("definitions").innerHTML = definitions();
+  renderGlossary(["v1", "v2", "v3", "v4", "market", "v1F", "v2F", "v3F", "v1N", "v1C", "shares", "public", "D", "R",
+    "B", "E", "single", "D2", "hit_rate", "log_loss", "brier", "rps", "contingency", "calibration", "confidence",
+    "return", "net", "walk_forward", "M", "F", "O", "U"]);
   tableOfContents();
   if (models.length) {
     $("meta").textContent = `Walk-forward backtest · ${DATA.seasons[0]} to ${DATA.seasons[DATA.seasons.length - 1]} · ${DATA.matches} matches`;

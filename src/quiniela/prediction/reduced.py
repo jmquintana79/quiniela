@@ -295,29 +295,26 @@ def reduced_plan(
     )
 
 
-def plan_reduced(
-    probs: np.ndarray,
-    max_bets: int = DEFAULT_MAX_BETS,
-    min_hits: int = DEFAULT_MIN_HITS,
-    candidates: int = CANDIDATES,
-) -> TicketPlan:
-    """Best ticket within a budget, direct or with an official reduction (v3+v3F·R).
+def _search(
+    probs: np.ndarray, max_bets: int, min_hits: int, candidates: int, top: int
+) -> list[tuple[np.ndarray, int, list[int], list[int], np.ndarray]]:
+    """The best reduced tickets of every reduction and mix of extra direct picks.
 
     Args:
         probs: 1X2 probabilities of the ticket matches, shape ``(n, 3)``.
         max_bets: Maximum cost in bets.
-        min_hits: Target: maximise the probability of at least this many hits.
+        min_hits: Target: the probability of at least this many hits ranks them.
         candidates: Least predictable matches the reduction may go to.
+        top: Tickets kept per reduction and mix of extra doubles and triples.
 
     Returns:
-        The best reduced ticket, or the best direct one (v3+v3F·D) when no
-        reduction beats it.
+        ``(score, number, triples, doubles, levels)`` of each ticket kept: the
+        score orders them (target probability, chance of 14, expected hits,
+        cheaper), ``levels`` are the extra direct picks.
     """
-    probs = np.asarray(probs, dtype=float)
     n = len(probs)
     order, cover = _sorted_signs(probs)
     ranked = np.take_along_axis(probs, order, axis=1)
-    direct = plan_ticket(probs, max_bets=max_bets, min_hits=min_hits)
 
     def score(dist: np.ndarray, bets: np.ndarray) -> np.ndarray:
         # Target probability, then chance of 14, then expected hits, then cheaper
@@ -327,8 +324,7 @@ def plan_reduced(
             axis=-1,
         )
 
-    best_score = score(direct.distribution, np.array(direct.bets, dtype=float))
-    best: tuple[int, list[int], list[int], np.ndarray] | None = None
+    found = []
     pool = [int(i) for i in np.argsort(cover[:, 0], kind="stable")[: max(candidates, 0)]]
     for number, reduction in REDUCTIONS.items():
         if reduction.bets > max_bets or reduction.size > min(len(pool), n):
@@ -353,13 +349,73 @@ def plan_reduced(
                 block_dists[:, None, :], rest_dist.reshape(len(blocks), len(extra), -1)
             ).reshape(-1, n + 1)
             scores = score(dist, np.full(len(dist), float(bets)))
-            i = int(np.lexsort(scores.T[::-1])[-1])
-            if tuple(scores[i]) > tuple(best_score):
-                best_score = scores[i]
-                block, placement = divmod(i, len(extra))
+            for i in np.lexsort(scores.T[::-1])[::-1][:top]:
+                block, placement = divmod(int(i), len(extra))
                 levels = np.zeros(n, dtype=int)
                 levels[rests[block]] = extra[placement]
-                best = (number, *blocks[block], levels)
+                found.append((scores[i], number, *blocks[block], levels))
+    return found
+
+
+def reduced_candidates(
+    probs: np.ndarray,
+    max_bets: int,
+    min_hits: int,
+    candidates: int = CANDIDATES,
+    top: int = 3,
+) -> list[TicketPlan]:
+    """Reduced tickets worth trying in another planner (the big-win ticket, ·B).
+
+    Args:
+        probs: 1X2 probabilities of the ticket matches, shape ``(n, 3)``.
+        max_bets: Maximum cost in bets.
+        min_hits: Hits whose probability picks the best placements.
+        candidates: Least predictable matches the reduction may go to.
+        top: Tickets per reduction and mix of extra doubles and triples.
+
+    Returns:
+        The tickets, each with its reduction (``TicketPlan.code``).
+    """
+    probs = np.asarray(probs, dtype=float)
+    return [
+        reduced_plan(probs, number, t, d, levels, min_hits)
+        for _, number, t, d, levels in _search(probs, max_bets, min_hits, candidates, top)
+    ]
+
+
+def plan_reduced(
+    probs: np.ndarray,
+    max_bets: int = DEFAULT_MAX_BETS,
+    min_hits: int = DEFAULT_MIN_HITS,
+    candidates: int = CANDIDATES,
+) -> TicketPlan:
+    """Best ticket within a budget, direct or with an official reduction (v3+v3F·R).
+
+    Args:
+        probs: 1X2 probabilities of the ticket matches, shape ``(n, 3)``.
+        max_bets: Maximum cost in bets.
+        min_hits: Target: maximise the probability of at least this many hits.
+        candidates: Least predictable matches the reduction may go to.
+
+    Returns:
+        The best reduced ticket, or the best direct one (v3+v3F·D) when no
+        reduction beats it.
+    """
+    probs = np.asarray(probs, dtype=float)
+    direct = plan_ticket(probs, max_bets=max_bets, min_hits=min_hits)
+    hits = np.arange(len(direct.distribution))
+    best_score = np.array(
+        [
+            direct.distribution[min_hits:].sum(),
+            direct.distribution[-1],
+            (direct.distribution * hits).sum(),
+            -float(direct.bets),
+        ]
+    )
+    best = None
+    for score, number, t, d, levels in _search(probs, max_bets, min_hits, candidates, top=1):
+        if tuple(score) > tuple(best_score):
+            best_score, best = score, (number, t, d, levels)
     if best is None:
         return direct
     number, t, d, levels = best

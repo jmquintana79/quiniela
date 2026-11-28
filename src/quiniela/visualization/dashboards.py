@@ -410,6 +410,7 @@ def _money_matchday(
     return best, {
         "picks": dict(zip(ticket.index, best.plan.picks, strict=True)),
         "coverage": dict(zip(ticket.index, best.plan.coverage, strict=True)),
+        "reduced": [ticket.index[i] for i in best.plan.reduced],
         "summary": {
             "doubles": best.plan.doubles,
             "triples": best.plan.triples,
@@ -434,6 +435,8 @@ def _money_matchday(
             # How predictable the ticket is: average v3 confidence of its 14 matches
             "predictability": round(float(confidence.mean()), 4),
             "odds": _ticket_odds(best.plan.coverage),
+            # The official reduction it plays, if any (since v0.22)
+            "reduction": _plan_summary(best.plan).get("reduction"),
         },
     }
 
@@ -785,6 +788,9 @@ def _season_tickets(
                 "doubles": plan_b.plan.doubles,
                 "triples": plan_b.plan.triples,
                 "bets": plan_b.plan.bets,
+                # Since v0.22 the big-win ticket may play an official reduction too
+                "reduced": [first14[i]["position"] for i in plan_b.plan.reduced],
+                "hits": plan_b.plan.hits(results) if all(results) else None,
             },
         }
     return tickets
@@ -1338,6 +1344,9 @@ def season_payload(
                 group.loc[picks.index, f"{MONEY_KEY}_prob"] = (
                     pd.Series(money_plan[1]["coverage"]).round(4).to_numpy()
                 )
+                # The matches of its reduction, if it plays one (since v0.22)
+                group[f"{MONEY_KEY}_source"] = None
+                group.loc[money_plan[1]["reduced"], f"{MONEY_KEY}_source"] = "reduced"
             group[f"{MONEY_KEY}_conf"] = group[f"{MONEY_KEY}_prob"]
             group[f"{MONEY_KEY}_margin"] = group[f"{PLANNER_MODEL}_margin"]
 
@@ -1411,7 +1420,9 @@ def season_payload(
         ]
         columns += [c for k in keys for c in (f"{k}_score", f"{k}_pleno") if c in group.columns]
         columns += ["category", "quiniela"]
-        columns += [f"{k}_source" for k in [*keys, REDUCED_KEY] if f"{k}_source" in group.columns]
+        columns += [
+            f"{k}_source" for k in [*keys, REDUCED_KEY, MONEY_KEY] if f"{k}_source" in group.columns
+        ]
         if "_kickoff_known" in group.columns:
             # Matches of the official ticket without a football-data fixture have no date yet
             group["kickoff_known"] = group["_kickoff_known"]
@@ -2703,7 +2714,79 @@ def metrics_payload(
         "next": {"draw": next_draw, "matches": next_matches} if next_draw else None,
         "draws": [_clean(r) for r in _records(table)],
         "validation": validation,
+        "choice": ticket_choice(),
     }
+
+
+# Tickets compared to choose the one to bet with (the euro backtest strategies played every draw)
+CHOICE_STRATEGIES = {
+    "single": "Single ticket",
+    "v3d2": "·D2 small",
+    "v3d": "·D direct",
+    "v3r": "·R reduced",
+    "v3b": "·B 1,000 €",
+    "v3e_always": "·E expected prize",
+}
+
+
+def ticket_choice(money_results: pd.DataFrame | None = None) -> list[dict[str, Any]]:
+    """Which ticket to bet with: the return of every ticket in the euro backtest.
+
+    The rule (TODO, point 8): bet with the ticket with the highest return per euro over the
+    whole backtest, unless another one beats it steadily (the median season too).
+
+    Args:
+        money_results: The euro backtest. Defaults to the saved one.
+
+    Returns:
+        One row per ticket, best return first: ``key``, ``name``, ``draws``,
+        ``cost``, ``net``, ``return`` (won per euro spent), ``low`` and ``high``
+        (5th and 95th percentiles of the return, resampling the draws),
+        ``median_season`` (return of the median season), ``best_seasons``
+        (seasons where it had the best return), ``seasons`` and ``chosen``.
+    """
+    if money_results is None:
+        from quiniela.evaluation.money import load_money
+
+        money_results = load_money()
+    if money_results.empty:
+        return []
+    played = money_results[
+        money_results["played"] & money_results["strategy"].isin(list(CHOICE_STRATEGIES))
+    ]
+    if played.empty:
+        return []
+    seasons = played.groupby(["season", "strategy"])[["cost", "payout"]].sum()
+    by_season = (seasons["payout"] / seasons["cost"]).unstack()
+    best = by_season.idxmax(axis=1).value_counts()
+    rng = np.random.default_rng(0)
+    rows: list[dict[str, Any]] = []
+    for key, name in CHOICE_STRATEGIES.items():
+        part = played[played["strategy"] == key]
+        if part.empty:
+            continue
+        cost, payout = part["cost"].to_numpy(dtype=float), part["payout"].to_numpy(dtype=float)
+        samples = rng.integers(0, len(part), (1000, len(part)))
+        resampled = payout[samples].sum(axis=1) / cost[samples].sum(axis=1)
+        rows.append(
+            {
+                "key": key,
+                "name": name,
+                "draws": len(part),
+                "cost": float(cost.sum()),
+                "net": float(payout.sum() - cost.sum()),
+                "return": float(payout.sum() / cost.sum()),
+                "low": float(np.percentile(resampled, 5)),
+                "high": float(np.percentile(resampled, 95)),
+                "median_season": float(by_season[key].median()),
+                "best_seasons": int(best.get(key, 0)),
+                "seasons": int(by_season[key].notna().sum()),
+            }
+        )
+    rows.sort(key=lambda r: -float(r["return"]))
+    for i, row in enumerate(rows):
+        row["chosen"] = i == 0
+    return [_clean(r) for r in rows]
 
 
 def _verdict_table(draws: pd.DataFrame) -> list[dict[str, Any]]:

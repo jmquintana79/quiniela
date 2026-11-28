@@ -13,24 +13,25 @@
     <span class="meta" id="meta"></span>
   </header>
 
-  <p class="meta" style="margin:0 0 12px"><a href="#distributions">Distribution of the prize per winner of each
-    category ↓</a></p>
+  <p class="help" style="margin:0 0 12px"><b>What this page is for:</b> how much each prize category really pays, so the
+    euro figures of the other pages can be read. Every official draw saved, then how the prizes spread.
+    <a href="#distributions">Distributions ↓</a></p>
 
   <section data-toc="Prizes of every draw" class="card" style="margin-bottom:16px">
+    <p class="help">Newest first. Each cell: euros per winning bet and, below, how many winners. Few winners mean a large
+      prize. Jackpot: money carried into the 14 + Pleno al 15 category. The 10-hit prize is not paid under 1.50 €.</p>
     <div class="scroll" id="prizes"></div>
-    <p class="meta" style="margin:10px 0 0">Every official draw saved from Loterías y Apuestas del Estado
-      (<code>data/lae/</code>), newest first. Each prize cell gives the prize in euros each winner gets (per
-      winning bet) and, below it, the number of winners. Jackpot: the money carried into the draw for the 14 + Pleno al 15 category.
-      The 10-hit prize is not paid when it falls under 1.50 €.</p>
   </section>
 
   <section data-toc="Prize distributions" class="card" id="distributions">
     <h2>Distribution of the prize per winner</h2>
-    <p class="meta" style="margin:0 0 12px">Density of the prize each winner got, one chart per category, over every
-      draw with winners and a paid prize. Every chart shares the same euro axis, from 1 € to 15 million €, and it is
-      logarithmic (each step is ten times the previous one): prizes range from 1 € to millions. The dashed line is the median; hover a chart for the share of draws
-      that paid less.</p>
+    <p class="help">How often each category paid each amount. The euro axis is logarithmic (each step ten times the previous
+      one) and the same for every chart; the dashed line is the median. Hover a chart for the share of draws paying less.</p>
     <div class="grid two" id="densities"></div>
+  </section>
+  <section class="card" data-toc="Glossary" style="margin-top:16px">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
   </section>
 </main>
 
@@ -146,6 +147,7 @@
   } else {
     $("meta").textContent = "No official draws saved in data/lae yet.";
   }
+  renderGlossary(["categories", "pleno", "jornada"]);
   tableOfContents();
 </script>
 </body>

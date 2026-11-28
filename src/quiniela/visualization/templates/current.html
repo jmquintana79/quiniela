@@ -18,31 +18,42 @@
   <section class="block">
     <div id="status"></div>
     <div id="fixtures"></div>
-    <div id="banners" style="margin-bottom:8px" data-toc="Tickets and prize chances"></div>
+    <div data-toc="Tickets and prize chances">
+      <p class="help">One box per ticket: its price and, before the jornada, its chance of each number of hits; once
+        played, its hits and prize. All tickets use the same model probabilities, played differently (see the glossary).</p>
+      <div id="banners" style="margin-bottom:8px"></div>
+    </div>
     <div class="card" id="recommendations-card" data-toc="Recommendations" style="margin-bottom:16px">
       <h2>Recommendations</h2>
-      <p class="meta" style="margin:0 0 10px">Is this a good matchday for each ticket? Its chance this matchday against the
-        past official tickets: green good, amber normal, red bad.</p>
+      <p class="help">Is this a good jornada for each ticket? Its chance now against the same chance in past official
+        tickets: green better than usual, amber typical, red worse. It compares jornadas; it does not make money.</p>
       <div id="recommendations"></div>
     </div>
     <div class="card" id="matches-card" data-toc="Matches and predictions">
       <h2 id="matches-title">Matches</h2>
+      <p class="help">The 14 matches and what each ticket marks. Hover a sign for its probability and the model behind
+        it; Confidence is the probability of the main sign. "Most predictable first" sorts by it.</p>
       <div class="filters"><span class="meta">Order</span><div class="segmented" id="sort-switch"></div></div>
       <div class="scroll" id="matches"></div>
       <div id="pleno" style="margin-top:12px" data-toc="Pleno al 15 and prices"></div>
-      <p class="meta" style="margin:10px 0 0" id="legend"></p>
-      <p class="meta" style="margin:6px 0 0" id="odds"></p>
+      <div id="odds"></div>
     </div>
   </section>
 
   <section class="block" data-toc="Standings">
     <h2 class="section-title">Standings</h2>
+    <p class="help">La Liga and Segunda tables with each team's last five league results (W win, D draw, L loss).</p>
     <div class="filters"><div class="segmented" id="league-switch"></div></div>
     <div class="card"><div class="scroll" id="standings"></div></div>
   </section>
 
-  <p class="meta">Every matchday of the season, with the totals of each model:
-    <a href="season.html">season.html</a>.</p>
+  <section class="card" data-toc="Glossary" style="margin-top:16px">
+    <h2>Glossary</h2>
+    <div class="glossary" id="glossary"></div>
+  </section>
+
+  <p class="help" style="margin-top:12px">Every jornada of the season: <a href="season.html">season.html</a> · models
+    compared: <a href="evaluation.html">evaluation.html</a> · is this jornada worth it: <a href="metrics.html">metrics.html</a>.</p>
 </main>
 
 <script>const DATA = /*__DATA__*/null;</script>
@@ -64,7 +75,7 @@
     const left = md.matches.length - md.played;
     const text = {
       upcoming: [DATA.jornada ? `Official ticket of jornada ${DATA.jornada}` : "Upcoming matchday",
-        DATA.jornada ? "The 14 matches and the Pleno al 15 published by Loterías y Apuestas del Estado. No result yet: every column is a prediction (v3: Dixon-Coles + market for La Liga and Segunda, the public's picks for the other matches)."
+        DATA.jornada ? "The 14 matches and the Pleno al 15 published by Loterías y Apuestas del Estado. No result yet: every column is a prediction."
           : "No match has been played yet: every column is a prediction."],
       in_progress: ["Matchday in progress", `${md.played} of ${md.matches.length} matches played, ${left} still to play.`],
       completed: ["Matchday completed", "Every match of this matchday has been played. The next matchday " +
@@ -98,7 +109,7 @@
     const part = f.odds ? `Odds for ${f.odds} of the ${f.ours} La Liga / Segunda matches` : `Not published yet for the ${f.ours} La Liga / Segunda matches of the ticket`;
     // Amber: there is still a prediction, but v3 does not use the market on those matches
     return `<div class="banner warning"><strong>⚠ football-data fixtures: ${f.odds ? "partly available" : "not available yet"}</strong>` +
-      `${part}. Until they are, v3 predicts with Dixon-Coles only (the same as v2). football-data adds the odds of ` +
+      `${part}. Until they are, v3 predicts without the market (Dixon-Coles mixed with v4). football-data adds the odds of ` +
       `weekend matches on Friday afternoon and of midweek ones on Tuesday afternoon: run <code>invoke update</code> then.</div>`;
   }
 
@@ -127,33 +138,9 @@
         <td class="num strong">${esc(p.home)}</td><td class="strong">${esc(p.away)}</td>
         <td>${p.result ? `<span class="strong">${p.result[0]} - ${p.result[1]}</span>` : '<span class="muted">Pending</span>'}</td>
         <td class="num">${cell}</td></tr></tbody></table>
-      <p class="meta" style="margin:6px 0 0">Goals categories 0, 1, 2 and M (3 or more) of each team. Pick: ${esc(source)}:
+      <p class="help" style="margin:6px 0 0">Goals of each team as 0, 1, 2 or M (3 or more); it only pays with 14 hits. Pick: ${esc(source)}:
         ${esc(p.home)} ${esc(p.pick_home ?? "–")}${share(p.public_home, p.pick_home)},
         ${esc(p.away)} ${esc(p.pick_away ?? "–")}${share(p.public_away, p.pick_away)}.${value}</p>`;
-  }
-
-  // Price of each ticket (14 matches + Pleno al 15), shown under the Pleno al 15
-  function pricesTable() {
-    if (!DATA.models.length || !md) return "";
-    // Liga F models only predict the women's matches: no ticket of their own to price
-    const rows = DATA.models.filter((m) => !m.women).map((m) => {
-      const plan = md.summary[m.key]?.plan;
-      const bets = plan?.bets ?? 1;
-      const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-      const r = plan?.reduction;
-      // v3+v3F·R may play an official reduction (fewer columns), times its direct doubles and triples
-      const direct = r ? [r.direct_doubles ? plural(r.direct_doubles, "direct double") : "",
-        r.direct_triples ? plural(r.direct_triples, "direct triple") : ""].filter(Boolean).join(" + ") : "";
-      const marks = r ? `reduction no. ${r.number} (${r.label}, ${r.bets} bets)${direct ? ` + ${direct}` : ""}`
-        : plan ? `${plural(plan.doubles, "double")} + ${plural(plan.triples, "triple")}` : "one sign per match";
-      return `<tr><td>${modelLabel(m)}</td><td>${marks}</td><td class="num">${bets}</td><td class="num strong">${eur(bets * 0.75)}</td></tr>`;
-    }).join("");
-    return `<h3 style="margin:14px 0 6px;font-size:14px">Price of each ticket</h3>
-      <table><thead><tr><th>Ticket</th><th>Marks</th><th class="num">Bets</th><th class="num">Price</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <p class="meta" style="margin:6px 0 0">14 matches and the Pleno al 15. Each bet costs 0.75 €; doubles and triples
-        multiply the bets (2 and 3 each); a reduction plays only some of the combinations of its doubles and triples.
-        The Pleno al 15 is one pick per ticket and adds no bets.</p>`;
   }
 
   function showStandings(i) {
@@ -161,10 +148,6 @@
     $("standings").innerHTML = standingsTable(DATA.standings[code]);
   }
 
-  $("legend").innerHTML = MATCHDAY_LEGEND + categoryLegend(DATA.categories) +
-    "<br>Only the v3+v3F tickets are shown here: the single ticket (one sign per match), the small (·D2), the direct (·D), the reduced (·R) and the big-win (·B) one." +
-    " They use v3 on the La Liga / Segunda matches, <strong>v3F</strong> (pi-ratings of the Liga F goals and shots on target) on the Liga F ones (v1F, the public's picks, without it)" +
-    " and the public's picks on the other competitions (hover a sign for its source). The models themselves are compared in evaluation.html.";
   if (md) {
     $("title").textContent = DATA.jornada ? `Quiniela jornada ${DATA.jornada}` : `Matchday ${md.number}`;
     $("meta").textContent = DATA.jornada ? "Official ticket · current season"
@@ -172,7 +155,7 @@
     $("matches-title").textContent = `Matches and predictions · ${md.played}/${md.matches.length} played`;
     $("status").innerHTML = statusBanner();
     $("fixtures").innerHTML = fixturesBanner();
-    $("pleno").innerHTML = plenoTable() + pricesTable();
+    $("pleno").innerHTML = plenoTable();
     showDeadline();
     // It turns into "betting closed" once the deadline passes
     setInterval(showDeadline, 60000);
@@ -180,7 +163,7 @@
     segmented($("sort-switch"), ["Ticket order", "Most predictable first"], 0, (i) => { sort = SORTS[i]; showMatches(); });
     showMatches();
     $("odds").innerHTML = DATA.odds_downloaded
-      ? `Odds (an input of v3) as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`
+      ? help(`Odds as downloaded on ${fmtDate(DATA.odds_downloaded, true)}; they keep moving until kick-off.`, "margin:10px 0 0")
       : "";
   } else {
     $("meta").textContent = "No current season data. Run invoke update first.";
@@ -195,6 +178,8 @@
     $("ticket-notice").innerHTML = `<div class="banner" style="border-color:var(--critical);margin-bottom:12px"><strong style="color:var(--critical)">Next ticket missing</strong>${esc(DATA.ticket_notice)}</div>`;
   }
   $("recommendations").innerHTML = recommendationsTable(DATA.recommendations, DATA.models);
+  renderGlossary(["v3+v3F", "v3", "v3F", "v1N", "v1C", "v2P", "v1P", "public", "single", "D2", "D", "R", "B",
+    "confidence", "light", "signs", "marks", "Rmark", "pleno", "categories", "M", "F", "O", "U", "Q", "jornada"]);
   tableOfContents();
 </script>
 </body>

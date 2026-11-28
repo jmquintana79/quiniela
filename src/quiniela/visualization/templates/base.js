@@ -349,11 +349,7 @@ function signalRule(signals) {
   const shown = signals.filter(([s]) => s);
   if (!shown.length) return "";
   const limits = shown.map(([s, measure]) => `${measure}: red at or below ${chanceText(s.low)}, green at or above ${chanceText(s.high)}`).join("; ");
-  return `<p class="meta" style="margin:4px 0 0;font-size:11px">Rule: the ticket's planned chance is ranked among the past
-      official tickets planned the same way (backtest from 2015-16): green at or above the 75th percentile, red at or below
-      the 25th, undetermined in between (${esc(limits)}).</p>
-    <p style="margin:4px 0 0;font-size:12px;font-weight:600;color:var(--critical)">⚠ No traffic light makes the quiniela
-      profitable: they only compare matchdays with each other. Every ticket loses money on average.</p>`;
+  return help(`Light: this chance against past official tickets planned the same way (${esc(limits)}). No light makes the quiniela profitable.`, "margin:4px 0 0");
 }
 
 /** Euros spent and won by a ticket in a played matchday. */
@@ -450,23 +446,7 @@ function matchdayTable(md, models, leagues, confKey = null, tiers = {}, sort = "
       <tr><td colspan="${confModel ? 9 : 8}">Hits <span class="muted">(of the played matches; 14 on the ticket)</span></td>${ticketFooter}</tr></tfoot></table>`;
 }
 
-/** Legend under the prediction tables. */
-const MATCHDAY_LEGEND = `Ticket: the 14 matches of the quiniela check: the official ticket when it is
-  saved (data/lae/upcoming.json), otherwise an approximation (La Liga first, then Segunda, in kick-off
-  order). Cat.: category of the match (M, F, O, U; hover for the meaning). Quiniela: the official
-  ticket the match was on (Q and its jornada). Prizes: 14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th category; the
-  Pleno al 15 is not simulated. No ticket: the matchday has fewer than 14 matches (e.g.
-  international breaks, with only Segunda). Each cell shows the predicted sign (hover it for its
-  probability): ✓ hit · ✗ miss · grey ✓: an R match of the reduction whose result was covered (the best column can still miss it) · outline: pending · – no prediction. The market reference (bookmakers'
-  odds) is not shown here: v3 follows it closely; it is compared in evaluation.html. Confidence: probability of the v3 sign, green high
-  (60% or more), amber medium (45-60%), red low (below 45%). Direct ticket (v3+v3F·D): the v3 signs with
-  the doubles (1X) and triples (1X2) of a 48-bet budget placed to maximise the chance of 11+ hits;
-  reduced ticket (v3+v3F·R): the same budget, which may also go to an official reduction (fewer columns
-  covering more matches; R marks its matches; its hits are those of the best column);
-  the chance of each prize before the matchday is under each ticket banner. 1,000 € ticket (v3+v3F·B): the
-  doubles and triples (at most 50 €) with the best chance of a prize of 1,000 € or more. The traffic
-  lights of every ticket are in the recommendations table. Euros of played matchdays use the real prizes of
-  the official draw when it is saved in data/lae (otherwise an estimate).`;
+
 
 
 /**
@@ -564,9 +544,94 @@ function recommendationsTable(rows, models) {
       <th class="num">This matchday</th><th>Typical range</th><th>Light</th><th>In plain words</th></tr></thead>
       <tbody>${body}</tbody></table></div>
     ${summary ? `<p style="margin:12px 0 0"><strong>${esc(summary)}</strong></p>` : ""}
-    <p class="meta" style="margin:6px 0 0;font-size:11px">Rule: each ticket's planned chance is ranked among the same chance of the
-      past official tickets planned the same way (414 draws since 2015-16): green at or above the 75th percentile, red at or
-      below the 25th, amber in between; the typical range goes from the 25th to the 75th percentile.</p>
-    <p style="margin:4px 0 8px;font-size:12px;font-weight:600;color:var(--critical)">⚠ No traffic light makes the quiniela
-      profitable: they only compare matchdays with each other. Every ticket loses money on average.</p>`;
+    <p class="help" style="margin:8px 0 8px">Typical range: what half of the past official tickets (since 2015-16) had,
+      planned the same way. Green: above it (top 25%); red: below it (bottom 25%). <b>No light makes the quiniela profitable.</b></p>`;
+}
+
+/**
+ * Glossary of every model, ticket, metric and abbreviation of the dashboards: one short,
+ * plain definition each. Every page lists the terms it shows (renderGlossary).
+ */
+const GLOSSARY = {
+  // Models: men's La Liga and Segunda
+  v1: ["Models", "v1 · Head-to-head", "Past results between the same two teams at the same ground. A baseline."],
+  v2: ["Models", "v2 · Dixon-Coles", "Goals model from each team's attack and defence, recent matches weighing more."],
+  v3: ["Models", "v3 · DC + market", "The main model: Dixon-Coles mixed with the bookmakers' odds. Without odds yet, Dixon-Coles mixed with v4."],
+  v4: ["Models", "v4 · Pi-ratings", "Home and away ratings of every team, learned from goal differences."],
+  market: ["Models", "Market", "Probabilities implied by the bookmakers' odds (margin removed). The reference to beat."],
+  // Other competitions
+  v1F: ["Models", "v1F · Public picks (Liga F)", "Share of bettors marking 1, X and 2 in a Liga F match."],
+  v2F: ["Models", "v2F · Pi-ratings (Liga F)", "v4 applied to the Liga F results."],
+  v3F: ["Models", "v3F · Pi-ratings + shots (Liga F)", "v2F learning from shots on target too. The tickets' Liga F model."],
+  v1N: ["Models", "v1N · National-team Elo", "Elo rating of every national team since 1872. The tickets' model for national teams."],
+  v1C: ["Models", "v1C · Club Elo", "One Elo rating of every club of 38 leagues and cups (European cups, Copa del Rey, foreign leagues). The tickets' model for those matches."],
+  v1P: ["Models", "v1P · Pleno al 15 (Dixon-Coles)", "Most likely goals categories (0, 1, 2, M) of the 15th match from Dixon-Coles."],
+  v2P: ["Models", "v2P · Pleno al 15 (market)", "The same from the odds of 1X2 and over/under 2.5 goals. Used when the odds exist."],
+  shares: ["Models", "Result shares", "Always the home win, with the shares of 1, X and 2 of earlier matches. The simplest reference."],
+  public: ["Models", "Public", "What quiniela bettors mark: their share of 1, X and 2 on the betting page."],
+  // Tickets: ways of playing the probabilities
+  single: ["Tickets", "Single ticket", "One sign per match, the most likely. 0.75 € (a reference: the minimum ticket is 2 bets)."],
+  D2: ["Tickets", "·D2 · Small ticket", "Like ·D with only 2 bets (1.50 €): one double where it helps most."],
+  D: ["Tickets", "·D · Direct ticket", "Doubles (1X) and triples (1X2) within 48 bets (36 €), placed for the best chance of 11+ hits."],
+  R: ["Tickets", "·R · Reduced ticket", "Like ·D, but may use an official reduction: more matches covered for the same money, not every combination played."],
+  B: ["Tickets", "·B · 1,000 € ticket", "Up to 50 € placed for the best chance of a prize of 1,000 € or more (may use a reduction too)."],
+  E: ["Tickets", "·E · Expected-prize ticket", "Backtest only: played only when its expected prize beats its cost."],
+  "v3+v3F": ["Tickets", "v3+v3F", "The tickets use v3 on La Liga / Segunda, v3F on Liga F, v1N on national teams and v1C on other clubs."],
+  // Metrics
+  hit_rate: ["Metrics", "Hit rate", "Share of matches whose predicted sign was right. Higher is better."],
+  log_loss: ["Metrics", "Log-loss", "Penalty for the probability given to what happened (0 perfect, 1.10 a blind guess). Lower is better; the main metric."],
+  brier: ["Metrics", "Brier", "Squared error of the three probabilities. Lower is better."],
+  rps: ["Metrics", "RPS", "Like Brier, but a home win predicted as a draw is less wrong than as an away win. Lower is better."],
+  contingency: ["Metrics", "Contingency table", "Rows: what happened; columns: what the model said. The diagonal are the hits."],
+  calibration: ["Metrics", "Calibration", "Whether things predicted at 60% happen 60% of the time (points on the diagonal)."],
+  confidence: ["Metrics", "Confidence", "Probability of the predicted sign: green 60%+, amber 45-60%, red below 45%."],
+  entropy: ["Metrics", "Openness (entropy)", "How open a match is: 0.80 clear favourite, 1.10 toss-up."],
+  fav_prob: ["Metrics", "Favourite", "Probability of the most likely sign."],
+  edge_public: ["Metrics", "Edge on the public", "How much more likely a sign is than the public thinks (above 0: underrated)."],
+  value: ["Metrics", "Value", "Probability of a sign over the share of bettors marking it (above 1: worth more than the public thinks)."],
+  expected_hits: ["Metrics", "Expected hits", "Hits the single ticket gets on average with these probabilities."],
+  return: ["Metrics", "Back per €", "Euros won per euro spent (the quiniela returns 55% on average: below 100% loses money)."],
+  net: ["Metrics", "Net", "Euros won minus euros spent."],
+  strength: ["Metrics", "Strength gap", "Difference of the two teams' pi-ratings (v4): above 0, the home team is stronger."],
+  edge_market: ["Metrics", "Edge on the market", "How far v3 is from the bookmakers on the most likely sign."],
+  spread: ["Metrics", "Spread", "How much the bookmakers disagree on the odds. Informative only."],
+  differentiation: ["Metrics", "Differentiation", "How far the ticket is from what the public marks (above 0: less marked than likely)."],
+  co_winners: ["Metrics", "Co-winners", "Other bettors expected to share the prize if the ticket gets 14."],
+  quintile: ["Metrics", "Quintile", "Matches or tickets split into five equal groups, from the lowest to the highest value of a metric."],
+  // Marks and abbreviations
+  light: ["Marks", "Traffic light", "This jornada's chance against past tickets: green top 25%, amber typical, red bottom 25%. None makes money."],
+  verdict: ["Marks", "Verdict", "Big (play ·B), small (single or ·D) or skip, from the lights. A first rule, judged in metrics.html."],
+  M: ["Marks", "M", "Men's La Liga or Segunda match."],
+  F: ["Marks", "F", "Liga F (women's) match."],
+  O: ["Marks", "O", "Other competition: national teams, cups, foreign leagues."],
+  U: ["Marks", "U", "Unknown competition."],
+  Q: ["Marks", "Q N", "The match was on the official quiniela ticket of jornada N."],
+  Rmark: ["Marks", "R", "Match of an official reduction: not every combination of its signs is played."],
+  signs: ["Marks", "1 · X · 2", "Home win · draw · away win. 1X, X2, 12 are doubles; 1X2 a triple."],
+  marks: ["Marks", "✓ · ✗", "Hit · miss once the match is played (grey ✓: covered by a reduction, the best column may still miss it)."],
+  pleno: ["Marks", "Pleno al 15", "Exact goals category of each team (0, 1, 2, M = 3 or more) in the 15th match. Only pays with 14 hits."],
+  categories: ["Marks", "Prize categories", "14 hits 1st, 13 2nd, 12 3rd, 11 4th, 10 5th; plus the Pleno al 15 with 14 hits."],
+  jornada: ["Marks", "Jornada (J.)", "Number of the official quiniela draw in its season."],
+  walk_forward: ["Marks", "Walk-forward", "Every prediction made only with what was known before the match: an honest test."],
+};
+
+/** A short, muted explanation paragraph. */
+function help(html, style = "") {
+  return `<p class="help"${style ? ` style="${style}"` : ""}>${html}</p>`;
+}
+
+
+/** The glossary card of a page: only the given terms, grouped. */
+function renderGlossary(keys, target = "glossary") {
+  const box = document.getElementById(target);
+  if (!box) return;
+  const groups = {};
+  for (const key of keys) {
+    const entry = GLOSSARY[key];
+    if (!entry) continue;
+    (groups[entry[0]] = groups[entry[0]] || []).push(entry);
+  }
+  box.innerHTML = Object.entries(groups).map(([group, entries]) =>
+    `<h3>${esc(group)}</h3>` + entries.map(([, term, text]) =>
+      `<div><span class="term">${esc(term)}</span>${esc(text)}</div>`).join("")).join("");
 }

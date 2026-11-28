@@ -163,8 +163,11 @@ def test_plan_big_win(model: money.PrizeModel) -> None:
     assert big.cost <= money.BIG_WIN_MAX_COST and big.plan.bets >= money.MIN_BETS
     assert sum(chance for *_, chance in big.outcomes) == pytest.approx(1)
     assert big.outcomes[0][0] == "Nothing back"
-    # 14 hits: exact product of the coverage of every match
-    assert big.chance_14 == pytest.approx(float(np.prod(big.plan.coverage)))
+    # 14 hits: exact product of the coverage of every match (fewer with a reduction)
+    if big.plan.code is None:
+        assert big.chance_14 == pytest.approx(float(np.prod(big.plan.coverage)))
+    else:
+        assert big.chance_14 < float(np.prod(big.plan.coverage))
     assert 0 < big.chance <= big.chance_13 + big.chance_14
     assert big.matchdays_per_win == pytest.approx(1 / big.chance)
     # A larger prize is rarer; a jackpot makes it likelier
@@ -267,3 +270,36 @@ def test_pleno_picks_prefer_the_market() -> None:
     assert picks.loc["a", "pleno_home"] in {"2", "M"} and picks.loc["a", "pleno_away"] == "0"
     # Match b has none: Dixon-Coles' pick
     assert (picks.loc["b", "pleno_home"], picks.loc["b", "pleno_away"]) == ("1", "1")
+
+
+def test_reduced_column_hits_match_the_real_columns() -> None:
+    from quiniela.prediction.planner import _sorted_signs
+    from quiniela.prediction.reduced import reduced_candidates
+
+    rng = np.random.default_rng(1)
+    probs = rng.dirichlet([3, 2, 2], size=14)
+    candidates = reduced_candidates(probs, 66, 13)
+    assert candidates and all(c.code is not None and c.bets <= 66 for c in candidates)
+    order, _ = _sorted_signs(probs)
+    rank = np.argsort(order, axis=1)
+    outcomes = rng.integers(0, 3, size=(40, 14))
+    rank_hit = rank[np.arange(14)[None, :], outcomes]
+    for plan in candidates[:5]:
+        fast = money.reduced_column_hits(plan, rank_hit)
+        real = np.array([plan.columns(["HDA"[o] for o in row]) for row in outcomes])
+        np.testing.assert_allclose(fast, real)
+        # A reduction plays only some combinations: 14 hits are less likely than played direct
+        assert 0 < money._reduced_fourteen_ratio(plan, probs) < 1
+
+
+def test_big_win_tries_the_reductions(model: money.PrizeModel) -> None:
+    probs = np.random.default_rng(5).dirichlet([5, 3, 3], size=14)
+    args = (probs, probs, model, 3_000_000)
+    direct = money.plan_big_win(*args, simulations=2000, per_mix=5, reductions=False)
+    assert direct.plan.code is None
+    best = money.plan_big_win(*args, simulations=2000, per_mix=5, rng=np.random.default_rng(1))
+    assert best.cost <= money.BIG_WIN_MAX_COST
+    if best.plan.code is not None:
+        # A reduced ticket: one of the reductions that fit in 50 EUR, its 14 below direct
+        assert best.plan.reduction in {1, 2, 3, 4}
+        assert best.chance_14 < np.prod(best.plan.coverage)
